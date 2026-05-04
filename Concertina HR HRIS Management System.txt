@@ -1,0 +1,272 @@
+Concertina HR
+HRIS Management System
+Product Feature Guide (Developer Specification)
+System Overview
+The Concertina HR Team TimeTracker & Time Away Management System is an internal platform designed to manage Independent Contractor attendance, time tracking, leave requests, and internal communications.
+The system will support three levels of access:
+
+	•	Team Member Access – Regular Independent Contractors
+	•	Supervisor Access – Team leads / managers
+	•	Super Admin Access – HR / system administrators 
+Each access level has different permissions and system visibility.
+Authentication Module
+Login Framework
+Users must authenticate before accessing the system.
+Required Fields
+	•	Username
+	•	Password 
+Additional Functions
+	•	Forgot Password
+	•	Email-based password reset
+	•	Tokenized reset link with expiration 
+Optional (Recommended)
+	•	Session management
+	•	Role-based redirection after login
+	•	Login activity logging
+Role-Based Access Control (RBAC)
+Role
+Description
+Team Member
+Standard Independent Contractor access
+Supervisor
+Manages team attendance and approvals
+Super Admin
+Full system control
+Main System Modules
+Dashboard
+The dashboard serves as the primary landing page after login and displays widgets relevant to the user role.
+
+Dashboard Widgets
+Clock In / Clock Out
+Time tracking widget allowing Independent Contractors to record working hours.
+Features
+	•	Clock In
+	•	Clock Out
+	•	Display current working status
+	•	Timestamp recording
+	•	Prevent duplicate clock-ins 
+Additional Data
+	•	Work duration
+	•	Break tracking (optional future feature)
+
+
+PFFD Credits / Time-Off
+(PFFD = Pre-Funded Flex Days)
+This module manages Independent Contractor leave credits and requests.
+Displayed Information
+	•	Remaining PFFD credits
+	•	PFFD usage history
+	•	Pending requests 
+Functions
+	•	Request PFFD
+	•	Edit pending request
+	•	Delete pending request 
+Supervisor/Admin Functions
+	•	Approve request
+	•	Reject request
+	•	View team PFFD balances
+
+Announcements
+Internal company announcements displayed in the dashboard.
+Admin/Supervisor Capabilities
+	•	Create announcement
+	•	Edit announcement
+	•	Delete announcement
+
+Team Member Capabilities
+	•	View announcements
+
+
+
+Weekly Schedule
+Displays Independent Contractor work schedules.
+Features
+	•	Weekly schedule view
+	•	Assigned work schedule 
+Independent Contractor Action
+	•	Request schedule change 
+Supervisor/Admin Action
+	•	Approve or reject schedule change
+
+Attendance Log / Summary
+Displays attendance and work hour reports.
+Filters
+	•	Date range selection 
+Displayed Data
+	•	Total hours rendered
+	•	PFFD filed
+	•	Approved extra hours (overtime)
+Profile Module
+Basic Information
+Independent Contractors can view and edit their profile information.
+Fields
+	•	Full Name
+	•	Position
+	•	Department
+	•	Immediate Supervisor
+	•	Email
+	•	Contact Number
+	•	Emergency Contact Number
+	•	Address 
+	•	Independent Contractor ID (optional) 
+Permissions:
+
+Action
+Team Member
+Supervisor
+Super Admin
+View Profile
+✓
+✓
+✓
+Edit Own Profile
+✓
+✓
+✓
+Edit Any Profile
+✗
+Limited
+✓
+
+Holiday Management
+Displays the official Concertina holiday list.
+Data Displayed
+	•	Holiday name
+	•	Date
+	•	Holiday type
+	•	Description 
+Permissions
+Role
+Access
+Team Member
+View
+Supervisor
+View
+Super Admin
+Create/Edit/Delete
+
+Team Directory
+Displays the company directory of Independent Contractors.
+Information Displayed
+	•	Name
+	•	Department
+	•	Role
+	•	Contact info 
+Permissions:
+
+Role
+Access
+Team Member
+View
+Supervisor
+View
+Super Admin
+Manage directory
+
+
+
+
+
+
+Request Forms
+Centralized repository for company forms.
+Examples:
+	•	HR requests
+	•	IT support request
+	•	Department-specific forms 
+Features
+	•	Form list categorized by department
+	•	Downloadable forms
+	•	Online form submission (optional enhancement)
+
+FAQ Module
+Frequently asked questions for Independent Contractors.
+Examples:
+	•	How to file PFFD
+	•	How to request schedule changes
+	•	Payroll schedule
+	•	Company policies
+	•	Previous Announcements 
+Permissions:
+
+Role
+Action
+Team Member
+View
+Supervisor
+View
+Super Admin
+Create/Edit/Delete
+
+Supervisor Access
+Supervisors will have all Team Member capabilities plus additional management features.
+Additional Supervisor Functions
+Team Attendance Monitoring
+	•	View team attendance logs
+	•	Filter by team member
+	•	Monitor hours rendered 
+
+
+
+
+
+
+Request Approvals
+Supervisors can approve or reject:
+	•	PFFD requests
+	•	Schedule change requests
+	•	Extra hours requests 
+Team Dashboard
+Displays:
+	•	Team attendance overview
+	•	Pending approvals
+	•	Team PFFD balances 
+Super Admin Access
+Super Admins have full system control and configuration access.
+Admin Capabilities
+User Management
+	•	Create user
+	•	Edit user
+	•	Deactivate user
+	•	Assign roles 
+Schedule Management
+	•	Set work schedules
+	•	Modify schedules
+	•	Assign shifts 
+Holiday Management
+	•	Add holidays
+	•	Edit holidays
+	•	Delete holidays 
+Announcement Management
+	•	Create announcements
+	•	Schedule announcements
+	•	Pin announcements to dashboard 
+System Configuration
+	•	Manage PFFD credit policies
+	•	Configure attendance rules
+	•	Set overtime policies
+
+Reporting (Recommended Feature)
+Admin and supervisors should have access to reports.
+Reports
+	•	Attendance summary
+	•	Independent Contractor work hours
+	•	Time-off usage
+	•	Overtime summary
+	•	Absenteeism report
+	•	Real Time Team Member Attendance Logs
+ 
+Export Options
+	•	CSV
+	•	Excel
+	•	PDF
+
+Audit Logs (Recommended)
+Track system actions for security and accountability.
+Logged Activities
+	•	Login attempts
+	•	Clock in/out
+	•	Request approvals
+	•	Profile changes
+	•	Admin actions
+

@@ -1,0 +1,86 @@
+file:///C:/Users/kierb/dev/concertina-hris/node_modules/@prisma/client/runtime/library.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: TypeError [ERR_INVALID_ARG_TYPE]: The "payload" argument must be of type object. Received null
+⨯ Error [PrismaClientKnownRequestError]: 
+Invalid `{imported module ./src/lib/prisma.ts}["default"].leaveBalance.findMany()` invocation in
+C:\Users\kierb\dev\concertina-hris\.next\dev\server\chunks\ssr\[root-of-the-server]__70c83925._.js:86:169
+
+  83 }
+  84 // Get the first name
+  85 const firstName = session.user.name ? session.user.name.split(" ")[0] : "there";
+→ 86 const balances = await {imported module ./src/lib/prisma.ts}["default"].leaveBalance.findMany(
+Can't reach database server at `aws-1-ap-south-1.pooler.supabase.com:6543`
+
+Please make sure your database server is running at `aws-1-ap-south-1.pooler.supabase.com:6543`.
+    at <unknown> (src\app\page.tsx:20:46)
+    at async DashboardPage (src\app\page.tsx:20:20)
+  18 |   const firstName = session.user.name ? session.user.name.split(" ")[0] : "there";
+  19 |
+> 20 |   const balances = await prisma.leaveBalance.findMany({
+     |                                              ^
+  21 |     where: { userId: session.user.id }
+  22 |   });
+  23 | {
+  code: 'P1001',
+  clientVersion: '5.22.0',
+  meta: [Object],
+  digest: '3403724617'
+}
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⨯ Error: Module [project]/node_modules/next/dist/esm/client/components/layout-router.js [app-ssr] (ecmascript) was instantiated because it was required from module [project]/node_modules/next/dist/esm/build/templates/app-page.js?page=/timesheets/page { GLOBAL_ERROR_MODULE => "[project]/node_modules/next/dist/client/components/builtin/global-error.js [app-rsc] (ecmascript, Next.js Server Component)", METADATA_0 => "[project]/src/app/favicon.ico.mjs { IMAGE => \"[project]/src/app/favicon.ico (static in ecmascript, tag client)\" } [app-rsc] (structured image object, ecmascript, Next.js Server Component)", MODULE_1 => "[project]/src/app/layout.tsx [app-rsc] (ecmascript, Next.js Server Component)", MODULE_2 => "[project]/src/app/loading.tsx [app-rsc] (ecmascript, Next.js Server Component)", MODULE_3 => "[project]/node_modules/next/dist/client/components/builtin/not-found.js [app-rsc] (ecmascript, Next.js Server Component)", MODULE_4 => "[project]/node_modules/next/dist/client/components/builtin/forbidden.js [app-rsc] (ecmascript, Next.js Server Component)", MODULE_5 => "[project]/node_modules/next/dist/client/components/builtin/unauthorized.js [app-rsc] (ecmascript, Next.js Server Component)", MODULE_6 => "[project]/node_modules/next/dist/client/components/builtin/global-error.js [app-rsc] (ecmascript, Next.js Server Component)", MODULE_7 => "[project]/src/app/timesheets/page.tsx [app-rsc] (ecmascript, Next.js Server Component)" } [app-rsc] (ecmascript) <locals>, but the module factory is not available.
+    at ignore-listed frames {
+  digest: '2031480531'
+}
+⚠ Fast Refresh had to perform a full reload when ./node_modules/next/dist/client/image-component.js changed. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+⨯ ./src/app/forgot-password/page.tsx:43:19
+Parsing ecmascript source code failed
+[0m [90m 41 |[39m             {searchParams [33m&&[39m (
+ [90m 42 |[39m               [33m<[39m[33m>[39m
+[31m[1m>[22m[39m[90m 43 |[39m                 {([36mawait[39m searchParams)[33m.[39msent [33m&&[39m (
+ [90m    |[39m                   [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m
+ [90m 44 |[39m                   [33m<[39m[33mdiv[39m className[33m=[39m[32m"mb-4 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm font-medium text-emerald-700"[39m[33m>[39m
+ [90m 45 |[39m                     [33mPassword[39m reset email sent[33m.[39m [33mCheck[39m your inbox[33m.[39m
+ [90m 46 |[39m                   [33m<[39m[33m/[39m[33mdiv[39m[33m>[39m[0m
+
+await isn't allowed in non-async function
+
+
+
+./src/app/forgot-password/page.tsx:48:19
+Parsing ecmascript source code failed
+[0m [90m 46 |[39m                   [33m<[39m[33m/[39m[33mdiv[39m[33m>[39m
+ [90m 47 |[39m                 )}
+[31m[1m>[22m[39m[90m 48 |[39m                 {([36mawait[39m searchParams)[33m.[39merror [33m&&[39m (
+ [90m    |[39m                   [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m
+ [90m 49 |[39m                   [33m<[39m[33mdiv[39m className[33m=[39m[32m"mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700"[39m[33m>[39m
+ [90m 50 |[39m                     [33mEmail[39m not found[33m.[39m [33mPlease[39m check and [36mtry[39m again[33m.[39m
+ [90m 51 |[39m                   [33m<[39m[33m/[39m[33mdiv[39m[33m>[39m[0m
+
+await isn't allowed in non-async function
+
+
+⚠ Fast Refresh had to perform a full reload when ./node_modules/next/dist/client/image-component.js changed. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+file:///C:/Users/kierb/dev/concertina-hris/node_modules/@prisma/client/runtime/library.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: TypeError [ERR_INVALID_ARG_TYPE]: The "payload" argument must be of type object. Received null
+⨯ Error [PrismaClientKnownRequestError]: 
+Invalid `{imported module ./src/lib/prisma.ts}["default"].leaveBalance.findMany()` invocation in
+C:\Users\kierb\dev\concertina-hris\.next\dev\server\chunks\ssr\[root-of-the-server]__70c83925._.js:86:169
+
+  83 }
+  84 // Get the first name
+  85 const firstName = session.user.name ? session.user.name.split(" ")[0] : "there";
+→ 86 const balances = await {imported module ./src/lib/prisma.ts}["default"].leaveBalance.findMany(
+Can't reach database server at `aws-1-ap-south-1.pooler.supabase.com:6543`
+
+Please make sure your database server is running at `aws-1-ap-south-1.pooler.supabase.com:6543`.
+    at <unknown> (src\app\page.tsx:20:46)
+    at async DashboardPage (src\app\page.tsx:20:20)
+  18 |   const firstName = session.user.name ? session.user.name.split(" ")[0] : "there";
+  19 |
+> 20 |   const balances = await prisma.leaveBalance.findMany({
+     |                                              ^
+  21 |     where: { userId: session.user.id }
+  22 |   });
+  23 | {
+  code: 'P1001',
+  clientVersion: '5.22.0',
+  meta: [Object],
+  digest: '3403724617'
+}

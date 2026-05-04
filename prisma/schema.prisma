@@ -1,0 +1,139 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id               String   @id @default(cuid())
+  email            String   @unique
+  password         String?  // Hashed password set by invite setup flow
+  isActive         Boolean  @default(false)
+  inviteToken      String?  @unique
+  inviteTokenExpiresAt DateTime?
+  invitedAt        DateTime?
+  activatedAt      DateTime?
+  name             String
+  role             String   @default("EMPLOYEE")
+  position         String?
+  department       String?
+  contactNumber    String?
+  emergencyContact String?
+  address          String?
+  icId             String?  // Independent Contractor ID
+  
+  // Self-relation for Supervisors
+  managerId        String?
+  manager          User?    @relation("UserToManager", fields: [managerId], references: [id])
+  teamMembers      User[]   @relation("UserToManager")
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  timeLogs         TimeLog[]
+  leaveBalances    LeaveBalance[]
+  leaveRequests    LeaveRequest[]
+  announcements    Announcement[] // Link to authored announcements
+  pages            Page[]         // Link to authored knowledge base pages
+  schedules        Schedule[]     // Assigned schedules
+  auditLogs        AuditLog[]     // Actions performed by user
+}
+
+model TimeLog {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  clockIn   DateTime  @default(now())
+  clockOut  DateTime?
+  status    String    @default("ON_TIME") // e.g., ON_TIME, LATE
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model LeaveBalance {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  leaveType String   // e.g., VACATION, SICK
+  balance   Float    @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, leaveType])
+}
+
+model LeaveRequest {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  leaveType String   // e.g., VACATION, SICK
+  startDate DateTime
+  endDate   DateTime
+  reason    String?
+  status    String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Announcement {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Page {
+  id        String   @id @default(cuid())
+  title     String
+  slug      String   @unique
+  content   String?  // Optional for empty folders
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parentId  String?  // Self-relation for infinite nesting
+  parent    Page?    @relation("PageOrganization", fields: [parentId], references: [id], onDelete: Cascade)
+  children  Page[]   @relation("PageOrganization")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Holiday {
+  id          String   @id @default(cuid())
+  name        String
+  date        DateTime
+  type        String   @default("REGULAR") // REGULAR, SPECIAL_NON_WORKING, etc
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Schedule {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  dayOfWeek Int      // 0 (Sun) to 6 (Sat)
+  startTime String   // e.g., "09:00"
+  endTime   String   // e.g., "18:00"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, dayOfWeek])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String   // e.g., LOGIN, PFFD_APPROVED, CLOCK_IN
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  details   String?  // JSON string or description
+  createdAt DateTime @default(now())
+}
