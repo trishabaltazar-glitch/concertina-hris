@@ -6,9 +6,23 @@ import { endOfWeek, format, startOfWeek } from "date-fns";
 
 export const dynamic = "force-dynamic";
 
-function getDurationInHours(clockIn: Date, clockOut: Date | null) {
+type BreakWindow = {
+  startedAt: Date;
+  endedAt: Date | null;
+};
+
+function getBreakDurationInHours(breaks: BreakWindow[], fallbackEnd: Date | null) {
+  return breaks.reduce((sum, item) => {
+    const end = item.endedAt || fallbackEnd;
+    if (!end) return sum;
+    return sum + Math.max(0, (end.getTime() - item.startedAt.getTime()) / (1000 * 60 * 60));
+  }, 0);
+}
+
+function getDurationInHours(clockIn: Date, clockOut: Date | null, breaks: BreakWindow[] = []) {
   if (!clockOut) return 0;
-  return Math.max(0, (clockOut.getTime() - clockIn.getTime()) / (1000 * 60 * 60));
+  const grossHours = Math.max(0, (clockOut.getTime() - clockIn.getTime()) / (1000 * 60 * 60));
+  return Math.max(0, grossHours - getBreakDurationInHours(breaks, clockOut));
 }
 
 function getHoursAndMinutes(totalHours: number) {
@@ -39,12 +53,12 @@ function formatDurationParts(totalHours: number) {
   return { hours: String(hours), minutes: String(minutes).padStart(2, "0") };
 }
 
-function getDurationLabel(clockIn: Date, clockOut: Date | null) {
+function getDurationLabel(clockIn: Date, clockOut: Date | null, breaks: BreakWindow[] = []) {
   if (!clockOut) return "Ongoing";
 
   const diffInMinutes = Math.max(
     0,
-    Math.round((clockOut.getTime() - clockIn.getTime()) / 60000)
+    Math.round(getDurationInHours(clockIn, clockOut, breaks) * 60)
   );
   const hours = Math.floor(diffInMinutes / 60);
   const minutes = diffInMinutes % 60;
@@ -78,6 +92,14 @@ export default async function DashboardPage() {
         clockIn: true,
         clockOut: true,
         status: true,
+        projectName: true,
+        notes: true,
+        breaks: {
+          select: {
+            startedAt: true,
+            endedAt: true,
+          },
+        },
       },
     }),
     prisma.timeLog.findMany({
@@ -94,6 +116,12 @@ export default async function DashboardPage() {
         clockIn: true,
         clockOut: true,
         status: true,
+        breaks: {
+          select: {
+            startedAt: true,
+            endedAt: true,
+          },
+        },
       },
     }),
     prisma.schedule.findMany({
@@ -116,7 +144,7 @@ export default async function DashboardPage() {
   }, 0);
 
   const totalWorkedHours = weeklyLogs.reduce((sum, log) => {
-    return sum + getDurationInHours(log.clockIn, log.clockOut);
+    return sum + getDurationInHours(log.clockIn, log.clockOut, log.breaks);
   }, 0);
 
   const plannedDuration = formatDurationParts(totalPlannedHours);
@@ -302,6 +330,11 @@ export default async function DashboardPage() {
                     {format(log.clockIn, "h:mm a")} to{" "}
                     {log.clockOut ? format(log.clockOut, "h:mm a") : "Active"}
                   </p>
+                  {(log.projectName || log.notes) && (
+                    <p className="mt-1 truncate text-xs text-muted-foreground">
+                      {[log.projectName, log.notes].filter(Boolean).join(" | ")}
+                    </p>
+                  )}
                 </div>
                 <div className="flex flex-col items-end gap-2">
                   <span
@@ -320,7 +353,7 @@ export default async function DashboardPage() {
                         : log.status.replaceAll("_", " ")}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    {getDurationLabel(log.clockIn, log.clockOut)}
+                    {getDurationLabel(log.clockIn, log.clockOut, log.breaks)}
                   </span>
                 </div>
               </div>

@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
-import { Play, Square } from "lucide-react";
+import { Coffee, Play, Square } from "lucide-react";
 
-import { toggleClockStatus, getClockStatus } from "@/app/actions/time";
+import { toggleBreakStatus, toggleClockStatus, getClockStatus } from "@/app/actions/time";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 function formatElapsedTime(now: Date, clockInTime: Date | null) {
   if (!clockInTime) {
@@ -26,14 +28,21 @@ function formatElapsedTime(now: Date, clockInTime: Date | null) {
 export function ClockWidget() {
   const [time, setTime] = useState<Date | null>(null);
   const [isClockedIn, setIsClockedIn] = useState(false);
+  const [isOnBreak, setIsOnBreak] = useState(false);
   const [clockInTime, setClockInTime] = useState<Date | null>(null);
+  const [breakStartTime, setBreakStartTime] = useState<Date | null>(null);
+  const [projectName, setProjectName] = useState("");
+  const [notes, setNotes] = useState("");
   const [isPending, setIsPending] = useState(false);
+  const [isBreakPending, setIsBreakPending] = useState(false);
   const [hasLoadedStatus, setHasLoadedStatus] = useState(false);
 
   useEffect(() => {
     getClockStatus().then((status) => {
       setIsClockedIn(status.isClockedIn);
+      setIsOnBreak(status.isOnBreak);
       setClockInTime(status.clockInTime ? new Date(status.clockInTime) : null);
+      setBreakStartTime(status.breakStartTime ? new Date(status.breakStartTime) : null);
       setHasLoadedStatus(true);
     });
 
@@ -50,14 +59,38 @@ export function ClockWidget() {
 
     setIsPending(true);
     try {
-      const res = await toggleClockStatus();
+      const res = await toggleClockStatus(projectName, notes);
       if (res.success) {
         const nextStatus = await getClockStatus();
         setIsClockedIn(nextStatus.isClockedIn);
+        setIsOnBreak(nextStatus.isOnBreak);
         setClockInTime(nextStatus.clockInTime ? new Date(nextStatus.clockInTime) : null);
+        setBreakStartTime(nextStatus.breakStartTime ? new Date(nextStatus.breakStartTime) : null);
+        if (nextStatus.isClockedIn) {
+          setProjectName("");
+          setNotes("");
+        }
       }
     } finally {
       setIsPending(false);
+    }
+  };
+
+  const handleToggleBreak = async () => {
+    if (isBreakPending || !hasLoadedStatus || !isClockedIn) return;
+
+    setIsBreakPending(true);
+    try {
+      const res = await toggleBreakStatus();
+      if (res.success) {
+        const nextStatus = await getClockStatus();
+        setIsClockedIn(nextStatus.isClockedIn);
+        setIsOnBreak(nextStatus.isOnBreak);
+        setClockInTime(nextStatus.clockInTime ? new Date(nextStatus.clockInTime) : null);
+        setBreakStartTime(nextStatus.breakStartTime ? new Date(nextStatus.breakStartTime) : null);
+      }
+    } finally {
+      setIsBreakPending(false);
     }
   };
 
@@ -91,20 +124,24 @@ export function ClockWidget() {
             !hasLoadedStatus && "bg-muted text-muted-foreground",
             hasLoadedStatus &&
               (isClockedIn
-                ? "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
+                ? isOnBreak
+                  ? "bg-sky-500/12 text-sky-700 dark:text-sky-300"
+                  : "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
                 : "bg-muted text-muted-foreground")
           )}
         >
-          {!hasLoadedStatus ? "Loading" : isClockedIn ? "Ongoing" : "Ready"}
+          {!hasLoadedStatus ? "Loading" : isOnBreak ? "On break" : isClockedIn ? "Ongoing" : "Ready"}
         </span>
       </div>
 
       <div className="mt-8 rounded-3xl bg-card px-6 py-8 text-center ring-1 ring-border/70">
         <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-          {isClockedIn ? "Time since clock-in" : "Current time"}
+          {isOnBreak ? "Break time" : isClockedIn ? "Time since clock-in" : "Current time"}
         </p>
         <h2 className="mt-3 text-5xl font-semibold tracking-[-0.06em] text-foreground">
-          {isClockedIn
+          {isOnBreak
+            ? formatElapsedTime(time, breakStartTime)
+            : isClockedIn
             ? formatElapsedTime(time, clockInTime)
             : format(time, "HH:mm:ss")}
         </h2>
@@ -115,15 +152,51 @@ export function ClockWidget() {
         </p>
       </div>
 
+      {!isClockedIn && (
+        <div className="mt-5 grid gap-3">
+          <Input
+            value={projectName}
+            onChange={(event) => setProjectName(event.target.value)}
+            placeholder="Project or work item (optional)"
+            maxLength={120}
+          />
+          <Input
+            value={notes}
+            onChange={(event) => setNotes(event.target.value)}
+            placeholder="Notes (optional)"
+            maxLength={500}
+          />
+        </div>
+      )}
+
       <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
-        <button
+        {isClockedIn && (
+          <Button
+            type="button"
+            onClick={handleToggleBreak}
+            disabled={isBreakPending || isPending || !hasLoadedStatus}
+            variant={isOnBreak ? "secondary" : "outline"}
+            size="lg"
+            className="rounded-full"
+          >
+            {isBreakPending ? (
+              <div className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+            ) : (
+              <>
+                <Coffee className="size-4" />
+                {isOnBreak ? "End break" : "Start break"}
+              </>
+            )}
+          </Button>
+        )}
+        <Button
+          type="button"
           onClick={handleToggleClock}
-          disabled={isPending || !hasLoadedStatus}
+          disabled={isPending || isBreakPending || !hasLoadedStatus}
+          variant={isClockedIn ? "destructive" : "default"}
+          size="lg"
           className={cn(
-            "inline-flex h-10 items-center justify-center gap-2 rounded-full px-4 text-sm font-semibold transition-colors",
-            isClockedIn
-              ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              : "bg-primary text-primary-foreground hover:bg-primary/92",
+            "rounded-full",
             (isPending || !hasLoadedStatus) && "opacity-70"
           )}
         >
@@ -140,12 +213,14 @@ export function ClockWidget() {
               Clock-in
             </>
           )}
-        </button>
+        </Button>
       </div>
 
       <p className="mt-4 text-center text-xs leading-5 text-muted-foreground">
         {!hasLoadedStatus
           ? "Checking your current attendance status."
+          : isOnBreak
+            ? "Break time is being tracked and will be deducted from worked time."
           : isClockedIn
             ? "You are currently clocked in."
             : "You are currently clocked out and ready to begin."}
