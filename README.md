@@ -1,36 +1,54 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Concertina HRIS
 
-## Getting Started
+This project is a Next.js HRIS app backed by Prisma and PostgreSQL.
 
-First, run the development server:
+## Local Setup
+
+1. Create a local env file from the checked-in example.
+
+```bash
+cp .env.example .env.local
+```
+
+2. Fill in the required values in `.env.local`.
+
+```env
+DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DATABASE?schema=public"
+DIRECT_URL="postgresql://USER:PASSWORD@HOST:5432/DATABASE?schema=public"
+NEXTAUTH_URL="http://localhost:3000"
+NEXTAUTH_SECRET="replace-with-a-long-random-secret"
+NODE_ENV="development"
+```
+
+3. Install dependencies.
+
+```bash
+npm install
+```
+
+4. Run Prisma migrations.
+
+```bash
+npx prisma migrate dev
+```
+
+5. Start the development server.
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment Variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `DATABASE_URL`: Primary PostgreSQL connection string used by Prisma.
+- `DIRECT_URL`: Direct PostgreSQL connection string for Prisma migrations.
+- `NEXTAUTH_URL`: Base URL used when generating auth and invite links.
+- `NEXTAUTH_SECRET`: Secret used to sign NextAuth sessions and tokens.
+- `NODE_ENV`: App environment, usually `development` for local work.
 
-## Learn More
+## Notes
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- The real `.env` and `.env.local` files are intentionally ignored by git.
+- Commit `.env.example`, not the actual secret values.
