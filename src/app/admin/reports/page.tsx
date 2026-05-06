@@ -4,6 +4,7 @@ import { useState } from "react";
 import { format, subDays } from "date-fns";
 import { Download, FileSpreadsheet, Calendar as CalendarIcon, Loader2 } from "lucide-react";
 import { generateTimesheetReport, generateLeaveReport } from "@/app/actions/reports";
+import { Button } from "@/components/ui/button";
 
 export default function AdminReportsPage() {
   const [startDate, setStartDate] = useState(format(subDays(new Date(), 30), 'yyyy-MM-dd'));
@@ -69,34 +70,34 @@ export default function AdminReportsPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 py-8 px-4">
-      <div className="rounded-2xl border bg-[#11131A] text-card-foreground shadow-sm overflow-hidden border-slate-800">
-        <div className="p-6 border-b border-slate-800 bg-card/50 flex flex-col md:flex-row md:items-end gap-6">
+      <div className="rounded-2xl border bg-card text-card-foreground shadow-sm overflow-hidden border-border">
+        <div className="p-6 border-b border-border bg-card/50 flex flex-col md:flex-row md:items-end gap-6">
           <div className="flex-1 space-y-4">
-             <h2 className="font-semibold text-xl text-white flex items-center gap-2">
+             <h2 className="font-semibold text-xl text-foreground flex items-center gap-2">
                  <CalendarIcon className="size-5 text-primary" />
                  Report Date Range
              </h2>
              
              <div className="flex items-center gap-4">
                 <div className="flex-1">
-                  <label htmlFor="startDate" className="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">Start Date</label>
+                  <label htmlFor="startDate" className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">Start Date</label>
                   <input 
                     type="date" 
                     id="startDate"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full bg-[#1A1D27] border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    className="w-full bg-background border border-input text-foreground rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/50"
                   />
                 </div>
-                <div className="text-slate-500 pt-5">to</div>
+                <div className="text-muted-foreground pt-5">to</div>
                 <div className="flex-1">
-                  <label htmlFor="endDate" className="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">End Date</label>
+                  <label htmlFor="endDate" className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">End Date</label>
                   <input 
                     type="date" 
                     id="endDate"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    className="w-full bg-[#1A1D27] border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    className="w-full bg-background border border-input text-foreground rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/50"
                   />
                 </div>
              </div>
@@ -112,19 +113,21 @@ export default function AdminReportsPage() {
                      <FileSpreadsheet className="size-6" />
                   </div>
                   <div className="flex-1">
-                     <h3 className="font-bold text-white mb-1">Master Payroll Export (Consolidated CSV)</h3>
-                     <p className="text-sm text-slate-300 mb-4">
+                     <h3 className="font-bold text-foreground mb-1">Master Payroll Export (Consolidated CSV)</h3>
+                     <p className="text-sm text-muted-foreground mb-4">
                         Download the comprehensive enterprise payroll spreadsheet exactly matching the V2 specifications. Contains Attendance Summary and Detailed Daily Logs.
                      </p>
                      
-                     <button
+                     <Button
+                        type="button"
+                        variant="success"
                         onClick={handleDownloadPayrollExcel}
                         disabled={isExportingPayroll}
-                        className="flex items-center gap-2 text-sm font-semibold bg-emerald-600 text-white px-4 py-2.5 rounded-lg hover:bg-emerald-500 transition-colors w-full justify-center disabled:opacity-50"
+                        className="w-full"
                      >
                         {isExportingPayroll ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
                         {isExportingPayroll ? 'Generating Workbook...' : 'Download Master Payroll .CSV'}
-                     </button>
+                     </Button>
                   </div>
               </div>
 
@@ -134,19 +137,21 @@ export default function AdminReportsPage() {
                      <FileSpreadsheet className="size-6" />
                   </div>
                   <div className="flex-1">
-                     <h3 className="font-bold text-white mb-1">Timesheet Logs</h3>
-                     <p className="text-xs text-slate-400 mb-4 line-clamp-2">
+                     <h3 className="font-bold text-foreground mb-1">Timesheet Logs</h3>
+                     <p className="text-xs text-muted-foreground mb-4 line-clamp-2">
                         Export raw clock-in/out records, status, and annotations for proper payroll alignment.
                      </p>
                      
-                     <button
+                     <Button
+                        type="button"
+                        variant="default"
                         onClick={handleDownloadTimesheets}
                         disabled={isExportingTimesheets}
-                        className="flex items-center gap-2 text-sm font-semibold bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors w-full justify-center disabled:opacity-50"
+                        className="w-full"
                      >
                         {isExportingTimesheets ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
                         {isExportingTimesheets ? 'Preparing...' : 'Export Timesheets CSV'}
-                     </button>
+                     </Button>
                   </div>
               </div>
 
@@ -156,19 +161,21 @@ export default function AdminReportsPage() {
                      <FileSpreadsheet className="size-6" />
                   </div>
                   <div className="flex-1">
-                     <h3 className="font-bold text-white mb-1">PFFD Requests</h3>
-                     <p className="text-xs text-slate-400 mb-4 line-clamp-2">
+                     <h3 className="font-bold text-foreground mb-1">PFFD Requests</h3>
+                     <p className="text-xs text-muted-foreground mb-4 line-clamp-2">
                         Export all Pre-Funded Flex Days and leaves tracking statuses and type balances.
                      </p>
                      
-                     <button
+                     <Button
+                        type="button"
+                        variant="secondary"
                         onClick={handleDownloadLeaves}
                         disabled={isExportingLeaves}
-                        className="flex items-center gap-2 text-sm font-semibold bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-500 transition-colors w-full justify-center disabled:opacity-50"
+                        className="w-full"
                      >
                         {isExportingLeaves ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
                         {isExportingLeaves ? 'Preparing...' : 'Export PFFD Data CSV'}
-                     </button>
+                     </Button>
                   </div>
               </div>
 

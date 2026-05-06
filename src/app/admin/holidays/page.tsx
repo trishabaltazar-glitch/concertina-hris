@@ -40,7 +40,7 @@ export default async function AdminHolidaysPage() {
                   name="name"
                   required
                   placeholder="e.g. New Year's Day"
-                  className="w-full bg-[#1A1D27] border border-slate-700 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  className="w-full bg-background border border-input text-foreground placeholder:text-muted-foreground rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-ring/50"
                 />
               </div>
 
@@ -53,7 +53,7 @@ export default async function AdminHolidaysPage() {
                   id="date"
                   name="date"
                   required
-                  className="w-full bg-[#1A1D27] border border-slate-700 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  className="w-full bg-background border border-input text-foreground rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-ring/50"
                 />
               </div>
 
@@ -64,7 +64,7 @@ export default async function AdminHolidaysPage() {
                 <select
                   id="type"
                   name="type"
-                  className="w-full bg-[#1A1D27] border border-slate-700 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50 appearance-none"
+                  className="w-full bg-background border border-input text-foreground rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-ring/50 appearance-none"
                 >
                   <option value="REGULAR">Regular Holiday</option>
                   <option value="SPECIAL_NON_WORKING">Special Non-Working Holiday</option>
@@ -80,7 +80,7 @@ export default async function AdminHolidaysPage() {
                   id="description"
                   name="description"
                   rows={2}
-                  className="w-full bg-[#1A1D27] border border-slate-700 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                  className="w-full bg-background border border-input text-foreground placeholder:text-muted-foreground rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-ring/50 resize-none"
                   placeholder="Additional details..."
                 />
               </div>
@@ -116,12 +116,12 @@ export default async function AdminHolidaysPage() {
                 holidays.map((holiday: any) => (
                   <div key={holiday.id} className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-muted/30 transition-colors">
                     <div className="flex items-start gap-4">
-                      <div className="bg-[#1A1D27] border border-slate-800 rounded-xl px-4 py-3 flex flex-col items-center justify-center min-w-[5rem] shadow-sm">
+                      <div className="bg-background border border-border rounded-xl px-4 py-3 flex flex-col items-center justify-center min-w-[5rem] shadow-sm">
                         <span className="text-xs font-bold uppercase text-primary mb-1 tracking-widest">{format(holiday.date, "MMM")}</span>
-                        <span className="text-2xl font-bold text-white leading-none">{format(holiday.date, "d")}</span>
+                        <span className="text-2xl font-bold text-foreground leading-none">{format(holiday.date, "d")}</span>
                       </div>
                       <div>
-                        <h3 className="font-bold text-lg text-white group-hover:text-primary transition-colors">{holiday.name}</h3>
+                        <h3 className="font-bold text-lg text-foreground group-hover:text-primary transition-colors">{holiday.name}</h3>
                         <div className="flex items-center gap-2 mt-1">
                           <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase ${
                             holiday.type === 'REGULAR' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' :
@@ -132,7 +132,7 @@ export default async function AdminHolidaysPage() {
                           </span>
                         </div>
                         {holiday.description && (
-                          <p className="text-sm text-slate-400 mt-2 line-clamp-2">{holiday.description}</p>
+                          <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{holiday.description}</p>
                         )}
                       </div>
                     </div>
@@ -141,7 +141,7 @@ export default async function AdminHolidaysPage() {
                       "use server";
                       await deleteHoliday(holiday.id);
                     }}>
-                      <SubmitButton variant="outline" className="text-destructive hover:bg-destructive hover:text-white border-destructive text-xs h-8">
+                      <SubmitButton variant="destructive-outline" size="sm" className="text-xs">
                         Delete
                       </SubmitButton>
                     </form>

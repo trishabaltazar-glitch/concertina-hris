@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { completeInviteSetup } from "@/app/actions/onboarding";
+import { SubmitButton } from "@/components/ui/submit-button";
 
 type SetupAccountProps = {
     searchParams: Promise<{
@@ -87,13 +88,9 @@ export default async function SetupAccountPage({ searchParams }: SetupAccountPro
                         />
                     </div>
 
-                    <button
-                        type="submit"
-                        disabled={!token}
-                        className="w-full inline-flex items-center justify-center h-10 rounded-md bg-linear-to-r from-brand-blue to-brand-red text-white text-sm font-semibold hover:opacity-95 transition-opacity disabled:opacity-50"
-                    >
+                    <SubmitButton variant="gradient" size="lg" disabled={!token}>
                         Activate Account
-                    </button>
+                    </SubmitButton>
                 </form>
             </div>
         </div>

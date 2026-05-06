@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { changePassword } from "@/app/actions/password";
 import { Loader2, CheckCircle2, ShieldCheck } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export function PasswordForm() {
     const [isPending, setIsPending] = useState(false);
@@ -30,15 +31,15 @@ export function PasswordForm() {
     }
 
     return (
-        <div className="bg-[#11131A] border border-slate-800 rounded-xl p-6 shadow-xl">
+        <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
             <div className="flex items-center gap-2 mb-4">
                 <ShieldCheck className="size-5 text-emerald-400" />
-                <h2 className="text-xl font-semibold text-white">Security Settings</h2>
+                <h2 className="text-xl font-semibold text-foreground">Security Settings</h2>
             </div>
             
             <form id="password-form" action={handleAction} className="space-y-4">
                 <div>
-                    <label htmlFor="newPassword" className="block text-sm font-medium text-slate-300 mb-1">
+                    <label htmlFor="newPassword" className="block text-sm font-medium text-foreground mb-1">
                         New Password
                     </label>
                     <input 
@@ -47,13 +48,13 @@ export function PasswordForm() {
                         name="newPassword" 
                         required
                         minLength={8}
-                        className="w-full bg-[#1A1D27] border border-slate-700 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        className="w-full bg-background border border-input text-foreground placeholder:text-muted-foreground rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-ring/50"
                         placeholder="••••••••"
                     />
                 </div>
                 
                 <div>
-                    <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-300 mb-1">
+                    <label htmlFor="confirmPassword" className="block text-sm font-medium text-foreground mb-1">
                         Confirm New Password
                     </label>
                     <input 
@@ -62,7 +63,7 @@ export function PasswordForm() {
                         name="confirmPassword" 
                         required
                         minLength={8}
-                        className="w-full bg-[#1A1D27] border border-slate-700 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        className="w-full bg-background border border-input text-foreground placeholder:text-muted-foreground rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-ring/50"
                         placeholder="••••••••"
                     />
                 </div>
@@ -79,10 +80,10 @@ export function PasswordForm() {
                 )}
 
                 <div className="pt-2">
-                    <button 
+                    <Button
                         type="submit" 
                         disabled={isPending}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-2 font-semibold bg-white text-black rounded-lg hover:bg-slate-200 transition-colors disabled:opacity-50"
+                        className="w-full"
                     >
                         {isPending ? (
                             <>
@@ -92,7 +93,7 @@ export function PasswordForm() {
                         ) : (
                             "Update Password"
                         )}
-                    </button>
+                    </Button>
                 </div>
             </form>
         </div>

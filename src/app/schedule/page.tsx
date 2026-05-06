@@ -46,7 +46,7 @@ export default async function UserSchedulePage() {
                   className={`border rounded-xl p-5 relative overflow-hidden transition-all ${
                     isToday 
                       ? 'bg-brand-red/5 border-brand-red shadow-brand-red/20' 
-                      : 'bg-[#1A1D27] border-slate-800'
+                      : 'bg-background border-border'
                   }`}
                 >
                   {isToday && (
@@ -56,22 +56,22 @@ export default async function UserSchedulePage() {
                   )}
                   
                   <div className="flex items-center gap-3 mb-4">
-                    <div className={`size-10 rounded-lg flex items-center justify-center ${isToday ? 'bg-brand-red text-white' : 'bg-slate-800 text-slate-400'}`}>
+                    <div className={`size-10 rounded-lg flex items-center justify-center ${isToday ? 'bg-brand-red text-white' : 'bg-muted text-muted-foreground'}`}>
                       <CalendarDays className="size-5" />
                     </div>
-                    <div className="font-semibold text-lg text-white">{dayName}</div>
+                    <div className="font-semibold text-lg text-foreground">{dayName}</div>
                   </div>
 
                   <div className="space-y-3">
                     {schedule ? (
-                      <div className="flex items-center gap-2 text-slate-300">
+                      <div className="flex items-center gap-2 text-foreground">
                         <Clock className="size-4 text-primary" />
                         <span className="font-medium text-sm">
                           {format(new Date(`1970-01-01T${schedule.startTime}`), "h:mm a")} - {format(new Date(`1970-01-01T${schedule.endTime}`), "h:mm a")}
                         </span>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-2 text-slate-500 italic">
+                      <div className="flex items-center gap-2 text-muted-foreground italic">
                         <Clock className="size-4 opacity-50" />
                         <span className="text-sm">Off Duty</span>
                       </div>

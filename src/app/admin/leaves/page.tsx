@@ -76,7 +76,7 @@ export default async function AdminLeavesPage() {
                                         "use server";
                                         await updateLeaveRequestStatus(request.id, "REJECTED");
                                     }}>
-                                        <SubmitButton variant="outline" className="w-full sm:w-32 text-destructive border-destructive hover:bg-destructive hover:text-white">
+                                        <SubmitButton variant="destructive-outline" className="w-full sm:w-32">
                                             Reject
                                         </SubmitButton>
                                     </form>
