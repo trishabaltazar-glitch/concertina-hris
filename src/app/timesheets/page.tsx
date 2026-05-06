@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import {
     addDays,
     differenceInCalendarDays,
@@ -12,9 +13,9 @@ import {
 } from "date-fns";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import { CalendarDays, Plus, X } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { TimesheetFilterBar } from "@/app/timesheets/components/timesheet-filter-bar";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,17 @@ type BreakWindow = {
     startedAt: Date;
     endedAt: Date | null;
 };
+
+type TimeLogWithBreaks = Prisma.TimeLogGetPayload<{
+    include: {
+        breaks: {
+            select: {
+                startedAt: true;
+                endedAt: true;
+            };
+        };
+    };
+}>;
 
 type TimelineSegment = {
     id: string;
@@ -149,33 +161,45 @@ export default async function TimesheetsPage({ searchParams }: TimesheetsPagePro
     }
 
     const filters = await searchParams;
-    const selectedRange = filters?.range || "7";
+    const requestedRange = Number.parseInt(filters?.range || "7", 10) || 7;
+    const rangeDays = Math.min(90, Math.max(1, requestedRange));
+    const selectedRange = String(rangeDays);
     const today = new Date();
     const customFrom = parseDateFilter(filters?.from, "start");
     const customTo = parseDateFilter(filters?.to, "end");
-    const rangeDays = Number.parseInt(selectedRange, 10) || 7;
     const toDate = customTo || endOfDay(today);
     const fromDate = customFrom || startOfDay(addDays(toDate, -(rangeDays - 1)));
+    const fromValue = format(fromDate, "yyyy-MM-dd");
+    const toValue = format(toDate, "yyyy-MM-dd");
+    const displayRange = `${format(fromDate, "MMM dd")} - ${format(toDate, "MMM dd yyyy")}`;
 
-    const timeLogs = await prisma.timeLog.findMany({
-        where: {
-            userId: session.user.id,
-            clockIn: {
-                gte: fromDate,
-                lte: toDate,
-            },
-        },
-        orderBy: { clockIn: "asc" },
-        include: {
-            breaks: {
-                orderBy: { startedAt: "asc" },
-                select: {
-                    startedAt: true,
-                    endedAt: true,
+    let timeLogs: TimeLogWithBreaks[] = [];
+    let databaseError: string | null = null;
+
+    try {
+        timeLogs = await prisma.timeLog.findMany({
+            where: {
+                userId: session.user.id,
+                clockIn: {
+                    gte: fromDate,
+                    lte: toDate,
                 },
             },
-        },
-    });
+            orderBy: { clockIn: "asc" },
+            include: {
+                breaks: {
+                    orderBy: { startedAt: "asc" },
+                    select: {
+                        startedAt: true,
+                        endedAt: true,
+                    },
+                },
+            },
+        });
+    } catch (error) {
+        console.error("Failed to load timesheet logs:", error);
+        databaseError = "Timesheet data could not be loaded right now. Please refresh or try again in a moment.";
+    }
 
     const days = buildDays(startOfDay(fromDate), startOfDay(toDate));
     const latestMinute = timeLogs.reduce((latest, log) => {
@@ -196,40 +220,12 @@ export default async function TimesheetsPage({ searchParams }: TimesheetsPagePro
 
     return (
         <div className="mx-auto max-w-6xl space-y-6">
-            <form className="flex flex-col gap-3 rounded-2xl border bg-card p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                    <select
-                        name="range"
-                        defaultValue={selectedRange}
-                        className="h-9 rounded-lg border border-input bg-background px-3 text-sm font-medium text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-                    >
-                        <option value="7">Last 7 days</option>
-                        <option value="14">Last 14 days</option>
-                        <option value="30">Last 30 days</option>
-                    </select>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <CalendarDays className="size-4" />
-                        <span>
-                            {format(fromDate, "MMM dd")} - {format(toDate, "MMM dd yyyy")}
-                        </span>
-                    </div>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto_auto] sm:items-center">
-                    <Input name="from" type="date" defaultValue={filters?.from || ""} aria-label="From date" />
-                    <Input name="to" type="date" defaultValue={filters?.to || ""} aria-label="To date" />
-                    <Button type="submit" variant="outline">
-                        Filter
-                    </Button>
-                    {(filters?.from || filters?.to || filters?.range) && (
-                        <Button asChild type="button" variant="ghost" size="icon" aria-label="Clear filters">
-                            <a href="/timesheets">
-                                <X className="size-4" />
-                            </a>
-                        </Button>
-                    )}
-                </div>
-            </form>
+            <TimesheetFilterBar
+                selectedRange={selectedRange}
+                fromValue={fromValue}
+                toValue={toValue}
+                displayRange={displayRange}
+            />
 
             <section className="rounded-2xl border bg-card shadow-sm">
                 <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
@@ -256,7 +252,11 @@ export default async function TimesheetsPage({ searchParams }: TimesheetsPagePro
 
                 <div className="overflow-x-auto">
                     <div className="min-w-[780px] divide-y">
-                        {days.length === 0 || timeLogs.length === 0 ? (
+                        {databaseError ? (
+                            <div className="px-4 py-12 text-center text-sm text-muted-foreground">
+                                {databaseError}
+                            </div>
+                        ) : days.length === 0 || timeLogs.length === 0 ? (
                             <div className="px-4 py-12 text-center text-sm text-muted-foreground">
                                 No time logs found for this date range.
                             </div>
