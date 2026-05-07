@@ -10,6 +10,7 @@ type TimeLogData = {
     clockIn: Date;
     clockOut: Date | null;
     status: string;
+    projectName: string | null;
     user: {
         name: string;
         email: string;
@@ -25,7 +26,8 @@ export function TimeLogsClientPage({ initialLogs }: { initialLogs: TimeLogData[]
         // 1. Search Query Filter
         const matchesSearch = 
             log.user.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-            log.user.email.toLowerCase().includes(searchQuery.toLowerCase());
+            log.user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (log.projectName || "").toLowerCase().includes(searchQuery.toLowerCase());
         
         // 2. Status Filter
         const matchesStatus = statusFilter === "ALL" || log.status === statusFilter;
@@ -60,7 +62,7 @@ export function TimeLogsClientPage({ initialLogs }: { initialLogs: TimeLogData[]
                         </div>
                         <input
                             type="text"
-                            placeholder="Search by name or email..."
+                            placeholder="Search name, email, or project..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="w-full bg-background border border-input text-foreground placeholder:text-muted-foreground rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/50"
@@ -123,6 +125,7 @@ export function TimeLogsClientPage({ initialLogs }: { initialLogs: TimeLogData[]
                         <thead className="bg-muted/60 text-muted-foreground border-b border-border text-xs uppercase tracking-wider sticky top-0 z-10 backdrop-blur-md">
                             <tr>
                                 <th className="px-6 py-4 font-semibold">Employee</th>
+                                <th className="px-6 py-4 font-semibold">Project</th>
                                 <th className="px-6 py-4 font-semibold">Date</th>
                                 <th className="px-6 py-4 font-semibold">Clock In</th>
                                 <th className="px-6 py-4 font-semibold">Clock Out</th>
@@ -133,7 +136,7 @@ export function TimeLogsClientPage({ initialLogs }: { initialLogs: TimeLogData[]
                         <tbody className="divide-y divide-border">
                             {filteredLogs.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
+                                    <td colSpan={7} className="px-6 py-12 text-center text-muted-foreground">
                                         {hasActiveFilters 
                                             ? "No logs found matching your specific filters." 
                                             : "No active time logs found across the company."}
@@ -154,6 +157,13 @@ export function TimeLogsClientPage({ initialLogs }: { initialLogs: TimeLogData[]
                                             <td className="px-6 py-4">
                                                 <div className="font-medium text-foreground">{log.user.name}</div>
                                                 <div className="text-xs text-muted-foreground">{log.user.email}</div>
+                                            </td>
+                                            <td className="px-6 py-4 text-muted-foreground">
+                                                {log.projectName ? (
+                                                    <span className="font-medium text-foreground">{log.projectName}</span>
+                                                ) : (
+                                                    "-"
+                                                )}
                                             </td>
                                             <td className="px-6 py-4 font-medium text-foreground">
                                                 {format(new Date(log.clockIn), "MMM d, yyyy")}

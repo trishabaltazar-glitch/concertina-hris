@@ -167,6 +167,51 @@ export async function toggleBreakStatus() {
     }
 }
 
+export async function deleteOwnTimeLog(timeLogId: string) {
+    try {
+        const session = await auth();
+        if (!session || !session.user || !session.user.id) {
+            return { success: false, error: "Not authenticated" };
+        }
+
+        const timeLog = await prisma.timeLog.findFirst({
+            where: {
+                id: timeLogId,
+                userId: session.user.id,
+            },
+            select: {
+                id: true,
+                clockIn: true,
+            },
+        });
+
+        if (!timeLog) {
+            return { success: false, error: "Time log not found." };
+        }
+
+        await prisma.timeLog.delete({
+            where: { id: timeLog.id },
+        });
+
+        await prisma.auditLog.create({
+            data: {
+                action: "TIME_LOG_DELETED",
+                userId: session.user.id,
+                details: `User deleted time log from ${timeLog.clockIn.toISOString()}.`,
+            },
+        });
+
+        revalidatePath("/");
+        revalidatePath("/timesheets");
+        revalidatePath("/admin/timesheets");
+
+        return { success: true };
+    } catch (error) {
+        console.error("Error deleting time log:", error);
+        return { success: false, error: "Failed to delete time log" };
+    }
+}
+
 export async function getClockStatus() {
     try {
         const session = await auth();

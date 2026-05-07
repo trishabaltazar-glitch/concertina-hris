@@ -16,6 +16,7 @@ import { redirect } from "next/navigation";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TimesheetFilterBar } from "@/app/timesheets/components/timesheet-filter-bar";
+import { DeleteTimeLogButton } from "@/app/timesheets/components/delete-time-log-button";
 
 export const dynamic = "force-dynamic";
 
@@ -357,6 +358,35 @@ export default async function TimesheetsPage({ searchParams }: TimesheetsPagePro
                                                     {lastClockOut ? format(lastClockOut, "h:mm a") : "Active"}
                                                 </p>
                                             </div>
+                                        </div>
+
+                                        <div className="mt-4 space-y-2">
+                                            {logsForDay.map((log) => {
+                                                const entryLabel = `${format(log.clockIn, "MMM d, h:mm a")} - ${log.clockOut ? format(log.clockOut, "h:mm a") : "Active"}`;
+                                                const workedMinutes = getWorkedMinutes(log.clockIn, log.clockOut, log.breaks);
+
+                                                return (
+                                                    <div
+                                                        key={log.id}
+                                                        className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background/60 px-3 py-2"
+                                                    >
+                                                        <div className="min-w-0">
+                                                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-medium text-foreground">
+                                                                <span>{entryLabel}</span>
+                                                                <span className="text-muted-foreground">
+                                                                    {log.clockOut ? formatDuration(workedMinutes) : "Active"}
+                                                                </span>
+                                                            </div>
+                                                            {(log.projectName || log.notes) && (
+                                                                <p className="mt-1 truncate text-xs text-muted-foreground">
+                                                                    {[log.projectName, log.notes].filter(Boolean).join(" | ")}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                        <DeleteTimeLogButton timeLogId={log.id} label={entryLabel} />
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 );
