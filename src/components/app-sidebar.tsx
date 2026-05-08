@@ -16,7 +16,6 @@ import {
   DashboardSquare02Icon,
   FileUserIcon,
   Logout02Icon,
-  ShieldUserIcon,
   TaskDaily02Icon,
   TimeQuarterPassIcon,
   UserGroupIcon,
@@ -57,7 +56,6 @@ const EMP_ROUTES = [
   { name: "PFFD Requests", href: "/leaves", icon: TaskDaily02Icon },
   { name: "Team Directory", href: "/directory", icon: AddressBookIcon },
   { name: "Company Holidays", href: "/holidays", icon: Calendar03Icon },
-  { name: "My Profile", href: "/profile", icon: UserSquareIcon },
 ]
 
 const ADMIN_ROUTES = [
@@ -257,16 +255,9 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
                 <DropdownMenuItem asChild>
                   <Link href="/profile" className="flex w-full items-center gap-2">
                     <HugeiconsIcon icon={UserSquareIcon} size={18} strokeWidth={1.8} />
-                    Account
+                    My Profile
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <div className="flex items-center gap-2">
-                    <HugeiconsIcon icon={ShieldUserIcon} size={18} strokeWidth={1.8} />
-                    {user?.role === "ADMIN" ? "Administrator access" : user?.role === "MANAGER" ? "Manager access" : "Secure session"}
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
                 <form ref={signOutFormRef} action={handleSignOut}>
                   <DropdownMenuItem
                     variant="destructive"

@@ -31,10 +31,10 @@ export function PasswordForm() {
     }
 
     return (
-        <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
+        <div className="bg-card border border-border/70 rounded-xl p-6 shadow-sm">
             <div className="flex items-center gap-2 mb-4">
                 <ShieldCheck className="size-5 text-emerald-400" />
-                <h2 className="text-xl font-semibold text-foreground">Security Settings</h2>
+                <h2 className="text-lg font-semibold text-foreground">Security Settings</h2>
             </div>
             
             <form id="password-form" action={handleAction} className="space-y-4">
@@ -49,7 +49,7 @@ export function PasswordForm() {
                         required
                         minLength={8}
                         className="w-full bg-background border border-input text-foreground placeholder:text-muted-foreground rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-ring/50"
-                        placeholder="••••••••"
+                        placeholder="********"
                     />
                 </div>
                 
@@ -64,7 +64,7 @@ export function PasswordForm() {
                         required
                         minLength={8}
                         className="w-full bg-background border border-input text-foreground placeholder:text-muted-foreground rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-ring/50"
-                        placeholder="••••••••"
+                        placeholder="********"
                     />
                 </div>
 
