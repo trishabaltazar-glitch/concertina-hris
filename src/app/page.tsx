@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import { endOfWeek, format, startOfWeek } from "date-fns";
 
 export const dynamic = "force-dynamic";
+const UNPAID_BREAK_HOURS = 1;
 
 type BreakWindow = {
   startedAt: Date;
@@ -45,7 +46,7 @@ function parseScheduleHours(startTime: string, endTime: string) {
   const end = endHour * 60 + endMinute;
   const minutes = Math.max(0, end - start);
 
-  return minutes / 60;
+  return Math.max(0, minutes / 60 - UNPAID_BREAK_HOURS);
 }
 
 function formatDurationParts(totalHours: number) {
@@ -176,9 +177,9 @@ export default async function DashboardPage() {
           <div className="rounded-[24px] border border-border/70 bg-background/70 p-5">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold text-foreground">Planned hours</p>
+                <p className="text-sm font-semibold text-foreground">Paid planned hours</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Based on your assigned weekly schedule
+                  Based on your assigned weekly schedule after unpaid breaks
                 </p>
               </div>
               <span className="rounded-full border border-border/70 bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
@@ -189,7 +190,7 @@ export default async function DashboardPage() {
             <div className="mt-8 space-y-6">
               <div>
                 <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                  Total hours
+                  Paid hours
                 </p>
                 <div className="mt-2 flex items-end gap-1 text-foreground">
                   <span className="text-4xl font-semibold tracking-tight">
@@ -227,8 +228,8 @@ export default async function DashboardPage() {
               </div>
 
               <div className="rounded-2xl bg-muted/50 px-4 py-3 text-xs leading-5 text-muted-foreground">
-                Each employee should complete their total weekly planned hours
-                based on their assigned work schedule.
+                Each employee should complete their total weekly paid hours
+                based on their assigned work schedule, excluding unpaid breaks.
               </div>
             </div>
           </div>

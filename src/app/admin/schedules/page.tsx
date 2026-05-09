@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminSchedulesPage() {
   const session = await auth();
-  const sessionUser = session?.user as any;
+  const sessionUser = session?.user as { role?: string } | undefined;
 
   if (!session || !sessionUser || (sessionUser.role !== "ADMIN" && sessionUser.role !== "MANAGER")) {
     redirect("/");
@@ -23,7 +23,7 @@ export default async function AdminSchedulesPage() {
   });
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8 py-8 px-4">
+    <div className="mx-auto max-w-7xl space-y-8 px-4 py-8">
       <ScheduleClientPage initialUsers={users} />
     </div>
   );
