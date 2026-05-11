@@ -102,7 +102,7 @@ export default async function UserSchedulePage() {
         <div className="grid gap-3 border-b border-border/70 bg-muted/20 px-5 py-4 sm:grid-cols-2">
           <div className="rounded-2xl border border-border/70 bg-background px-4 py-3">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-              Paid weekly hours
+              Weekly hours
             </p>
             <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
               {formatHours(totalWeeklyHours)} hrs
@@ -160,7 +160,7 @@ export default async function UserSchedulePage() {
                         {formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}
                       </p>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        {formatHours(getScheduleHours(schedule))} paid hours
+                        {formatHours(getScheduleHours(schedule))} hours
                       </p>
                     </>
                   ) : (

@@ -553,7 +553,7 @@ export function ScheduleClientPage({ initialUsers }: { initialUsers: User[] }) {
                               <Clock3 className="size-3.5" />
                             </span>
                             <div className="min-w-0">
-                              <div className="truncate text-xs font-semibold text-muted-foreground">Paid weekly hours</div>
+                              <div className="truncate text-xs font-semibold text-muted-foreground">Weekly hours</div>
                               <div className="mt-0.5 text-lg font-semibold leading-none text-foreground">
                                 {selectedWeeklyHours.toFixed(selectedWeeklyHours % 1 ? 1 : 0)}
                                 <span className="ml-1 text-xs font-medium text-muted-foreground">hrs</span>
