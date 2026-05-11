@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, ChevronsUpDown } from "lucide-react";
 
 type TimesheetFilterBarProps = {
   selectedRange: string;
@@ -65,23 +65,30 @@ export function TimesheetFilterBar({
 
   return (
     <div className="inline-flex max-w-full overflow-hidden rounded-lg border border-border bg-background text-sm shadow-sm">
-      <label className="flex h-9 items-center gap-1 border-r border-border bg-background px-3 text-xs font-medium text-foreground">
+      <label className="flex h-9 items-center gap-1.5 border-r border-border bg-background px-3 text-xs font-medium text-foreground">
         <span>Last</span>
-        <input
-          type="number"
-          min={1}
-          max={90}
-          value={rangeValue}
-          onChange={(event) => setRangeValue(event.target.value)}
-          onBlur={(event) => applyRange(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.currentTarget.blur();
-            }
-          }}
-          className="h-7 w-10 rounded-md border border-transparent bg-muted/45 px-1 text-center text-xs font-semibold text-foreground outline-none [appearance:textfield] focus-visible:border-ring focus-visible:bg-background focus-visible:ring-3 focus-visible:ring-ring/50 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-          aria-label="Number of days to show"
-        />
+        <span className="group/range relative inline-flex items-center">
+          <input
+            type="number"
+            min={1}
+            max={90}
+            value={rangeValue}
+            onChange={(event) => setRangeValue(event.target.value)}
+            onBlur={(event) => applyRange(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.currentTarget.blur();
+              }
+            }}
+            className="h-7 w-14 cursor-text rounded-md border border-input bg-background pl-2 pr-5 text-center text-xs font-semibold text-foreground shadow-xs outline-none transition-colors [appearance:textfield] hover:border-ring/60 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+            aria-label="Number of days to show"
+            title="Edit number of days"
+          />
+          <ChevronsUpDown
+            aria-hidden="true"
+            className="pointer-events-none absolute right-1.5 size-3 text-muted-foreground transition-colors group-focus-within/range:text-ring group-hover/range:text-foreground"
+          />
+        </span>
         <span>days</span>
       </label>
 
