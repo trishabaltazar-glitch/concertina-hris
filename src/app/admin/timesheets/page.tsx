@@ -19,6 +19,7 @@ export default async function AdminTimesheetsPage() {
                 select: {
                     name: true,
                     email: true,
+                    role: true,
                 }
             }
         },

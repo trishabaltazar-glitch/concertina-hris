@@ -13,7 +13,7 @@ import {
 } from "date-fns";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import { Plus } from "lucide-react";
+import { AlertCircle, CalendarX2, CheckCircle2, Clock3, Coffee, Plus, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TimesheetFilterBar } from "@/app/timesheets/components/timesheet-filter-bar";
 import { DeleteTimeLogButton } from "@/app/timesheets/components/delete-time-log-button";
@@ -25,6 +25,7 @@ type TimesheetsPageProps = {
         range?: string;
         from?: string;
         to?: string;
+        empty?: string;
     }>;
 };
 
@@ -77,6 +78,18 @@ function formatDuration(totalMinutes: number) {
 function formatHourLabel(minute: number) {
     const hour = Math.floor(minute / 60);
     return format(new Date(2025, 0, 1, hour, 0, 0), "HH:mm");
+}
+
+function formatMinuteLabel(minute: number) {
+    const clampedMinute = Math.max(0, Math.min(23 * 60 + 59, minute));
+    const hour = Math.floor(clampedMinute / 60);
+    const minutes = clampedMinute % 60;
+    return format(new Date(2025, 0, 1, hour, minutes, 0), "h:mm a");
+}
+
+function getSegmentLabel(segment: TimelineSegment) {
+    const typeLabel = segment.type === "break" ? "Break" : segment.type === "overtime" ? "Overtime" : "Working time";
+    return `${typeLabel}: ${formatMinuteLabel(segment.startMinute)} - ${formatMinuteLabel(segment.endMinute)}`;
 }
 
 function getBreakMinutes(breaks: BreakWindow[], fallbackEnd: Date | null) {
@@ -150,6 +163,13 @@ function buildSegments(logs: {
     return segments.filter((segment) => segment.endMinute > segment.startMinute);
 }
 
+function getOvertimeMinutes(clockIn: Date, clockOut: Date | null, breaks: BreakWindow[]) {
+    const end = clockOut || new Date();
+    return buildSegments([{ id: "summary", clockIn, clockOut: end, breaks }])
+        .filter((segment) => segment.type === "overtime")
+        .reduce((sum, segment) => sum + (segment.endMinute - segment.startMinute), 0);
+}
+
 function buildDays(fromDate: Date, toDate: Date) {
     const count = Math.max(0, differenceInCalendarDays(toDate, fromDate));
     return Array.from({ length: count + 1 }, (_, index) => addDays(fromDate, count - index));
@@ -168,6 +188,7 @@ export default async function TimesheetsPage({ searchParams }: TimesheetsPagePro
     const today = new Date();
     const customFrom = parseDateFilter(filters?.from, "start");
     const customTo = parseDateFilter(filters?.to, "end");
+    const showEmptyDays = filters?.empty === "1";
     const toDate = customTo || endOfDay(today);
     const fromDate = customFrom || startOfDay(addDays(toDate, -(rangeDays - 1)));
     const fromValue = format(fromDate, "yyyy-MM-dd");
@@ -203,6 +224,21 @@ export default async function TimesheetsPage({ searchParams }: TimesheetsPagePro
     }
 
     const days = buildDays(startOfDay(fromDate), startOfDay(toDate));
+    const totalWorkedMinutes = timeLogs.reduce(
+        (sum, log) => sum + getWorkedMinutes(log.clockIn, log.clockOut, log.breaks),
+        0
+    );
+    const totalBreakMinutes = timeLogs.reduce(
+        (sum, log) => sum + getBreakMinutes(log.breaks, log.clockOut || new Date()),
+        0
+    );
+    const totalOvertimeMinutes = timeLogs.reduce(
+        (sum, log) => sum + getOvertimeMinutes(log.clockIn, log.clockOut, log.breaks),
+        0
+    );
+    const lateDays = new Set(
+        timeLogs.filter((log) => log.status === "LATE").map((log) => format(log.clockIn, "yyyy-MM-dd"))
+    ).size;
     const latestMinute = timeLogs.reduce((latest, log) => {
         const logEnd = log.clockOut || new Date();
         const breakEnd = log.breaks.reduce((max, item) => {
@@ -226,12 +262,15 @@ export default async function TimesheetsPage({ searchParams }: TimesheetsPagePro
                 fromValue={fromValue}
                 toValue={toValue}
                 displayRange={displayRange}
+                showEmptyDays={showEmptyDays}
             />
 
             <section className="rounded-2xl border bg-card shadow-sm">
                 <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
                     <div className="flex items-center gap-2">
-                        <span className="flex size-6 items-center justify-center rounded-full border text-xs">✓</span>
+                        <span className="flex size-6 items-center justify-center rounded-full border text-muted-foreground">
+                            <CheckCircle2 className="size-3.5" />
+                        </span>
                         <h1 className="text-sm font-semibold text-foreground">My timesheets</h1>
                     </div>
                     <Button asChild variant="outline" size="sm">
@@ -240,6 +279,37 @@ export default async function TimesheetsPage({ searchParams }: TimesheetsPagePro
                             Entry log
                         </a>
                     </Button>
+                </div>
+
+                <div className="grid gap-2 border-b px-4 py-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="rounded-lg border border-border bg-background/60 px-3 py-2">
+                        <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground">
+                            <Clock3 className="size-3.5" />
+                            Total worked
+                        </div>
+                        <p className="mt-1 text-sm font-semibold text-foreground">{formatDuration(totalWorkedMinutes)}</p>
+                    </div>
+                    <div className="rounded-lg border border-border bg-background/60 px-3 py-2">
+                        <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground">
+                            <Coffee className="size-3.5" />
+                            Break time
+                        </div>
+                        <p className="mt-1 text-sm font-semibold text-foreground">{formatDuration(totalBreakMinutes)}</p>
+                    </div>
+                    <div className="rounded-lg border border-border bg-background/60 px-3 py-2">
+                        <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground">
+                            <Timer className="size-3.5" />
+                            Overtime
+                        </div>
+                        <p className="mt-1 text-sm font-semibold text-foreground">{formatDuration(totalOvertimeMinutes)}</p>
+                    </div>
+                    <div className="rounded-lg border border-border bg-background/60 px-3 py-2">
+                        <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground">
+                            <AlertCircle className="size-3.5" />
+                            Late days
+                        </div>
+                        <p className="mt-1 text-sm font-semibold text-foreground">{lateDays}</p>
+                    </div>
                 </div>
 
                 <div className="border-b px-4 py-3">
@@ -251,20 +321,52 @@ export default async function TimesheetsPage({ searchParams }: TimesheetsPagePro
                     </div>
                 </div>
 
-                <div className="overflow-x-auto">
-                    <div className="min-w-[780px] divide-y">
-                        {databaseError ? (
-                            <div className="px-4 py-12 text-center text-sm text-muted-foreground">
-                                {databaseError}
-                            </div>
-                        ) : days.length === 0 || timeLogs.length === 0 ? (
-                            <div className="px-4 py-12 text-center text-sm text-muted-foreground">
-                                No time logs found for this date range.
-                            </div>
-                        ) : (
-                            days.map((day) => {
-                                const logsForDay = timeLogs.filter((log) => isSameDay(log.clockIn, day));
-                                if (logsForDay.length === 0) return null;
+                <div className="divide-y">
+                    {databaseError ? (
+                        <div className="px-4 py-12 text-center text-sm text-muted-foreground">
+                            {databaseError}
+                        </div>
+                    ) : days.length === 0 ? (
+                        <div className="px-4 py-12 text-center text-sm text-muted-foreground">
+                            Choose a valid date range to review your timesheets.
+                        </div>
+                    ) : timeLogs.length === 0 && !showEmptyDays ? (
+                        <div className="flex flex-col items-center px-4 py-12 text-center">
+                            <CalendarX2 className="size-8 text-muted-foreground" />
+                            <h2 className="mt-3 text-sm font-semibold text-foreground">No entries in this range</h2>
+                            <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+                                Try another date range or open the entry log if you need to add today&apos;s time.
+                            </p>
+                            <Button asChild variant="outline" size="sm" className="mt-4">
+                                <a href="/">
+                                    <Plus className="size-4" />
+                                    Entry log
+                                </a>
+                            </Button>
+                        </div>
+                    ) : (
+                        days.map((day) => {
+                            const logsForDay = timeLogs.filter((log) => isSameDay(log.clockIn, day));
+                            if (logsForDay.length === 0) {
+                                if (!showEmptyDays) return null;
+
+                                return (
+                                    <div key={day.toISOString()} className="px-4 py-5">
+                                        <div className="flex items-center justify-between gap-4 rounded-lg border border-dashed border-border bg-background/50 px-3 py-3">
+                                            <div className="min-w-0">
+                                                <p className="text-sm font-semibold text-foreground">
+                                                    {isToday(day) ? "Today" : format(day, "EEEE, MMM d")}
+                                                </p>
+                                                <p className="mt-1 text-xs text-muted-foreground">No time log recorded.</p>
+                                            </div>
+                                            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs font-medium text-muted-foreground">
+                                                <CalendarX2 className="size-3.5" />
+                                                No entry
+                                            </span>
+                                        </div>
+                                    </div>
+                                );
+                            }
 
                                 const firstClockIn = logsForDay[0]?.clockIn;
                                 const lastClockOut = logsForDay.reduce<Date | null>((latest, log) => {
@@ -301,7 +403,27 @@ export default async function TimesheetsPage({ searchParams }: TimesheetsPagePro
                                             </p>
                                         </div>
 
-                                        <div className="grid grid-cols-[72px_1fr_72px] gap-3">
+                                        <div className="mb-3 grid grid-cols-3 gap-2 rounded-lg border border-border bg-background/50 px-3 py-2 text-xs md:hidden">
+                                            <div>
+                                                <p className="text-muted-foreground">In</p>
+                                                <p className="mt-1 font-semibold text-foreground">
+                                                    {firstClockIn ? format(firstClockIn, "h:mm a") : "-"}
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <p className="text-muted-foreground">Out</p>
+                                                <p className="mt-1 font-semibold text-foreground">
+                                                    {lastClockOut ? format(lastClockOut, "h:mm a") : "Active"}
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <p className="text-muted-foreground">Total</p>
+                                                <p className="mt-1 font-semibold text-foreground">{formatDuration(totalMinutes)}</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="overflow-x-auto pb-1">
+                                        <div className="grid min-w-[720px] grid-cols-[72px_1fr_72px] gap-3">
                                             <div className="text-xs text-muted-foreground">
                                                 <p>Clock-in</p>
                                                 <p className="mt-1 font-semibold text-foreground">
@@ -328,6 +450,8 @@ export default async function TimesheetsPage({ searchParams }: TimesheetsPagePro
                                                     {segments.map((segment) => (
                                                         <span
                                                             key={segment.id}
+                                                            title={getSegmentLabel(segment)}
+                                                            aria-label={getSegmentLabel(segment)}
                                                             className={
                                                                 segment.type === "break"
                                                                     ? "absolute top-0 h-3 rounded-sm bg-sky-400"
@@ -344,6 +468,8 @@ export default async function TimesheetsPage({ searchParams }: TimesheetsPagePro
                                                     {isLate && firstClockIn && (
                                                         <span
                                                             className="absolute -top-1 h-5 w-1 rounded-full bg-rose-500"
+                                                            title={`Late: ${formatMinuteLabel(minutesFromMidnight(firstClockIn))}`}
+                                                            aria-label={`Late: ${formatMinuteLabel(minutesFromMidnight(firstClockIn))}`}
                                                             style={{
                                                                 left: `${Math.max(0, ((minutesFromMidnight(firstClockIn) - timelineStartMinute) / timelineTotalMinutes) * 100)}%`,
                                                             }}
@@ -358,6 +484,7 @@ export default async function TimesheetsPage({ searchParams }: TimesheetsPagePro
                                                     {lastClockOut ? format(lastClockOut, "h:mm a") : "Active"}
                                                 </p>
                                             </div>
+                                        </div>
                                         </div>
 
                                         <div className="mt-4 space-y-2">
@@ -392,7 +519,6 @@ export default async function TimesheetsPage({ searchParams }: TimesheetsPagePro
                                 );
                             })
                         )}
-                    </div>
                 </div>
             </section>
         </div>
