@@ -96,21 +96,21 @@ export function ClockWidget() {
 
   if (!time) {
     return (
-      <div className="rounded-[24px] border border-border/70 bg-background/70 p-5">
-        <div className="animate-pulse space-y-6">
+      <div className="rounded-lg border border-border/70 bg-background/70 p-4">
+        <div className="animate-pulse space-y-4">
           <div className="h-4 w-24 rounded-full bg-muted" />
-          <div className="space-y-3">
+          <div className="space-y-2">
             <div className="mx-auto h-3 w-20 rounded-full bg-muted" />
-            <div className="mx-auto h-12 w-36 rounded-2xl bg-muted" />
+            <div className="mx-auto h-10 w-32 rounded-lg bg-muted" />
           </div>
-          <div className="mx-auto h-10 w-28 rounded-full bg-muted" />
+          <div className="mx-auto h-9 w-28 rounded-md bg-muted" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="rounded-[24px] border border-border/70 bg-background/70 p-5">
+    <div className="rounded-lg border border-border/70 bg-background/70 p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm font-semibold text-foreground">Clock-in</p>
@@ -120,7 +120,7 @@ export function ClockWidget() {
         </div>
         <span
           className={cn(
-            "rounded-full px-3 py-1 text-[11px] font-semibold",
+            "rounded-md px-2.5 py-1 text-[11px] font-semibold",
             !hasLoadedStatus && "bg-muted text-muted-foreground",
             hasLoadedStatus &&
               (isClockedIn
@@ -134,18 +134,18 @@ export function ClockWidget() {
         </span>
       </div>
 
-      <div className="mt-8 rounded-3xl bg-card px-6 py-8 text-center ring-1 ring-border/70">
+      <div className="mt-4 rounded-lg bg-card px-4 py-5 text-center ring-1 ring-border/70">
         <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
           {isOnBreak ? "Break time" : isClockedIn ? "Time since clock-in" : "Current time"}
         </p>
-        <h2 className="mt-3 text-5xl font-semibold tracking-[-0.06em] text-foreground">
+        <h2 className="mt-2 text-4xl font-semibold tracking-tight text-foreground">
           {isOnBreak
             ? formatElapsedTime(time, breakStartTime)
             : isClockedIn
             ? formatElapsedTime(time, clockInTime)
             : format(time, "HH:mm:ss")}
         </h2>
-        <p className="mt-2 text-sm text-muted-foreground">
+        <p className="mt-1.5 text-xs text-muted-foreground">
           {isClockedIn && clockInTime
             ? `Clocked in at ${format(clockInTime, "h:mm a")} | ${format(clockInTime, "EEEE, MMM d")}`
             : format(time, "EEEE, MMM d")}
@@ -153,7 +153,7 @@ export function ClockWidget() {
       </div>
 
       {!isClockedIn && (
-        <div className="mt-5 grid gap-3">
+        <div className="mt-4 grid gap-2">
           <Input
             value={projectName}
             onChange={(event) => setProjectName(event.target.value)}
@@ -169,15 +169,15 @@ export function ClockWidget() {
         </div>
       )}
 
-      <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+      <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
         {isClockedIn && (
           <Button
             type="button"
             onClick={handleToggleBreak}
             disabled={isBreakPending || isPending || !hasLoadedStatus}
             variant={isOnBreak ? "secondary" : "outline"}
-            size="lg"
-            className="rounded-full"
+            size="sm"
+            className="rounded-md"
           >
             {isBreakPending ? (
               <div className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
@@ -196,7 +196,10 @@ export function ClockWidget() {
           variant={isClockedIn ? "destructive" : "default"}
           size="lg"
           className={cn(
-            "rounded-full",
+            "h-12 min-w-36 rounded-md px-6 text-sm font-semibold shadow-sm ring-2 ring-transparent transition-all",
+            !isClockedIn &&
+              "bg-brand-red text-brand-red-foreground shadow-brand-red/20 hover:bg-brand-red/90 hover:shadow-md focus-visible:ring-brand-red/35",
+            isClockedIn && "focus-visible:ring-destructive/35",
             (isPending || !hasLoadedStatus) && "opacity-70"
           )}
         >
@@ -209,14 +212,14 @@ export function ClockWidget() {
             </>
           ) : (
             <>
-              <Play className="size-4 fill-current" />
+              <Play className="size-5 fill-current" />
               Clock-in
             </>
           )}
         </Button>
       </div>
 
-      <p className="mt-4 text-center text-xs leading-5 text-muted-foreground">
+      <p className="mt-3 text-center text-xs leading-5 text-muted-foreground">
         {!hasLoadedStatus
           ? "Checking your current attendance status."
           : isOnBreak
