@@ -151,4 +151,30 @@
   .text-brand-red { color: var(--brand-red); }
   .bg-brand-red { background-color: var(--brand-red); color: var(--brand-red-foreground); }
   .brand-gradient { background-image: linear-gradient(90deg, var(--brand-blue), var(--brand-red)); }
+
+  .loading-sweep {
+    animation: loading-sweep 1.45s ease-in-out infinite;
+  }
+
+  .loading-orbit {
+    animation: loading-orbit 1.4s linear infinite;
+  }
+
+  .loading-breathe {
+    animation: loading-breathe 1.7s ease-in-out infinite;
+  }
+}
+
+@keyframes loading-sweep {
+  0% { transform: translateX(-110%); }
+  55%, 100% { transform: translateX(210%); }
+}
+
+@keyframes loading-orbit {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes loading-breathe {
+  0%, 100% { opacity: 0.55; transform: scaleX(0.96); }
+  50% { opacity: 1; transform: scaleX(1); }
 }

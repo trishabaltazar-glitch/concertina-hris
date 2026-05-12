@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { format } from "date-fns";
-import { Coffee, Play, Square } from "lucide-react";
+import { CheckCircle2, Coffee, Loader2, Play, Square, TimerReset } from "lucide-react";
 
 import { toggleBreakStatus, toggleClockStatus, getClockStatus } from "@/app/actions/time";
 import { cn } from "@/lib/utils";
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 type ClockStatus = Awaited<ReturnType<typeof getClockStatus>>;
+type PendingAction = "clock-in" | "clock-out" | "break-start" | "break-end" | null;
 
 function formatElapsedTime(now: Date, clockInTime: Date | null) {
   if (!clockInTime) {
@@ -37,7 +38,9 @@ export function ClockWidget() {
   const [notes, setNotes] = useState("");
   const [isPending, setIsPending] = useState(false);
   const [isBreakPending, setIsBreakPending] = useState(false);
+  const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [hasLoadedStatus, setHasLoadedStatus] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const applyClockStatus = useCallback((status: ClockStatus) => {
     setIsClockedIn(status.isClockedIn);
@@ -45,6 +48,16 @@ export function ClockWidget() {
     setClockInTime(status.clockInTime ? new Date(status.clockInTime) : null);
     setBreakStartTime(status.breakStartTime ? new Date(status.breakStartTime) : null);
   }, []);
+
+  const currentStatus = useCallback(
+    (): ClockStatus => ({
+      isClockedIn,
+      isOnBreak,
+      clockInTime,
+      breakStartTime,
+    }),
+    [breakStartTime, clockInTime, isClockedIn, isOnBreak]
+  );
 
   useEffect(() => {
     getClockStatus().then((status) => {
@@ -63,6 +76,27 @@ export function ClockWidget() {
   const handleToggleClock = async () => {
     if (isPending || !hasLoadedStatus) return;
 
+    const previousStatus = currentStatus();
+    const action: PendingAction = isClockedIn ? "clock-out" : "clock-in";
+    const optimisticClockTime = new Date();
+
+    setErrorMessage(null);
+    setPendingAction(action);
+    applyClockStatus(
+      isClockedIn
+        ? {
+            isClockedIn: false,
+            isOnBreak: false,
+            clockInTime: null,
+            breakStartTime: null,
+          }
+        : {
+            isClockedIn: true,
+            isOnBreak: false,
+            clockInTime: optimisticClockTime,
+            breakStartTime: null,
+          }
+    );
     setIsPending(true);
     try {
       const res = await toggleClockStatus(projectName, notes);
@@ -73,25 +107,57 @@ export function ClockWidget() {
           setProjectName("");
           setNotes("");
         }
+      } else {
+        applyClockStatus(previousStatus);
+        setErrorMessage(res.error || "Could not update your clock status.");
       }
     } finally {
       setIsPending(false);
+      setPendingAction(null);
     }
   };
 
   const handleToggleBreak = async () => {
     if (isBreakPending || !hasLoadedStatus || !isClockedIn) return;
 
+    const previousStatus = currentStatus();
+    const action: PendingAction = isOnBreak ? "break-end" : "break-start";
+    const optimisticBreakTime = new Date();
+
+    setErrorMessage(null);
+    setPendingAction(action);
+    applyClockStatus({
+      isClockedIn: true,
+      clockInTime,
+      isOnBreak: !isOnBreak,
+      breakStartTime: isOnBreak ? null : optimisticBreakTime,
+    });
     setIsBreakPending(true);
     try {
       const res = await toggleBreakStatus();
       if (res.success) {
         applyClockStatus(res.status || (await getClockStatus()));
+      } else {
+        applyClockStatus(previousStatus);
+        setErrorMessage(res.error || "Could not update your break status.");
       }
     } finally {
       setIsBreakPending(false);
+      setPendingAction(null);
     }
   };
+
+  const isSyncing = isPending || isBreakPending;
+  const syncLabel =
+    pendingAction === "clock-in"
+      ? "Clock-in noted. Syncing securely..."
+      : pendingAction === "clock-out"
+        ? "Clock-out noted. Syncing securely..."
+        : pendingAction === "break-start"
+          ? "Break start noted. Syncing securely..."
+          : pendingAction === "break-end"
+            ? "Break end noted. Syncing securely..."
+            : null;
 
   if (!time) {
     return (
@@ -121,7 +187,9 @@ export function ClockWidget() {
           className={cn(
             "rounded-md px-2.5 py-1 text-[11px] font-semibold",
             !hasLoadedStatus && "bg-muted text-muted-foreground",
+            isSyncing && "bg-brand-steel/12 text-brand-steel",
             hasLoadedStatus &&
+              !isSyncing &&
               (isClockedIn
                 ? isOnBreak
                   ? "bg-sky-500/12 text-sky-700 dark:text-sky-300"
@@ -129,13 +197,23 @@ export function ClockWidget() {
                 : "bg-muted text-muted-foreground")
           )}
         >
-          {!hasLoadedStatus ? "Loading" : isOnBreak ? "On break" : isClockedIn ? "Ongoing" : "Ready"}
+          {!hasLoadedStatus ? "Loading" : isSyncing ? "Syncing" : isOnBreak ? "On break" : isClockedIn ? "Ongoing" : "Ready"}
         </span>
       </div>
 
-      <div className="mt-4 rounded-lg bg-card px-4 py-5 text-center ring-1 ring-border/70">
+      <div
+        className={cn(
+          "relative mt-4 overflow-hidden rounded-lg bg-card px-4 py-5 text-center ring-1 ring-border/70",
+          isSyncing && "ring-brand-steel/35"
+        )}
+      >
+        {isSyncing && (
+          <div className="absolute inset-x-0 top-0 h-1 overflow-hidden bg-brand-steel/10">
+            <div className="h-full w-1/3 loading-sweep brand-gradient" />
+          </div>
+        )}
         <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-          {isOnBreak ? "Break time" : isClockedIn ? "Time since clock-in" : "Current time"}
+          {isSyncing ? "Syncing attendance" : isOnBreak ? "Break time" : isClockedIn ? "Time since clock-in" : "Current time"}
         </p>
         <h2 className="mt-2 text-4xl font-semibold tracking-tight text-foreground">
           {isOnBreak
@@ -150,6 +228,39 @@ export function ClockWidget() {
             : format(time, "EEEE, MMM d")}
         </p>
       </div>
+
+      {(isSyncing || errorMessage) && (
+        <div
+          className={cn(
+            "mt-3 overflow-hidden rounded-lg border px-3 py-3 text-xs shadow-sm",
+            errorMessage
+              ? "border-destructive/30 bg-destructive/10 text-destructive"
+              : "border-brand-steel/25 bg-brand-steel/10 text-brand-navy dark:text-foreground"
+          )}
+        >
+          <div className="flex items-center gap-3">
+            {errorMessage ? (
+              <span className="size-2 rounded-full bg-destructive" />
+            ) : (
+              <div className="relative grid size-9 shrink-0 place-items-center rounded-md bg-card text-brand-steel ring-1 ring-brand-steel/20">
+                <TimerReset className="size-4" />
+                <span className="absolute inset-1 rounded-full border border-brand-steel/25 border-t-brand-steel loading-orbit" />
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold">{errorMessage ? "Update failed" : syncLabel}</p>
+              {!errorMessage && (
+                <div className="mt-2 grid grid-cols-3 gap-1.5">
+                  <span className="h-1.5 rounded-full bg-brand-steel loading-breathe" />
+                  <span className="h-1.5 rounded-full bg-brand-red loading-breathe [animation-delay:120ms]" />
+                  <span className="h-1.5 rounded-full bg-brand-steel loading-breathe [animation-delay:240ms]" />
+                </div>
+              )}
+              {errorMessage && <p className="mt-1 text-muted-foreground">{errorMessage}</p>}
+            </div>
+          </div>
+        </div>
+      )}
 
       {!isClockedIn && (
         <div className="mt-4 grid gap-2">
@@ -179,7 +290,10 @@ export function ClockWidget() {
             className="rounded-md"
           >
             {isBreakPending ? (
-              <div className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                Syncing
+              </>
             ) : (
               <>
                 <Coffee className="size-4" />
@@ -203,7 +317,10 @@ export function ClockWidget() {
           )}
         >
           {isPending ? (
-            <div className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+            <>
+              <CheckCircle2 className="size-4" />
+              Syncing
+            </>
           ) : isClockedIn ? (
             <>
               <Square className="size-4 fill-current" />
