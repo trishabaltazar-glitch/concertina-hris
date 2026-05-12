@@ -44,6 +44,35 @@ model User {
   pages            Page[]         // Link to authored knowledge base pages
   schedules        Schedule[]     // Assigned schedules
   auditLogs        AuditLog[]     // Actions performed by user
+  passwordResetTokens PasswordResetToken[]
+  notifications    Notification[]
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  href      String?
+  type      String    @default("INFO")
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt])
+  @@index([createdAt])
 }
 
 model TimeLog {
@@ -89,7 +118,12 @@ model LeaveRequest {
   leaveType String   // e.g., VACATION, SICK
   startDate DateTime
   endDate   DateTime
+  dayType   String   @default("FULL_DAY")
+  requestedDays Float @default(1)
   reason    String?
+  attachmentName String?
+  attachmentType String?
+  attachmentData Bytes?
   status    String   @default("PENDING") // PENDING, APPROVED, REJECTED
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

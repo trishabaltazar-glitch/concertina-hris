@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, UserCog, User, ShieldAlert, Search, Trash2, Loader2 } from "lucide-react";
+import { Check, Pencil, Plus, UserCog, User, ShieldAlert, Search, Trash2, Loader2, X } from "lucide-react";
 import { AddEmployeeForm } from "./add-employee-form";
-import { deleteEmployee } from "@/app/actions/employees";
+import { deleteEmployee, updateEmployeePffdBalance } from "@/app/actions/employees";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -17,15 +17,49 @@ type EmployeeData = {
 };
 
 export function EmployeeClientPage({ initialUsers }: { initialUsers: EmployeeData[] }) {
+    const [users, setUsers] = useState(initialUsers);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
     const [employeeToDelete, setEmployeeToDelete] = useState<EmployeeData | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [editingBalanceUserId, setEditingBalanceUserId] = useState<string | null>(null);
+    const [balanceValue, setBalanceValue] = useState("");
+    const [isSavingBalance, setIsSavingBalance] = useState(false);
 
-    const filteredUsers = initialUsers.filter(user => 
-        user.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    const filteredUsers = users.filter(user =>
+        user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         user.email.toLowerCase().includes(searchQuery.toLowerCase())
     );
+
+    const startBalanceEdit = (user: EmployeeData) => {
+        setEditingBalanceUserId(user.id);
+        setBalanceValue(String(user.leaveBalance));
+    };
+
+    const cancelBalanceEdit = () => {
+        setEditingBalanceUserId(null);
+        setBalanceValue("");
+    };
+
+    const saveBalanceEdit = async (user: EmployeeData) => {
+        const nextBalance = Number.parseFloat(balanceValue);
+        setIsSavingBalance(true);
+        try {
+            const result = await updateEmployeePffdBalance(user.id, nextBalance);
+            if (result.success) {
+                setUsers((currentUsers) =>
+                    currentUsers.map((currentUser) =>
+                        currentUser.id === user.id ? { ...currentUser, leaveBalance: nextBalance } : currentUser
+                    )
+                );
+                cancelBalanceEdit();
+            } else {
+                alert(result.error || "Failed to update PFFD balance.");
+            }
+        } finally {
+            setIsSavingBalance(false);
+        }
+    };
 
     const handleDelete = async () => {
         if (!employeeToDelete) return;
@@ -114,9 +148,48 @@ export function EmployeeClientPage({ initialUsers }: { initialUsers: EmployeeDat
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 text-center">
-                                        <span className="font-mono font-medium text-emerald-600 dark:text-emerald-400">
-                                            {user.leaveBalance}
-                                        </span>
+                                        {editingBalanceUserId === user.id ? (
+                                            <div className="flex items-center justify-center gap-1">
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    step="0.5"
+                                                    value={balanceValue}
+                                                    onChange={(event) => setBalanceValue(event.target.value)}
+                                                    className="h-8 w-20 rounded-md border border-input bg-background px-2 text-center text-sm font-medium focus:outline-none focus:ring-2 focus:ring-ring/40"
+                                                />
+                                                <Button
+                                                    type="button"
+                                                    size="icon-sm"
+                                                    variant="success"
+                                                    disabled={isSavingBalance}
+                                                    onClick={() => saveBalanceEdit(user)}
+                                                    aria-label={`Save PFFD balance for ${user.name}`}
+                                                >
+                                                    {isSavingBalance ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    size="icon-sm"
+                                                    variant="ghost"
+                                                    disabled={isSavingBalance}
+                                                    onClick={cancelBalanceEdit}
+                                                    aria-label="Cancel PFFD balance edit"
+                                                >
+                                                    <X className="size-3.5" />
+                                                </Button>
+                                            </div>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                onClick={() => startBalanceEdit(user)}
+                                                className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 font-mono font-medium text-emerald-600 transition-colors hover:bg-muted dark:text-emerald-400"
+                                                aria-label={`Edit PFFD balance for ${user.name}`}
+                                            >
+                                                {user.leaveBalance}
+                                                <Pencil className="size-3" />
+                                            </button>
+                                        )}
                                     </td>
                                     <td className="px-6 py-4 text-right text-muted-foreground whitespace-nowrap">
                                         {user.joined}

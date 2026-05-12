@@ -7,7 +7,7 @@ import Image from "next/image"
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; setup?: string }>
+  searchParams: Promise<{ error?: string; setup?: string; reset?: string }>
 }) {
   const params = await searchParams
 
@@ -27,6 +27,7 @@ export default async function LoginPage({
         <LoginForm
           error={params?.error}
           setup={params?.setup}
+          reset={params?.reset}
           onSubmit={async (formData) => {
             "use server"
 

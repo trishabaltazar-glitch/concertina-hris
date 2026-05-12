@@ -2,7 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "./auth";
 
 // Protect all routes under /admin, /leaves, /timesheets, and the root / dashboard
-const protectedRoutes = ["/", "/timesheets", "/leaves", "/admin/leaves"];
+const protectedRoutes = [
+    "/",
+    "/timesheets",
+    "/leaves",
+    "/schedule",
+    "/directory",
+    "/holidays",
+    "/profile",
+    "/notifications",
+    "/admin",
+];
 
 export default auth((req) => {
     const { nextUrl } = req;
@@ -21,8 +31,9 @@ export default auth((req) => {
         return NextResponse.redirect(redirectUrl);
     }
 
-    // Redirect users who are already logged in away from the login page
-    if (isLoggedIn && nextUrl.pathname === "/login") {
+    // Redirect users who are already logged in away from public auth pages
+    const publicAuthRoutes = ["/login", "/forgot-password", "/reset-password"];
+    if (isLoggedIn && publicAuthRoutes.includes(nextUrl.pathname)) {
         return NextResponse.redirect(new URL("/", nextUrl.origin));
     }
 

@@ -31,11 +31,34 @@ export default async function AdminLeavesPage() {
         take: 20,
     });
 
+    async function withLeaveMeta<T extends { id: string }>(requests: T[]) {
+        return Promise.all(
+            requests.map(async (request) => {
+                const meta = await prisma.$queryRaw<{ requestedDays: number; dayType: string; attachmentName: string | null }[]>`
+                    SELECT "requestedDays", "dayType", "attachmentName"
+                    FROM "LeaveRequest"
+                    WHERE "id" = ${request.id}
+                    LIMIT 1
+                `;
+
+                return {
+                    ...request,
+                    requestedDays: meta[0]?.requestedDays || 1,
+                    dayType: meta[0]?.dayType || "FULL_DAY",
+                    attachmentName: meta[0]?.attachmentName || null,
+                };
+            })
+        );
+    }
+
+    const pendingRequestsWithMeta = await withLeaveMeta(pendingRequests);
+    const processedRequestsWithMeta = await withLeaveMeta(processedRequests);
+
     return (
         <div className="max-w-5xl mx-auto space-y-8">
             <div className="space-y-6">
                 <h2 className="font-semibold text-xl">Pending Requests</h2>
-                {pendingRequests.length === 0 ? (
+                {pendingRequestsWithMeta.length === 0 ? (
                     <div className="rounded-2xl border border-dashed bg-card/50 text-card-foreground p-12 text-center text-muted-foreground">
                         <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-primary/10 mb-4">
                             <span className="text-primary text-xl">✨</span>
@@ -44,7 +67,7 @@ export default async function AdminLeavesPage() {
                     </div>
                 ) : (
                     <div className="grid gap-4">
-                        {pendingRequests.map((request: any) => (
+                        {pendingRequestsWithMeta.map((request: any) => (
                             <div key={request.id} className="rounded-xl border bg-card text-card-foreground shadow-sm p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
                                 <div className="space-y-1">
                                     <div className="flex items-center gap-3">
@@ -54,8 +77,13 @@ export default async function AdminLeavesPage() {
                                         </span>
                                     </div>
                                     <p className="text-muted-foreground text-sm font-medium">
-                                        <span className="capitalize text-foreground">{request.leaveType === 'LEAVE_CREDITS' ? 'PFFD Credits' : request.leaveType.toLowerCase() + ' PFFD'}</span> • {format(request.startDate, "MMM d")} to {format(request.endDate, "MMM d, yyyy")}
+                                        <span className="capitalize text-foreground">{request.leaveType === 'LEAVE_CREDITS' ? 'PFFD Credits' : request.leaveType.toLowerCase() + ' PFFD'}</span> • {request.dayType === "HALF_DAY" ? `${format(request.startDate, "MMM d, yyyy")} (half-day)` : `${format(request.startDate, "MMM d")} to ${format(request.endDate, "MMM d, yyyy")}`} • {request.requestedDays} day{request.requestedDays === 1 ? "" : "s"}
                                     </p>
+                                    {request.attachmentName && (
+                                        <a href={`/leaves/attachments/${request.id}`} className="text-xs font-semibold text-brand-steel hover:text-brand-red">
+                                            View attachment
+                                        </a>
+                                    )}
                                     {request.reason && (
                                         <p className="text-sm mt-3 pt-3 border-t italic text-muted-foreground max-w-2xl">
                                             "{request.reason}"
@@ -101,14 +129,14 @@ export default async function AdminLeavesPage() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y">
-                                {processedRequests.length === 0 ? (
+                                {processedRequestsWithMeta.length === 0 ? (
                                     <tr>
                                         <td colSpan={4} className="px-6 py-8 text-center text-muted-foreground">
                                             No processed history.
                                         </td>
                                     </tr>
                                 ) : (
-                                    processedRequests.map((request: any) => (
+                                    processedRequestsWithMeta.map((request: any) => (
                                         <tr key={request.id} className="hover:bg-muted/50 transition-colors">
                                             <td className="px-6 py-4 font-medium">
                                                 {request.user.name}
@@ -117,7 +145,7 @@ export default async function AdminLeavesPage() {
                                                 {request.leaveType === 'LEAVE_CREDITS' ? 'PFFD Credits' : request.leaveType.toLowerCase()}
                                             </td>
                                             <td className="px-6 py-4 text-muted-foreground whitespace-nowrap">
-                                                {format(request.startDate, "MMM d")} - {format(request.endDate, "MMM d, yyyy")}
+                                                {request.dayType === "HALF_DAY" ? `${format(request.startDate, "MMM d, yyyy")} (half-day)` : `${format(request.startDate, "MMM d")} - ${format(request.endDate, "MMM d, yyyy")}`} • {request.requestedDays} day{request.requestedDays === 1 ? "" : "s"}
                                             </td>
                                             <td className="px-6 py-4">
                                                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${request.status === 'APPROVED'

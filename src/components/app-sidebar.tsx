@@ -19,11 +19,11 @@ import {
   TaskDaily02Icon,
   TimeQuarterPassIcon,
   UserGroupIcon,
-  UserSquareIcon,
   Analytics02Icon,
 } from "@hugeicons/core-free-icons"
 
 import { handleSignOut } from "@/app/actions/auth"
+import { NotificationsDropdownSection } from "@/components/notifications-dropdown-section"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
@@ -78,6 +78,7 @@ type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
 export function AppSidebar({ user, ...props }: AppSidebarProps) {
   const pathname = usePathname()
   const { isMobile } = useSidebar()
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = React.useState(false)
   const showAdminPanel = user && (user.role === "ADMIN" || user.role === "MANAGER")
   const signOutFormRef = React.useRef<HTMLFormElement>(null)
   const initial =
@@ -198,7 +199,7 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
       <SidebarFooter className="border-t border-sidebar-border/70 p-3 group-data-[collapsible=icon]:px-2">
         <SidebarMenu>
           <SidebarMenuItem>
-            <DropdownMenu>
+            <DropdownMenu open={isAccountMenuOpen} onOpenChange={setIsAccountMenuOpen}>
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton
                   size="lg"
@@ -231,7 +232,7 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent
-                className="min-w-64 rounded-2xl p-2"
+                className="min-w-64 rounded-lg p-2"
                 side={isMobile ? "bottom" : "right"}
                 align="end"
                 sideOffset={8}
@@ -252,12 +253,8 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/profile" className="flex w-full items-center gap-2">
-                    <HugeiconsIcon icon={UserSquareIcon} size={18} strokeWidth={1.8} />
-                    My Profile
-                  </Link>
-                </DropdownMenuItem>
+                <NotificationsDropdownSection onNavigate={() => setIsAccountMenuOpen(false)} />
+                <DropdownMenuSeparator />
                 <form ref={signOutFormRef} action={handleSignOut}>
                   <DropdownMenuItem
                     variant="destructive"

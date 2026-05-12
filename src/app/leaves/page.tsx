@@ -12,10 +12,23 @@ export default async function LeavesPage() {
 
     const employeeId = session.user.id;
 
-    const leaveRequests = await prisma.leaveRequest.findMany({
-        where: { userId: employeeId },
-        orderBy: { createdAt: "desc" },
-    });
+    const leaveRequests = await prisma.$queryRaw<{
+        id: string;
+        leaveType: string;
+        startDate: Date;
+        endDate: Date;
+        dayType: string;
+        requestedDays: number;
+        attachmentName: string | null;
+        reason: string | null;
+        status: string;
+        createdAt: Date;
+    }[]>`
+        SELECT "id", "leaveType", "startDate", "endDate", "dayType", "requestedDays", "attachmentName", "reason", "status", "createdAt"
+        FROM "LeaveRequest"
+        WHERE "userId" = ${employeeId}
+        ORDER BY "createdAt" DESC
+    `;
 
     const balances = await prisma.leaveBalance.findMany({
         where: { userId: employeeId },
@@ -33,6 +46,9 @@ export default async function LeavesPage() {
                 leaveType: request.leaveType,
                 startDate: request.startDate.toISOString(),
                 endDate: request.endDate.toISOString(),
+                dayType: request.dayType,
+                requestedDays: request.requestedDays,
+                attachmentName: request.attachmentName,
                 reason: request.reason,
                 status: request.status,
                 createdAt: request.createdAt.toISOString(),

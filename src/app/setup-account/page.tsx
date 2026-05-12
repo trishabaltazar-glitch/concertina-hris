@@ -1,6 +1,12 @@
 import { redirect } from "next/navigation";
+import Image from "next/image";
+import Link from "next/link";
+
 import { completeInviteSetup } from "@/app/actions/onboarding";
+import { PasswordInput } from "@/components/password-input";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 type SetupAccountProps = {
     searchParams: Promise<{
@@ -17,81 +23,103 @@ export default async function SetupAccountPage({ searchParams }: SetupAccountPro
     const success = params?.success;
 
     return (
-        <div className="flex min-h-screen items-center justify-center p-4 bg-background">
-            <div className="w-full max-w-sm rounded-2xl border bg-card p-8 shadow-lg">
-                <div className="mb-8 text-center">
-                    <h1 className="text-2xl font-bold tracking-tight text-foreground">Set Your Password</h1>
-                    <p className="text-sm text-muted-foreground mt-2">
-                        Complete account setup to activate your HR portal access.
-                    </p>
+        <div className="light flex min-h-svh flex-col items-center justify-center gap-6 bg-muted p-6 md:p-10">
+            <div className="flex w-full max-w-sm flex-col gap-6">
+                <div className="flex justify-center">
+                    <Image
+                        src="/assets/egs-logo.avif"
+                        alt="EGS"
+                        width={220}
+                        height={84}
+                        className="h-auto max-h-14 w-auto"
+                        priority
+                    />
                 </div>
 
-                {!token && (
-                    <div className="bg-red-500/10 text-red-500 p-3 rounded-lg text-sm mb-6 border border-red-500/20 font-medium">
-                        Invalid setup link. Ask an admin for a new invite.
-                    </div>
-                )}
+                <Card>
+                    <CardHeader className="text-center">
+                        <CardTitle className="text-xl">Set your password</CardTitle>
+                        <CardDescription>
+                            Complete account setup to activate your Concertina HR access.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        {!token && (
+                            <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
+                                Invalid setup link. Ask an admin for a new invite.
+                            </div>
+                        )}
 
-                {!!error && (
-                    <div className="bg-red-500/10 text-red-500 p-3 rounded-lg text-sm mb-6 border border-red-500/20 font-medium">
-                        {error}
-                    </div>
-                )}
+                        {!!error && (
+                            <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
+                                {error}
+                            </div>
+                        )}
 
-                {!!success && (
-                    <div className="bg-emerald-500/10 text-emerald-500 p-3 rounded-lg text-sm mb-6 border border-emerald-500/20 font-medium">
-                        {success}
-                    </div>
-                )}
+                        {!!success && (
+                            <div className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm font-medium text-emerald-700">
+                                {success}
+                            </div>
+                        )}
 
-                <form
-                    action={async (formData) => {
-                        "use server";
+                        <form
+                            action={async (formData) => {
+                                "use server";
 
-                        const result = await completeInviteSetup(formData);
+                                const result = await completeInviteSetup(formData);
 
-                        if (result.success) {
-                            redirect("/login?setup=success");
-                        }
+                                if (result.success) {
+                                    redirect("/login?setup=success");
+                                }
 
-                        const safeToken = encodeURIComponent((formData.get("token") as string) || "");
-                        const safeError = encodeURIComponent(result.error || "Account setup failed.");
-                        redirect(`/setup-account?token=${safeToken}&error=${safeError}`);
-                    }}
-                    className="space-y-4"
-                >
-                    <input type="hidden" name="token" value={token} />
+                                const safeToken = encodeURIComponent((formData.get("token") as string) || "");
+                                const safeError = encodeURIComponent(result.error || "Account setup failed.");
+                                redirect(`/setup-account?token=${safeToken}&error=${safeError}`);
+                            }}
+                        >
+                            <input type="hidden" name="token" value={token} />
+                            <FieldGroup>
+                                <Field>
+                                    <FieldLabel htmlFor="password">New password</FieldLabel>
+                                    <PasswordInput
+                                        id="password"
+                                        name="password"
+                                        required
+                                        minLength={8}
+                                        autoComplete="new-password"
+                                        placeholder="At least 8 characters"
+                                        disabled={!token}
+                                    />
+                                </Field>
 
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium">New Password</label>
-                        <input
-                            name="password"
-                            type="password"
-                            required
-                            minLength={8}
-                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 shadow-sm"
-                            placeholder="At least 8 characters"
-                            disabled={!token}
-                        />
-                    </div>
+                                <Field>
+                                    <FieldLabel htmlFor="confirmPassword">Confirm password</FieldLabel>
+                                    <PasswordInput
+                                        id="confirmPassword"
+                                        name="confirmPassword"
+                                        required
+                                        minLength={8}
+                                        autoComplete="new-password"
+                                        placeholder="Re-enter your password"
+                                        disabled={!token}
+                                    />
+                                </Field>
 
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium">Confirm Password</label>
-                        <input
-                            name="confirmPassword"
-                            type="password"
-                            required
-                            minLength={8}
-                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 shadow-sm"
-                            placeholder="Re-enter your password"
-                            disabled={!token}
-                        />
-                    </div>
+                                <Field>
+                                    <SubmitButton className="w-full" disabled={!token}>
+                                        Activate Account
+                                    </SubmitButton>
+                                </Field>
+                            </FieldGroup>
+                        </form>
 
-                    <SubmitButton variant="gradient" size="lg" disabled={!token}>
-                        Activate Account
-                    </SubmitButton>
-                </form>
+                        <div className="mt-5 text-center text-sm">
+                            <Link href="/login" className="font-medium text-brand-steel hover:text-brand-red">
+                                Back to sign in
+                            </Link>
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
         </div>
     );

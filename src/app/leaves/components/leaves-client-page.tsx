@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { differenceInCalendarDays, format, isValid, parseISO } from "date-fns";
-import { CalendarDays, CheckCircle2, Clock3, FileText, Hourglass, XCircle } from "lucide-react";
+import { CalendarDays, CheckCircle2, Clock3, FileText, Hourglass, Paperclip, XCircle } from "lucide-react";
 
 import { submitLeaveRequest } from "@/app/actions/leaves";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,9 @@ type LeaveRequestItem = {
   leaveType: string;
   startDate: string;
   endDate: string;
+  dayType: string;
+  requestedDays: number;
+  attachmentName: string | null;
   reason: string | null;
   status: string;
   createdAt: string;
@@ -32,7 +35,9 @@ type LeavesClientPageProps = {
 
 const STATUS_FILTERS = ["ALL", "PENDING", "APPROVED", "REJECTED"] as const;
 
-function getRequestDays(startDate: string | Date, endDate: string | Date) {
+function getRequestDays(startDate: string | Date, endDate: string | Date, requestedDays?: number) {
+  if (typeof requestedDays === "number") return requestedDays;
+
   const start = typeof startDate === "string" ? parseISO(startDate) : startDate;
   const end = typeof endDate === "string" ? parseISO(endDate) : endDate;
 
@@ -77,19 +82,20 @@ export function LeavesClientPage({ balances, leaveRequests }: LeavesClientPagePr
   const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>("ALL");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [dayType, setDayType] = useState("FULL_DAY");
 
   async function handleSubmit(formData: FormData) {
     await submitLeaveRequest(formData);
   }
 
   const pffdBalance = balances.find((balance) => balance.leaveType === "LEAVE_CREDITS")?.balance ?? 0;
-  const requestedDays = getRequestDays(startDate, endDate);
+  const requestedDays = dayType === "HALF_DAY" ? 0.5 : getRequestDays(startDate, endDate);
   const hasDateRange = startDate !== "" && endDate !== "";
 
   const stats = useMemo(() => {
     return leaveRequests.reduce(
       (totals, request) => {
-        const days = getRequestDays(request.startDate, request.endDate);
+        const days = getRequestDays(request.startDate, request.endDate, request.requestedDays);
 
         if (request.status === "PENDING") {
           totals.pending += days;
@@ -182,6 +188,24 @@ export function LeavesClientPage({ balances, leaveRequests }: LeavesClientPagePr
 
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
               <div>
+                <FieldLabel htmlFor="dayType">Duration</FieldLabel>
+                <select
+                  name="dayType"
+                  id="dayType"
+                  value={dayType}
+                  onChange={(event) => {
+                    setDayType(event.target.value);
+                    if (event.target.value === "HALF_DAY" && startDate) {
+                      setEndDate(startDate);
+                    }
+                  }}
+                  className="flex h-9 w-full rounded-lg border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                >
+                  <option value="FULL_DAY">Full day</option>
+                  <option value="HALF_DAY">Half day</option>
+                </select>
+              </div>
+              <div>
                 <FieldLabel htmlFor="startDate">Start</FieldLabel>
                 <input
                   type="date"
@@ -189,7 +213,12 @@ export function LeavesClientPage({ balances, leaveRequests }: LeavesClientPagePr
                   id="startDate"
                   required
                   value={startDate}
-                  onChange={(event) => setStartDate(event.target.value)}
+                  onChange={(event) => {
+                    setStartDate(event.target.value);
+                    if (dayType === "HALF_DAY") {
+                      setEndDate(event.target.value);
+                    }
+                  }}
                   className="flex h-9 w-full rounded-lg border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                 />
               </div>
@@ -202,6 +231,7 @@ export function LeavesClientPage({ balances, leaveRequests }: LeavesClientPagePr
                   required
                   value={endDate}
                   onChange={(event) => setEndDate(event.target.value)}
+                  disabled={dayType === "HALF_DAY"}
                   className="flex h-9 w-full rounded-lg border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                 />
               </div>
@@ -214,7 +244,9 @@ export function LeavesClientPage({ balances, leaveRequests }: LeavesClientPagePr
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Summary</p>
                   <p className="mt-1 truncate text-sm text-muted-foreground">
                     {hasDateRange && requestedDays > 0
-                      ? `${format(parseISO(startDate), "MMM d")} to ${format(parseISO(endDate), "MMM d, yyyy")}`
+                      ? dayType === "HALF_DAY"
+                        ? `${format(parseISO(startDate), "MMM d, yyyy")} (half-day)`
+                        : `${format(parseISO(startDate), "MMM d")} to ${format(parseISO(endDate), "MMM d, yyyy")}`
                       : "Choose dates to preview this request."}
                   </p>
                   {hasDateRange && (
@@ -224,6 +256,18 @@ export function LeavesClientPage({ balances, leaveRequests }: LeavesClientPagePr
                   )}
                 </div>
               </div>
+            </div>
+
+            <div>
+              <FieldLabel htmlFor="attachment">Attachment Optional</FieldLabel>
+              <input
+                type="file"
+                name="attachment"
+                id="attachment"
+                accept="application/pdf,image/png,image/jpeg,image/webp"
+                className="block w-full rounded-lg border border-input bg-background px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-muted file:px-2.5 file:py-1 file:text-xs file:font-semibold file:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              />
+              <p className="mt-1 text-xs text-muted-foreground">PDF or image, up to 5MB.</p>
             </div>
 
             <div>
@@ -296,11 +340,19 @@ export function LeavesClientPage({ balances, leaveRequests }: LeavesClientPagePr
                         <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
                           {format(parseISO(request.startDate), "MMM d")} - {format(parseISO(request.endDate), "MMM d, yyyy")}
                         </td>
-                        <td className="px-4 py-3 font-medium">{getRequestDays(request.startDate, request.endDate)}</td>
+                        <td className="px-4 py-3 font-medium">{request.requestedDays}</td>
                         <td className="px-4 py-3">
                           <StatusBadge status={request.status} />
                         </td>
-                        <td className="px-4 py-3 text-muted-foreground">{format(parseISO(request.createdAt), "MMM d, yyyy")}</td>
+                        <td className="px-4 py-3 text-muted-foreground">
+                          <div>{format(parseISO(request.createdAt), "MMM d, yyyy")}</div>
+                          {request.attachmentName && (
+                            <a href={`/leaves/attachments/${request.id}`} className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-brand-steel hover:text-brand-red">
+                              <Paperclip className="size-3" />
+                              Attachment
+                            </a>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -322,13 +374,19 @@ export function LeavesClientPage({ balances, leaveRequests }: LeavesClientPagePr
                     <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
                       <div className="rounded-lg bg-muted/50 p-2.5">
                         <p className="text-muted-foreground">Days</p>
-                        <p className="font-semibold">{getRequestDays(request.startDate, request.endDate)}</p>
+                        <p className="font-semibold">{request.requestedDays}</p>
                       </div>
                       <div className="rounded-lg bg-muted/50 p-2.5">
                         <p className="text-muted-foreground">Filed</p>
                         <p className="font-semibold">{format(parseISO(request.createdAt), "MMM d, yyyy")}</p>
                       </div>
                     </div>
+                    {request.attachmentName && (
+                      <a href={`/leaves/attachments/${request.id}`} className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-brand-steel hover:text-brand-red">
+                        <Paperclip className="size-3" />
+                        View attachment
+                      </a>
+                    )}
                   </article>
                 ))}
               </div>

@@ -9,16 +9,20 @@ import {
 } from "@/components/ui/card"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { PasswordInput } from "@/components/password-input"
+import Link from "next/link"
 
 export function LoginForm({
   className,
   error,
   setup,
+  reset,
   onSubmit,
   ...props
 }: React.ComponentProps<"div"> & {
   error?: string
   setup?: string
+  reset?: string
   onSubmit: (formData: FormData) => Promise<void>
 }) {
   return (
@@ -49,6 +53,12 @@ export function LoginForm({
             </div>
           )}
 
+          {reset === "success" && (
+            <div className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm font-medium text-emerald-700">
+              Password updated successfully. You can sign in now.
+            </div>
+          )}
+
           <form action={onSubmit}>
             <FieldGroup>
               <Field>
@@ -62,8 +72,13 @@ export function LoginForm({
                 />
               </Field>
               <Field>
-                <FieldLabel htmlFor="password">Password</FieldLabel>
-                <Input id="password" name="password" type="password" required />
+                <div className="flex items-center justify-between gap-3">
+                  <FieldLabel htmlFor="password">Password</FieldLabel>
+                  <Link href="/forgot-password" className="text-xs font-medium text-brand-steel hover:text-brand-red">
+                    Forgot password?
+                  </Link>
+                </div>
+                <PasswordInput id="password" name="password" required autoComplete="current-password" />
               </Field>
               <Field>
                 <SubmitButton className="w-full">Sign In</SubmitButton>

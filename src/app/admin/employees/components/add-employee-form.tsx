@@ -9,6 +9,7 @@ export function AddEmployeeForm({ onSuccess }: { onSuccess: () => void }) {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [inviteLink, setInviteLink] = useState<string | null>(null);
+    const [emailSent, setEmailSent] = useState(false);
 
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
@@ -20,6 +21,7 @@ export function AddEmployeeForm({ onSuccess }: { onSuccess: () => void }) {
 
         if (result.success) {
             setInviteLink((result as any).inviteLink || null);
+            setEmailSent(!!(result as any).emailSent);
             setIsLoading(false);
         } else {
             setError(result.error || "Failed to add employee.");
@@ -37,7 +39,11 @@ export function AddEmployeeForm({ onSuccess }: { onSuccess: () => void }) {
 
             {inviteLink && (
                 <div className="p-3 text-sm text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 rounded-lg border border-emerald-500/20 space-y-2">
-                    <p className="font-medium">Employee created. Share this one-time setup link:</p>
+                    <p className="font-medium">
+                        {emailSent
+                            ? "Employee created and setup email sent."
+                            : "Employee created. Email was not sent, so share this one-time setup link:"}
+                    </p>
                     <p className="break-all text-xs text-emerald-800 dark:text-emerald-200">{inviteLink}</p>
                 </div>
             )}

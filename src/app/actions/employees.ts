@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import crypto from "crypto";
+import { sendInviteEmail } from "@/lib/invite-email";
 
 
 export async function addEmployee(formData: FormData) {
@@ -43,11 +44,12 @@ export async function addEmployee(formData: FormData) {
             }
         });
 
-        const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || process.env.NEXTAUTH_URL || "http://localhost:3000";
         const inviteLink = `${baseUrl}/setup-account?token=${inviteToken}`;
+        const emailResult = await sendInviteEmail({ to: email, name, inviteUrl: inviteLink });
 
         revalidatePath("/admin/employees");
-        return { success: true, inviteLink };
+        return { success: true, inviteLink, emailSent: emailResult.sent };
     } catch (error: any) {
         console.error("Failed to add employee:", error);
         return { success: false, error: "Email may already exist." };
@@ -87,5 +89,40 @@ export async function deleteEmployee(userId: string) {
     } catch (error: any) {
         console.error("Failed to delete employee:", error);
         return { success: false, error: "Database error occurred during deletion." };
+    }
+}
+
+export async function updateEmployeePffdBalance(userId: string, balance: number) {
+    const session = await auth();
+    if (!session || !session.user || (session.user as any).role !== "ADMIN") {
+        throw new Error("Unauthorized: Only Admins can update PFFD balances.");
+    }
+
+    if (!userId || !Number.isFinite(balance) || balance < 0) {
+        return { success: false, error: "Enter a valid PFFD balance." };
+    }
+
+    try {
+        await prisma.leaveBalance.upsert({
+            where: {
+                userId_leaveType: {
+                    userId,
+                    leaveType: "LEAVE_CREDITS",
+                },
+            },
+            update: { balance },
+            create: {
+                userId,
+                leaveType: "LEAVE_CREDITS",
+                balance,
+            },
+        });
+
+        revalidatePath("/admin/employees");
+        revalidatePath("/");
+        return { success: true };
+    } catch (error: any) {
+        console.error("Failed to update PFFD balance:", error);
+        return { success: false, error: "Failed to update PFFD balance." };
     }
 }

@@ -1,0 +1,10 @@
+ALTER TABLE "LeaveRequest"
+ADD COLUMN IF NOT EXISTS "dayType" TEXT NOT NULL DEFAULT 'FULL_DAY',
+ADD COLUMN IF NOT EXISTS "requestedDays" DOUBLE PRECISION NOT NULL DEFAULT 1,
+ADD COLUMN IF NOT EXISTS "attachmentName" TEXT,
+ADD COLUMN IF NOT EXISTS "attachmentType" TEXT,
+ADD COLUMN IF NOT EXISTS "attachmentData" BYTEA;
+
+UPDATE "LeaveRequest"
+SET "requestedDays" = GREATEST(1, CEIL(EXTRACT(EPOCH FROM ("endDate" - "startDate")) / 86400) + 1)
+WHERE "requestedDays" = 1;
