@@ -10,6 +10,33 @@ function cleanOptionalText(value?: string) {
     return cleaned ? cleaned.slice(0, 500) : null;
 }
 
+type ClockStatus = {
+    isClockedIn: boolean;
+    clockInTime: Date | null;
+    isOnBreak: boolean;
+    breakStartTime: Date | null;
+};
+
+function emptyClockStatus(): ClockStatus {
+    return {
+        isClockedIn: false,
+        clockInTime: null,
+        isOnBreak: false,
+        breakStartTime: null,
+    };
+}
+
+function buildClockStatus(activeLog: { clockIn: Date; breaks?: { startedAt: Date }[] } | null): ClockStatus {
+    const activeBreak = activeLog?.breaks?.[0];
+
+    return {
+        isClockedIn: !!activeLog,
+        clockInTime: activeLog?.clockIn || null,
+        isOnBreak: !!activeBreak,
+        breakStartTime: activeBreak?.startedAt || null,
+    };
+}
+
 export async function toggleClockStatus(projectName?: string, notes?: string) {
     try {
         const session = await auth();
@@ -55,14 +82,15 @@ export async function toggleClockStatus(projectName?: string, notes?: string) {
                 // We let it continue below to create their new clock-in for today!
             } else {
                 // Normal clock out for today
+                const clockOutTime = new Date();
                 await prisma.$transaction([
                     prisma.timeBreak.updateMany({
                         where: { timeLogId: activeLog.id, endedAt: null },
-                        data: { endedAt: now },
+                        data: { endedAt: clockOutTime },
                     }),
                     prisma.timeLog.update({
                         where: { id: activeLog.id },
-                        data: { clockOut: now },
+                        data: { clockOut: clockOutTime },
                     }),
                 ]);
 
@@ -71,18 +99,19 @@ export async function toggleClockStatus(projectName?: string, notes?: string) {
                 });
 
                 revalidatePath("/");
-                return { success: true };
+                return { success: true, status: emptyClockStatus() };
             }
         }
 
         // 2. User is clocking in (either standard, or after an auto-checkout)
-        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 0, 0);
-        const isLate = now > startOfDay;
+        const clockInTime = new Date();
+        const startOfDay = new Date(clockInTime.getFullYear(), clockInTime.getMonth(), clockInTime.getDate(), 9, 0, 0);
+        const isLate = clockInTime > startOfDay;
 
-        await prisma.timeLog.create({
+        const timeLog = await prisma.timeLog.create({
             data: {
                 userId: employeeId,
-                clockIn: now,
+                clockIn: clockInTime,
                 status: isLate ? "LATE" : "ON_TIME",
                 projectName: cleanOptionalText(projectName),
                 notes: cleanOptionalText(notes),
@@ -96,7 +125,7 @@ export async function toggleClockStatus(projectName?: string, notes?: string) {
         // Refresh the dashboard data
         revalidatePath("/");
 
-        return { success: true };
+        return { success: true, status: buildClockStatus({ clockIn: timeLog.clockIn, breaks: [] }) };
     } catch (error) {
         console.error("Error toggling clock status:", error);
         return { success: false, error: "Failed to update time log" };
@@ -111,8 +140,6 @@ export async function toggleBreakStatus() {
         }
 
         const employeeId = session.user.id;
-        const now = new Date();
-
         const activeLog = await prisma.timeLog.findFirst({
             where: {
                 userId: employeeId,
@@ -135,6 +162,9 @@ export async function toggleBreakStatus() {
         }
 
         const activeBreak = activeLog.breaks[0];
+        const now = new Date();
+        let nextStatus: ClockStatus;
+
         if (activeBreak) {
             await prisma.timeBreak.update({
                 where: { id: activeBreak.id },
@@ -144,8 +174,10 @@ export async function toggleBreakStatus() {
             await prisma.auditLog.create({
                 data: { action: "BREAK_END", userId: employeeId, details: "User ended break." }
             });
+
+            nextStatus = buildClockStatus({ clockIn: activeLog.clockIn, breaks: [] });
         } else {
-            await prisma.timeBreak.create({
+            const startedBreak = await prisma.timeBreak.create({
                 data: {
                     timeLogId: activeLog.id,
                     startedAt: now,
@@ -155,12 +187,14 @@ export async function toggleBreakStatus() {
             await prisma.auditLog.create({
                 data: { action: "BREAK_START", userId: employeeId, details: "User started break." }
             });
+
+            nextStatus = buildClockStatus({ clockIn: activeLog.clockIn, breaks: [{ startedAt: startedBreak.startedAt }] });
         }
 
         revalidatePath("/");
         revalidatePath("/timesheets");
 
-        return { success: true };
+        return { success: true, status: nextStatus };
     } catch (error) {
         console.error("Error toggling break status:", error);
         return { success: false, error: "Failed to update break" };
@@ -216,7 +250,7 @@ export async function getClockStatus() {
     try {
         const session = await auth();
         if (!session || !session.user || !session.user.id) {
-            return { isClockedIn: false, clockInTime: null, isOnBreak: false, breakStartTime: null };
+            return emptyClockStatus();
         }
 
         const employeeId = session.user.id;
@@ -238,14 +272,9 @@ export async function getClockStatus() {
             },
         });
 
-        return {
-            isClockedIn: !!activeLog,
-            clockInTime: activeLog?.clockIn || null,
-            isOnBreak: !!activeLog?.breaks[0],
-            breakStartTime: activeLog?.breaks[0]?.startedAt || null,
-        };
+        return buildClockStatus(activeLog);
     } catch (error) {
         console.error("Error getting clock status:", error);
-        return { isClockedIn: false, clockInTime: null, isOnBreak: false, breakStartTime: null };
+        return emptyClockStatus();
     }
 }

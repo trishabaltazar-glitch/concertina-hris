@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { format } from "date-fns";
 import { Coffee, Play, Square } from "lucide-react";
 
@@ -8,6 +8,8 @@ import { toggleBreakStatus, toggleClockStatus, getClockStatus } from "@/app/acti
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+
+type ClockStatus = Awaited<ReturnType<typeof getClockStatus>>;
 
 function formatElapsedTime(now: Date, clockInTime: Date | null) {
   if (!clockInTime) {
@@ -37,12 +39,16 @@ export function ClockWidget() {
   const [isBreakPending, setIsBreakPending] = useState(false);
   const [hasLoadedStatus, setHasLoadedStatus] = useState(false);
 
+  const applyClockStatus = useCallback((status: ClockStatus) => {
+    setIsClockedIn(status.isClockedIn);
+    setIsOnBreak(status.isOnBreak);
+    setClockInTime(status.clockInTime ? new Date(status.clockInTime) : null);
+    setBreakStartTime(status.breakStartTime ? new Date(status.breakStartTime) : null);
+  }, []);
+
   useEffect(() => {
     getClockStatus().then((status) => {
-      setIsClockedIn(status.isClockedIn);
-      setIsOnBreak(status.isOnBreak);
-      setClockInTime(status.clockInTime ? new Date(status.clockInTime) : null);
-      setBreakStartTime(status.breakStartTime ? new Date(status.breakStartTime) : null);
+      applyClockStatus(status);
       setHasLoadedStatus(true);
     });
 
@@ -52,7 +58,7 @@ export function ClockWidget() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [applyClockStatus]);
 
   const handleToggleClock = async () => {
     if (isPending || !hasLoadedStatus) return;
@@ -61,11 +67,8 @@ export function ClockWidget() {
     try {
       const res = await toggleClockStatus(projectName, notes);
       if (res.success) {
-        const nextStatus = await getClockStatus();
-        setIsClockedIn(nextStatus.isClockedIn);
-        setIsOnBreak(nextStatus.isOnBreak);
-        setClockInTime(nextStatus.clockInTime ? new Date(nextStatus.clockInTime) : null);
-        setBreakStartTime(nextStatus.breakStartTime ? new Date(nextStatus.breakStartTime) : null);
+        const nextStatus = res.status || (await getClockStatus());
+        applyClockStatus(nextStatus);
         if (nextStatus.isClockedIn) {
           setProjectName("");
           setNotes("");
@@ -83,11 +86,7 @@ export function ClockWidget() {
     try {
       const res = await toggleBreakStatus();
       if (res.success) {
-        const nextStatus = await getClockStatus();
-        setIsClockedIn(nextStatus.isClockedIn);
-        setIsOnBreak(nextStatus.isOnBreak);
-        setClockInTime(nextStatus.clockInTime ? new Date(nextStatus.clockInTime) : null);
-        setBreakStartTime(nextStatus.breakStartTime ? new Date(nextStatus.breakStartTime) : null);
+        applyClockStatus(res.status || (await getClockStatus()));
       }
     } finally {
       setIsBreakPending(false);
