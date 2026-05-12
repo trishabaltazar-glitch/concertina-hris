@@ -2,6 +2,7 @@
 
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { auth } from "@/auth";
 import { createNotification } from "@/lib/notifications";
 import { sendLeaveNotificationEmail } from "@/lib/leave-notification-email";
 
@@ -12,6 +13,13 @@ function formatLeaveDateRange(startDate: Date, endDate: Date) {
 
 export async function updateLeaveRequestStatus(requestId: string, status: "APPROVED" | "REJECTED") {
     try {
+        const session = await auth();
+        const role = (session?.user as { role?: string } | undefined)?.role;
+
+        if (!session?.user?.id || (role !== "ADMIN" && role !== "MANAGER")) {
+            return { success: false, error: "Unauthorized" };
+        }
+
         const request = await prisma.leaveRequest.findUnique({
             where: { id: requestId },
             include: { user: true }

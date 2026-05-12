@@ -9,8 +9,8 @@ export async function createHoliday(formData: FormData) {
   const session = await auth();
   const user = session?.user as any;
 
-  if (!session || !user || (user.role !== "ADMIN" && user.role !== "MANAGER")) {
-    throw new Error("Unauthorized: Only admins and managers can create holidays.");
+  if (!session || !user || user.role !== "ADMIN") {
+    throw new Error("Unauthorized: Only admins can create holidays.");
   }
 
   const name = formData.get("name") as string;
@@ -40,8 +40,8 @@ export async function deleteHoliday(holidayId: string) {
   const session = await auth();
   const user = session?.user as any;
 
-  if (!session || !user || (user.role !== "ADMIN" && user.role !== "MANAGER")) {
-    throw new Error("Unauthorized: Only admins and managers can delete holidays.");
+  if (!session || !user || user.role !== "ADMIN") {
+    throw new Error("Unauthorized: Only admins can delete holidays.");
   }
 
   await prisma.holiday.delete({

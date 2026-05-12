@@ -33,6 +33,11 @@ export async function submitLeaveRequest(formData: FormData) {
 
         const startDate = new Date(startDateStr);
         const endDate = dayType === "HALF_DAY" ? new Date(startDateStr) : new Date(endDateStr);
+
+        if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+            return { success: false, error: "Enter a valid leave date" };
+        }
+
         const requestedDays = getRequestedDays(startDate, endDate, dayType);
 
         if (endDate < startDate) {
