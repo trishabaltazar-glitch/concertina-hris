@@ -87,6 +87,16 @@ function getStatusClass(status: string) {
   return "bg-muted text-muted-foreground";
 }
 
+function formatRoleLabel(role?: string | null) {
+  if (!role) return "Employee";
+
+  return role
+    .toLowerCase()
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 export default async function DashboardPage() {
   const session = await auth();
   if (!session || !session.user) {
@@ -96,7 +106,8 @@ export default async function DashboardPage() {
   const now = new Date();
   const weekStart = startOfWeek(now, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
-  const firstName = session.user.name ? session.user.name.split(" ")[0] : "there";
+  const firstName = session.user.name?.trim().split(/\s+/)[0] || "there";
+  const roleLabel = formatRoleLabel((session.user as { role?: string | null }).role);
 
   const [balances, recentLogs, weeklyLogs, schedules] = await Promise.all([
     prisma.leaveBalance.findMany({
@@ -203,21 +214,21 @@ export default async function DashboardPage() {
     : "No logs today";
 
   return (
-    <div className="mx-auto max-w-7xl space-y-4">
+    <div className="w-full space-y-4">
       <section className="rounded-lg border border-border/70 bg-card shadow-sm">
-        <div className="flex flex-col gap-3 border-b border-border/70 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-1">
+        <div className="flex flex-col gap-3 border-b border-border/70 px-4 py-3 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0 flex-1 space-y-1">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-brand-steel">
               Welcome
             </p>
-            <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+            <h1 className="max-w-3xl text-balance text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
               {firstName}, here&apos;s your workday snapshot.
             </h1>
             <p className="text-xs text-muted-foreground">
-              HR Manager | {format(now, "MMMM d, yyyy | h:mm a")}
+              {roleLabel} | {format(now, "MMMM d, yyyy | h:mm a")}
             </p>
           </div>
-          <div className="rounded-md border border-border/70 bg-background px-3 py-2 text-xs font-medium text-muted-foreground">
+          <div className="w-fit shrink-0 rounded-md border border-border/70 bg-background px-3 py-2 text-xs font-medium text-muted-foreground lg:mt-1">
             {format(weekStart, "MMM d")} - {format(weekEnd, "MMM d, yyyy")}
           </div>
         </div>

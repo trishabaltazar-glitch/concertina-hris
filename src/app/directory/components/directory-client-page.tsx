@@ -109,7 +109,7 @@ export function DirectoryClientPage({ users }: DirectoryClientPageProps) {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4">
+    <div className="w-full space-y-4">
       <section className="rounded-xl border bg-card shadow-sm">
         <div className="flex flex-col gap-3 border-b px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-3">

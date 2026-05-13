@@ -256,7 +256,7 @@ export default async function TimesheetsPage({ searchParams }: TimesheetsPagePro
     ).filter((minute) => minute <= timelineEndMinute);
 
     return (
-        <div className="mx-auto max-w-6xl space-y-6">
+        <div className="w-full space-y-6">
             <TimesheetFilterBar
                 selectedRange={selectedRange}
                 fromValue={fromValue}

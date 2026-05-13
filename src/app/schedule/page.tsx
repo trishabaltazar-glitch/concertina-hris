@@ -72,7 +72,7 @@ export default async function UserSchedulePage() {
   const totalWeeklyHours = schedules.reduce((total, schedule) => total + getScheduleHours(schedule), 0);
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
+    <div className="w-full">
       <section className="overflow-hidden rounded-[24px] border border-border/70 bg-card shadow-sm">
         <div className="flex flex-col gap-4 border-b border-border/70 px-5 py-5 lg:flex-row lg:items-center lg:justify-between">
           <div>

@@ -21,27 +21,27 @@ export default async function HolidaysPage() {
   });
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 py-8 px-4">
-      <div className="rounded-2xl border bg-card text-card-foreground shadow-sm overflow-hidden h-full">
+    <div className="w-full">
+      <div className="overflow-hidden rounded-lg border border-border bg-background">
         <div className="divide-y divide-border">
           {holidays.length === 0 ? (
             <div className="p-12 text-center text-muted-foreground">
-              <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-muted/50 mb-4">
+              <div className="mx-auto mb-4 flex size-10 items-center justify-center rounded-md bg-muted/50">
                 <Calendar className="size-6 text-muted-foreground/50" />
               </div>
               <p>No holidays have been published yet.</p>
             </div>
           ) : (
             holidays.map((holiday: any) => (
-              <div key={holiday.id} className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-muted/30 transition-colors">
+              <div key={holiday.id} className="flex flex-col justify-between gap-4 p-4 transition-colors hover:bg-muted/30 sm:flex-row sm:items-center">
                 <div className="flex items-start gap-4">
-                  <div className="bg-background border border-border rounded-xl px-4 py-3 flex flex-col items-center justify-center min-w-[5rem] shadow-sm">
-                    <span className="text-xs font-bold uppercase text-primary mb-1 tracking-widest">{format(holiday.date, "MMM")}</span>
-                    <span className="text-2xl font-bold text-foreground leading-none">{format(holiday.date, "d")}</span>
+                  <div className="flex min-w-16 flex-col items-center justify-center rounded-lg border border-border bg-background px-3 py-2">
+                    <span className="mb-1 text-xs font-bold uppercase tracking-widest text-primary">{format(holiday.date, "MMM")}</span>
+                    <span className="text-xl font-bold leading-none text-foreground">{format(holiday.date, "d")}</span>
                   </div>
                   <div>
-                    <h3 className="font-bold text-lg text-foreground group-hover:text-primary transition-colors">{holiday.name}</h3>
-                    <div className="flex items-center gap-2 mt-1">
+                    <h3 className="font-semibold text-foreground">{holiday.name}</h3>
+                    <div className="mt-1 flex items-center gap-2">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase ${
                         holiday.type === 'REGULAR' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' :
                         holiday.type === 'SPECIAL_NON_WORKING' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' :
@@ -51,7 +51,7 @@ export default async function HolidaysPage() {
                       </span>
                     </div>
                     {holiday.description && (
-                      <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{holiday.description}</p>
+                      <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{holiday.description}</p>
                     )}
                   </div>
                 </div>

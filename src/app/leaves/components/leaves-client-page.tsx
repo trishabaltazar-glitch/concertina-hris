@@ -147,32 +147,32 @@ export function LeavesClientPage({ balances, leaveRequests }: LeavesClientPagePr
   ];
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4">
-      <section className="rounded-xl border bg-card shadow-sm">
-        <div className="grid divide-y sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-          {summaryItems.map((item) => {
-            const Icon = item.icon;
+    <div className="w-full space-y-5">
+      <div className="grid gap-3 sm:grid-cols-3">
+        {summaryItems.map((item) => {
+          const Icon = item.icon;
 
-            return (
-              <div key={item.label} className="flex items-center gap-3 p-4">
-                <div className={cn("flex size-9 shrink-0 items-center justify-center rounded-lg", item.iconClassName)}>
-                  <Icon className="size-4" />
-                </div>
+          return (
+            <div key={item.label} className="rounded-lg border border-border bg-background p-4">
+              <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{item.label}</p>
-                  <div className="mt-0.5 flex items-baseline gap-1.5">
-                    <span className={cn("text-2xl font-bold leading-none", item.className)}>{item.value}</span>
-                    <span className="text-xs text-muted-foreground">{item.helper}</span>
-                  </div>
+                  <p className="text-xs font-medium text-muted-foreground">{item.label}</p>
+                  <p className={cn("mt-2 text-2xl font-semibold tracking-tight", item.className)}>
+                    {item.value}
+                  </p>
                 </div>
+                <span className={cn("inline-flex size-7 shrink-0 items-center justify-center rounded-md", item.iconClassName)}>
+                  <Icon className="size-3.5" />
+                </span>
               </div>
-            );
-          })}
-        </div>
-      </section>
+              <p className="mt-3 border-t border-border pt-3 text-xs text-muted-foreground">{item.helper}</p>
+            </div>
+          );
+        })}
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
-        <section className="rounded-xl border bg-card shadow-sm">
+        <section className="rounded-lg border border-border bg-background">
           <div className="border-b px-4 py-3">
             <h2 className="font-semibold">New Request</h2>
           </div>
@@ -237,7 +237,7 @@ export function LeavesClientPage({ balances, leaveRequests }: LeavesClientPagePr
               </div>
             </div>
 
-            <div className="rounded-lg border bg-muted/35 p-3">
+            <div className="rounded-lg border border-border bg-muted/25 p-3">
               <div className="flex items-start gap-2.5">
                 <FileText className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
                 <div className="min-w-0">
@@ -284,7 +284,7 @@ export function LeavesClientPage({ balances, leaveRequests }: LeavesClientPagePr
           </form>
         </section>
 
-        <section className="rounded-xl border bg-card shadow-sm">
+        <section className="rounded-lg border border-border bg-background">
           <div className="border-b px-4 py-3">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -324,7 +324,7 @@ export function LeavesClientPage({ balances, leaveRequests }: LeavesClientPagePr
             <>
               <div className="hidden overflow-x-auto md:block">
                 <table className="w-full text-left text-sm">
-                  <thead className="border-b bg-muted/50 text-xs uppercase tracking-wider text-muted-foreground">
+                  <thead className="border-b bg-muted/30 text-xs uppercase tracking-wider text-muted-foreground">
                     <tr>
                       <th className="px-4 py-3 font-semibold">Type</th>
                       <th className="px-4 py-3 font-semibold">Duration</th>
@@ -335,7 +335,7 @@ export function LeavesClientPage({ balances, leaveRequests }: LeavesClientPagePr
                   </thead>
                   <tbody className="divide-y">
                     {filteredRequests.map((request) => (
-                      <tr key={request.id} className="transition-colors hover:bg-muted/50">
+                      <tr key={request.id} className="transition-colors hover:bg-muted/30">
                         <td className="px-4 py-3 font-medium capitalize">{getLeaveLabel(request.leaveType)}</td>
                         <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
                           {format(parseISO(request.startDate), "MMM d")} - {format(parseISO(request.endDate), "MMM d, yyyy")}
@@ -361,7 +361,7 @@ export function LeavesClientPage({ balances, leaveRequests }: LeavesClientPagePr
 
               <div className="grid gap-2 p-3 md:hidden">
                 {filteredRequests.map((request) => (
-                  <article key={request.id} className="rounded-lg border bg-background p-3">
+                  <article key={request.id} className="rounded-lg border border-border bg-background p-3">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <h3 className="font-semibold capitalize">{getLeaveLabel(request.leaveType)}</h3>
@@ -372,11 +372,11 @@ export function LeavesClientPage({ balances, leaveRequests }: LeavesClientPagePr
                       <StatusBadge status={request.status} />
                     </div>
                     <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-                      <div className="rounded-lg bg-muted/50 p-2.5">
+                      <div className="rounded-md bg-muted/30 p-2.5">
                         <p className="text-muted-foreground">Days</p>
                         <p className="font-semibold">{request.requestedDays}</p>
                       </div>
-                      <div className="rounded-lg bg-muted/50 p-2.5">
+                      <div className="rounded-md bg-muted/30 p-2.5">
                         <p className="text-muted-foreground">Filed</p>
                         <p className="font-semibold">{format(parseISO(request.createdAt), "MMM d, yyyy")}</p>
                       </div>

@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { handleSignOut } from "@/app/actions/auth";
 
 const EMP_ROUTES = [
-    { name: "Dashboard", href: "/", icon: LayoutDashboard },
+    { name: "Home", href: "/", icon: LayoutDashboard },
     { name: "Timesheets", href: "/timesheets", icon: Clock },
     { name: "Schedules", href: "/schedule", icon: CalendarDays },
     { name: "PFFD Requests", href: "/leaves", icon: CalendarHeart },

@@ -78,7 +78,7 @@ export default async function ProfilePage() {
   const initials = getInitials(user.name);
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="w-full">
       <div className="grid gap-8 lg:grid-cols-[190px_minmax(0,1fr)]">
         <aside className="lg:border-r lg:border-border/70 lg:pr-6">
           <nav className="flex gap-2 overflow-x-auto rounded-xl border border-border/70 bg-card/60 p-1 shadow-sm lg:sticky lg:top-24 lg:flex-col lg:overflow-visible lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">

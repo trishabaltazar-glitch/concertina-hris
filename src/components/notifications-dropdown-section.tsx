@@ -11,13 +11,25 @@ import {
   markNotificationRead,
   type UserNotification,
 } from "@/app/actions/notifications";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
 type NotificationsDropdownSectionProps = {
   onNavigate?: () => void;
+  onUnreadCountChange?: (count: number) => void;
+  showProfile?: boolean;
 };
 
-export function NotificationsDropdownSection({ onNavigate }: NotificationsDropdownSectionProps) {
+export function NotificationsDropdownSection({
+  onNavigate,
+  onUnreadCountChange,
+  showProfile = false,
+}: NotificationsDropdownSectionProps) {
   const [notifications, setNotifications] = React.useState<UserNotification[]>([]);
   const [unreadCount, setUnreadCount] = React.useState(0);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -26,8 +38,9 @@ export function NotificationsDropdownSection({ onNavigate }: NotificationsDropdo
     const result = await getMyNotifications(5);
     setNotifications(result.notifications);
     setUnreadCount(result.unreadCount);
+    onUnreadCountChange?.(result.unreadCount);
     setIsLoading(false);
-  }, []);
+  }, [onUnreadCountChange]);
 
   React.useEffect(() => {
     loadNotifications();
@@ -47,22 +60,24 @@ export function NotificationsDropdownSection({ onNavigate }: NotificationsDropdo
 
   return (
     <div className="px-1 py-1">
-      <div className="space-y-1">
-        <Link
-          href="/profile"
-          className="flex items-center gap-3 rounded-md px-2 py-2 text-sm transition-colors hover:bg-accent"
-          onClick={onNavigate}
-        >
-          <span className="grid size-7 place-items-center rounded-md bg-muted text-muted-foreground">
-            <UserRound className="size-4" />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block font-medium text-foreground">My Profile</span>
-          </span>
-        </Link>
-      </div>
+      {showProfile && (
+        <div className="space-y-1">
+          <Link
+            href="/profile"
+            className="flex items-center gap-3 rounded-md px-2 py-2 text-sm transition-colors hover:bg-accent"
+            onClick={onNavigate}
+          >
+            <span className="grid size-7 place-items-center rounded-md bg-muted text-muted-foreground">
+              <UserRound className="size-4" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block font-medium text-foreground">My Profile</span>
+            </span>
+          </Link>
+        </div>
+      )}
 
-      <div className="mt-2 flex items-center justify-between gap-3 px-1 py-1.5">
+      <div className={cn("flex items-center justify-between gap-3 px-1 py-1.5", showProfile && "mt-2")}>
         <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           Notifications
         </div>
@@ -165,5 +180,52 @@ export function NotificationsDropdownSection({ onNavigate }: NotificationsDropdo
         View all notifications
       </Link>
     </div>
+  );
+}
+
+export function NotificationsMenu() {
+  const [unreadCount, setUnreadCount] = React.useState(0);
+  const [isOpen, setIsOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    let isMounted = true;
+
+    getMyNotifications(1).then((result) => {
+      if (isMounted) {
+        setUnreadCount(result.unreadCount);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  return (
+    <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="relative h-9 w-9 rounded-lg border border-border/70 bg-card/80 hover:bg-accent"
+          aria-label="Open notifications"
+          title="Notifications"
+        >
+          <Bell className="size-4" />
+          {unreadCount > 0 && (
+            <span className="absolute -right-1 -top-1 grid min-h-4 min-w-4 place-items-center rounded-full bg-brand-red px-1 text-[10px] font-bold leading-none text-brand-red-foreground ring-2 ring-background">
+              {unreadCount > 9 ? "9+" : unreadCount}
+            </span>
+          )}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-80 rounded-lg p-2" align="end" sideOffset={8}>
+        <NotificationsDropdownSection
+          onNavigate={() => setIsOpen(false)}
+          onUnreadCountChange={setUnreadCount}
+        />
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

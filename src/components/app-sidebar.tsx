@@ -4,6 +4,7 @@ import * as React from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { UserRound } from "lucide-react"
 import {
   HugeiconsIcon,
 } from "@hugeicons/react"
@@ -23,7 +24,6 @@ import {
 } from "@hugeicons/core-free-icons"
 
 import { handleSignOut } from "@/app/actions/auth"
-import { NotificationsDropdownSection } from "@/components/notifications-dropdown-section"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
@@ -50,7 +50,7 @@ import {
 } from "@/components/ui/sidebar"
 
 const EMP_ROUTES = [
-  { name: "Dashboard", href: "/", icon: DashboardSquare02Icon },
+  { name: "Home", href: "/", icon: DashboardSquare02Icon },
   { name: "Timesheets", href: "/timesheets", icon: TimeQuarterPassIcon },
   { name: "Schedules", href: "/schedule", icon: CalendarUserIcon },
   { name: "PFFD Requests", href: "/leaves", icon: TaskDaily02Icon },
@@ -90,10 +90,10 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
 
   return (
     <Sidebar variant="inset" collapsible="icon" {...props}>
-      <SidebarHeader className="border-b border-sidebar-border/70 px-3 py-4 group-data-[collapsible=icon]:px-2">
+      <SidebarHeader className="border-b border-sidebar-border/70 px-2 py-2.5 group-data-[collapsible=icon]:px-1.5">
         <Link
           href="/"
-          className="flex items-center justify-center rounded-md px-1 py-1.5 transition-colors dark:bg-white/95 dark:shadow-sm group-data-[collapsible=icon]:px-0.5 group-data-[collapsible=icon]:py-1"
+          className="flex items-center justify-center rounded-md px-1 py-1 transition-colors dark:bg-white/95 dark:shadow-sm group-data-[collapsible=icon]:px-0.5"
         >
           <Image
             src="/assets/egs-logo.avif"
@@ -101,14 +101,14 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
             width={140}
             height={40}
             priority
-            className="h-auto w-full max-w-[102px] object-contain group-data-[collapsible=icon]:max-w-6"
+            className="h-auto w-full max-w-[88px] object-contain group-data-[collapsible=icon]:max-w-5"
           />
         </Link>
       </SidebarHeader>
 
-      <SidebarContent className="gap-6 px-3 py-4 group-data-[collapsible=icon]:px-2">
-        <SidebarGroup>
-          <SidebarGroupLabel className="px-2 text-[10px] font-bold uppercase tracking-[0.18em] text-sidebar-foreground/45 group-data-[collapsible=icon]:hidden">
+      <SidebarContent className="gap-3 px-2 py-3 group-data-[collapsible=icon]:px-1.5">
+        <SidebarGroup className="p-0">
+          <SidebarGroupLabel className="h-7 px-2 text-[10px] font-bold uppercase tracking-[0.16em] text-sidebar-foreground/45 group-data-[collapsible=icon]:hidden">
             Workspace
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -123,20 +123,20 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
                       isActive={isActive}
                       tooltip={route.name}
                       className={cn(
-                        "h-11 rounded-xl px-3 text-sidebar-foreground/80 transition-all",
-                        "group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:h-12 group-data-[collapsible=icon]:w-14 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:rounded-lg group-data-[collapsible=icon]:px-0",
+                        "h-9 rounded-lg px-2.5 text-[13px] text-sidebar-foreground/80 transition-all",
+                        "group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:w-10 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:rounded-lg group-data-[collapsible=icon]:px-0",
                         "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                        "data-[active=true]:bg-sidebar-primary data-[active=true]:text-sidebar-primary-foreground data-[active=true]:shadow-lg data-[active=true]:shadow-black/10"
+                        "data-[active=true]:bg-sidebar-primary data-[active=true]:text-sidebar-primary-foreground data-[active=true]:shadow-md data-[active=true]:shadow-black/10"
                       )}
                     >
                       <Link
                         href={route.href}
                         prefetch
-                        className="flex w-full items-center gap-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0"
+                        className="flex w-full items-center gap-2.5 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0"
                       >
                         <HugeiconsIcon
                           icon={route.icon}
-                          size={22}
+                          size={19}
                           strokeWidth={1.8}
                           className="shrink-0 group-data-[collapsible=icon]:scale-125"
                         />
@@ -151,8 +151,8 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
         </SidebarGroup>
 
         {showAdminPanel && (
-          <SidebarGroup>
-            <SidebarGroupLabel className="px-2 text-[10px] font-bold uppercase tracking-[0.18em] text-sidebar-foreground/45 group-data-[collapsible=icon]:hidden">
+          <SidebarGroup className="p-0">
+            <SidebarGroupLabel className="h-7 px-2 text-[10px] font-bold uppercase tracking-[0.16em] text-sidebar-foreground/45 group-data-[collapsible=icon]:hidden">
               Administration
             </SidebarGroupLabel>
             <SidebarGroupContent>
@@ -167,20 +167,20 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
                       isActive={isActive}
                       tooltip={route.name}
                       className={cn(
-                        "h-11 rounded-xl px-3 text-sidebar-foreground/80 transition-all",
-                        "group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:h-12 group-data-[collapsible=icon]:w-14 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:rounded-lg group-data-[collapsible=icon]:px-0",
+                        "h-9 rounded-lg px-2.5 text-[13px] text-sidebar-foreground/80 transition-all",
+                        "group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:w-10 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:rounded-lg group-data-[collapsible=icon]:px-0",
                         "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                          "data-[active=true]:bg-sidebar-primary data-[active=true]:text-sidebar-primary-foreground data-[active=true]:shadow-lg data-[active=true]:shadow-black/10"
+                          "data-[active=true]:bg-sidebar-primary data-[active=true]:text-sidebar-primary-foreground data-[active=true]:shadow-md data-[active=true]:shadow-black/10"
                         )}
                       >
                         <Link
                           href={route.href}
                           prefetch
-                          className="flex w-full items-center gap-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0"
+                          className="flex w-full items-center gap-2.5 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0"
                         >
                           <HugeiconsIcon
                             icon={route.icon}
-                            size={22}
+                            size={19}
                             strokeWidth={1.8}
                             className="shrink-0 group-data-[collapsible=icon]:scale-125"
                           />
@@ -196,7 +196,7 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
         )}
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border/70 p-3 group-data-[collapsible=icon]:px-2">
+      <SidebarFooter className="border-t border-sidebar-border/70 p-2 group-data-[collapsible=icon]:px-1.5">
         <SidebarMenu>
           <SidebarMenuItem>
             <DropdownMenu open={isAccountMenuOpen} onOpenChange={setIsAccountMenuOpen}>
@@ -205,27 +205,27 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
                   size="lg"
                   tooltip="Account"
                   className={cn(
-                    "h-14 rounded-2xl border border-sidebar-border/70 bg-sidebar-accent/40 px-3 shadow-sm transition-all",
+                    "h-11 rounded-lg border border-sidebar-border/70 bg-sidebar-accent/40 px-2.5 shadow-sm transition-all",
                     "data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground",
-                    "group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:h-12 group-data-[collapsible=icon]:w-14 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:rounded-lg group-data-[collapsible=icon]:px-0"
+                    "group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:w-10 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:rounded-lg group-data-[collapsible=icon]:px-0"
                   )}
                 >
-                  <Avatar className="h-10 w-10 rounded-2xl border border-sidebar-border/70 bg-sidebar-primary/12 group-data-[collapsible=icon]:h-9 group-data-[collapsible=icon]:w-9">
-                    <AvatarFallback className="rounded-2xl bg-transparent text-sm font-semibold text-sidebar-foreground group-data-[collapsible=icon]:text-base">
+                  <Avatar className="h-8 w-8 rounded-lg border border-sidebar-border/70 bg-sidebar-primary/12 group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8">
+                    <AvatarFallback className="rounded-lg bg-transparent text-xs font-semibold text-sidebar-foreground group-data-[collapsible=icon]:text-sm">
                       {initial}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="grid min-w-0 flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
+                  <div className="grid min-w-0 flex-1 text-left text-xs leading-tight group-data-[collapsible=icon]:hidden">
                     <span className="truncate font-semibold text-sidebar-foreground" title={user?.name || "Employee"}>
                       {user?.name || "Employee"}
                     </span>
-                    <span className="truncate text-xs text-sidebar-foreground/60" title={user?.email || "No email"}>
+                    <span className="truncate text-[11px] text-sidebar-foreground/60" title={user?.email || "No email"}>
                       {user?.email || "No email"}
                     </span>
                   </div>
                   <HugeiconsIcon
                     icon={ArrowDown01Icon}
-                    size={18}
+                    size={16}
                     strokeWidth={1.8}
                     className="ml-auto text-sidebar-foreground/55 group-data-[collapsible=icon]:hidden"
                   />
@@ -253,7 +253,12 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <NotificationsDropdownSection onNavigate={() => setIsAccountMenuOpen(false)} />
+                <DropdownMenuItem asChild onSelect={() => setIsAccountMenuOpen(false)}>
+                  <Link href="/profile">
+                    <UserRound className="size-4" />
+                    My Profile
+                  </Link>
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <form ref={signOutFormRef} action={handleSignOut}>
                   <DropdownMenuItem

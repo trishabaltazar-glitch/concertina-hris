@@ -1,168 +1,271 @@
-import prisma from "@/lib/prisma";
+import Link from "next/link";
 import { format } from "date-fns";
-import { updateLeaveRequestStatus } from "@/app/actions/admin";
-import { auth } from "@/auth";
+import { CalendarDays, CheckCircle2, Clock3, ListFilter, Paperclip, XCircle } from "lucide-react";
 import { redirect } from "next/navigation";
-import { SubmitButton } from "@/components/ui/submit-button";
 
+import { auth } from "@/auth";
+import { updateLeaveRequestStatus } from "@/app/actions/admin";
+import prisma from "@/lib/prisma";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminLeavesPage() {
-    const session = await auth();
-    if (!session || !session.user) {
-        redirect("/login");
-    }
+type LeaveRequestWithMeta = {
+  id: string;
+  leaveType: string;
+  startDate: Date;
+  endDate: Date;
+  reason: string | null;
+  status: string;
+  createdAt: Date;
+  updatedAt: Date;
+  requestedDays: number;
+  dayType: string;
+  attachmentName: string | null;
+  user: {
+    name: string;
+    email: string;
+  };
+};
 
-    const userRole = (session.user as any).role;
-    if (userRole !== "ADMIN" && userRole !== "MANAGER") {
-        redirect("/");
-    }
-    const pendingRequests = await prisma.leaveRequest.findMany({
-        where: { status: "PENDING" },
-        include: { user: true },
-        orderBy: { createdAt: "asc" },
-    });
+function getLeaveLabel(leaveType: string) {
+  if (leaveType === "LEAVE_CREDITS") return "PFFD Credits";
+  return leaveType.replaceAll("_", " ").toLowerCase();
+}
 
-    const processedRequests = await prisma.leaveRequest.findMany({
-        where: { status: { not: "PENDING" } },
-        include: { user: true },
-        orderBy: { updatedAt: "desc" },
-        take: 20,
-    });
+function getDateLabel(request: LeaveRequestWithMeta) {
+  if (request.dayType === "HALF_DAY") {
+    return `${format(request.startDate, "MMM d, yyyy")} (half-day)`;
+  }
 
-    async function withLeaveMeta<T extends { id: string }>(requests: T[]) {
-        return Promise.all(
-            requests.map(async (request) => {
-                const meta = await prisma.$queryRaw<{ requestedDays: number; dayType: string; attachmentName: string | null }[]>`
-                    SELECT "requestedDays", "dayType", "attachmentName"
-                    FROM "LeaveRequest"
-                    WHERE "id" = ${request.id}
-                    LIMIT 1
-                `;
+  return `${format(request.startDate, "MMM d")} to ${format(request.endDate, "MMM d, yyyy")}`;
+}
 
-                return {
-                    ...request,
-                    requestedDays: meta[0]?.requestedDays || 1,
-                    dayType: meta[0]?.dayType || "FULL_DAY",
-                    attachmentName: meta[0]?.attachmentName || null,
-                };
-            })
-        );
-    }
+function StatusBadge({ status }: { status: string }) {
+  const styles =
+    status === "APPROVED"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : status === "REJECTED"
+        ? "border-red-200 bg-red-50 text-red-700"
+        : "border-amber-200 bg-amber-50 text-amber-700";
 
-    const pendingRequestsWithMeta = await withLeaveMeta(pendingRequests);
-    const processedRequestsWithMeta = await withLeaveMeta(processedRequests);
+  return (
+    <span className={cn("inline-flex rounded-full border px-2 py-0.5 text-xs font-medium", styles)}>
+      {status.charAt(0) + status.slice(1).toLowerCase()}
+    </span>
+  );
+}
 
-    return (
-        <div className="max-w-5xl mx-auto space-y-8">
-            <div className="space-y-6">
-                <h2 className="font-semibold text-xl">Pending Requests</h2>
-                {pendingRequestsWithMeta.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed bg-card/50 text-card-foreground p-12 text-center text-muted-foreground">
-                        <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-primary/10 mb-4">
-                            <span className="text-primary text-xl">✨</span>
-                        </div>
-                        <p>All caught up! No pending PFFD requests to review.</p>
-                    </div>
-                ) : (
-                    <div className="grid gap-4">
-                        {pendingRequestsWithMeta.map((request: any) => (
-                            <div key={request.id} className="rounded-xl border bg-card text-card-foreground shadow-sm p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-                                <div className="space-y-1">
-                                    <div className="flex items-center gap-3">
-                                        <h3 className="font-bold text-lg">{request.user.name}</h3>
-                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
-                                            Pending
-                                        </span>
-                                    </div>
-                                    <p className="text-muted-foreground text-sm font-medium">
-                                        <span className="capitalize text-foreground">{request.leaveType === 'LEAVE_CREDITS' ? 'PFFD Credits' : request.leaveType.toLowerCase() + ' PFFD'}</span> • {request.dayType === "HALF_DAY" ? `${format(request.startDate, "MMM d, yyyy")} (half-day)` : `${format(request.startDate, "MMM d")} to ${format(request.endDate, "MMM d, yyyy")}`} • {request.requestedDays} day{request.requestedDays === 1 ? "" : "s"}
-                                    </p>
-                                    {request.attachmentName && (
-                                        <a href={`/leaves/attachments/${request.id}`} className="text-xs font-semibold text-brand-steel hover:text-brand-red">
-                                            View attachment
-                                        </a>
-                                    )}
-                                    {request.reason && (
-                                        <p className="text-sm mt-3 pt-3 border-t italic text-muted-foreground max-w-2xl">
-                                            "{request.reason}"
-                                        </p>
-                                    )}
-                                </div>
-
-                                <div className="flex sm:flex-col gap-2 shrink-0">
-                                    <form action={async () => {
-                                        "use server";
-                                        await updateLeaveRequestStatus(request.id, "APPROVED");
-                                    }}>
-                                        <SubmitButton variant="success" className="w-full sm:w-32">
-                                            Approve
-                                        </SubmitButton>
-                                    </form>
-                                    <form action={async () => {
-                                        "use server";
-                                        await updateLeaveRequestStatus(request.id, "REJECTED");
-                                    }}>
-                                        <SubmitButton variant="destructive-outline" className="w-full sm:w-32">
-                                            Reject
-                                        </SubmitButton>
-                                    </form>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </div>
-
-            <div className="pt-8 space-y-6">
-                <h2 className="font-semibold text-xl">Recently Processed</h2>
-                <div className="rounded-2xl border bg-card text-card-foreground shadow-sm overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-left">
-                            <thead className="bg-muted/50 text-muted-foreground border-b text-xs uppercase tracking-wider">
-                                <tr>
-                                    <th className="px-6 py-4 font-semibold">Employee</th>
-                                    <th className="px-6 py-4 font-semibold">Type</th>
-                                    <th className="px-6 py-4 font-semibold">Dates</th>
-                                    <th className="px-6 py-4 font-semibold">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y">
-                                {processedRequestsWithMeta.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={4} className="px-6 py-8 text-center text-muted-foreground">
-                                            No processed history.
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    processedRequestsWithMeta.map((request: any) => (
-                                        <tr key={request.id} className="hover:bg-muted/50 transition-colors">
-                                            <td className="px-6 py-4 font-medium">
-                                                {request.user.name}
-                                            </td>
-                                            <td className="px-6 py-4 capitalize">
-                                                {request.leaveType === 'LEAVE_CREDITS' ? 'PFFD Credits' : request.leaveType.toLowerCase()}
-                                            </td>
-                                            <td className="px-6 py-4 text-muted-foreground whitespace-nowrap">
-                                                {request.dayType === "HALF_DAY" ? `${format(request.startDate, "MMM d, yyyy")} (half-day)` : `${format(request.startDate, "MMM d")} - ${format(request.endDate, "MMM d, yyyy")}`} • {request.requestedDays} day{request.requestedDays === 1 ? "" : "s"}
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${request.status === 'APPROVED'
-                                                    ? 'bg-emerald-100 text-emerald-800'
-                                                    : 'bg-destructive/10 text-destructive'
-                                                    }`}>
-                                                    {request.status}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
+function Metric({
+  label,
+  value,
+  helper,
+  icon: Icon,
+}: {
+  label: string;
+  value: number | string;
+  helper: string;
+  icon: React.ComponentType<{ className?: string }>;
+}) {
+  return (
+    <div className="rounded-lg border border-border bg-background p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-medium text-muted-foreground">{label}</p>
+          <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">{value}</p>
         </div>
-    );
+        <span className="inline-flex size-7 items-center justify-center rounded-md border border-border text-muted-foreground">
+          <Icon className="size-3.5" />
+        </span>
+      </div>
+      <p className="mt-3 border-t border-border pt-3 text-xs text-muted-foreground">{helper}</p>
+    </div>
+  );
+}
+
+export default async function AdminLeavesPage() {
+  const session = await auth();
+  if (!session?.user) {
+    redirect("/login");
+  }
+
+  const userRole = (session.user as { role?: string }).role;
+  if (userRole !== "ADMIN" && userRole !== "MANAGER") {
+    redirect("/");
+  }
+
+  const requests = await prisma.leaveRequest.findMany({
+    include: {
+      user: {
+        select: {
+          name: true,
+          email: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+  });
+
+  const requestsWithMeta = await Promise.all(
+    requests.map(async (request) => {
+      const meta = await prisma.$queryRaw<
+        { requestedDays: number; dayType: string; attachmentName: string | null }[]
+      >`
+        SELECT "requestedDays", "dayType", "attachmentName"
+        FROM "LeaveRequest"
+        WHERE "id" = ${request.id}
+        LIMIT 1
+      `;
+
+      return {
+        ...request,
+        requestedDays: meta[0]?.requestedDays || 1,
+        dayType: meta[0]?.dayType || "FULL_DAY",
+        attachmentName: meta[0]?.attachmentName || null,
+      };
+    })
+  );
+  const statusRank: Record<string, number> = { PENDING: 0, APPROVED: 1, REJECTED: 2 };
+  requestsWithMeta.sort((a, b) => {
+    return (statusRank[a.status] ?? 3) - (statusRank[b.status] ?? 3);
+  });
+
+  const pendingCount = requestsWithMeta.filter((request) => request.status === "PENDING").length;
+  const approvedCount = requestsWithMeta.filter((request) => request.status === "APPROVED").length;
+  const rejectedCount = requestsWithMeta.filter((request) => request.status === "REJECTED").length;
+  const requestedDays = requestsWithMeta.reduce((sum, request) => sum + request.requestedDays, 0);
+
+  return (
+    <div className="w-full space-y-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <span className="inline-flex rounded-full border border-border bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground">
+            Leave
+          </span>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">Leave requests</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Review filed requests and move pending items into approvals.
+          </p>
+        </div>
+        <Button asChild variant="outline" size="sm" className="w-fit">
+          <Link href="/leaves">Employee view</Link>
+        </Button>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <Metric label="Requests in view" value={requestsWithMeta.length} helper="Latest 50 requests shown" icon={ListFilter} />
+        <Metric label="Pending approvals" value={pendingCount} helper="Waiting for review" icon={Clock3} />
+        <Metric label="Approved requests" value={approvedCount} helper={`${rejectedCount} rejected or declined`} icon={CheckCircle2} />
+        <Metric label="Days requested" value={requestedDays.toFixed(1).replace(".0", "")} helper="Total days represented" icon={CalendarDays} />
+      </div>
+
+      <div className="rounded-lg border border-border bg-background">
+        <div className="flex flex-col gap-2 border-b border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-foreground">Request queue</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Pending requests stay actionable; processed requests remain visible for context.
+            </p>
+          </div>
+          <span className="rounded-full border border-border px-2 py-0.5 text-xs font-medium text-muted-foreground">
+            {requestsWithMeta.length} shown
+          </span>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[860px] text-left text-sm">
+            <thead className="border-b border-border bg-muted/30 text-xs text-muted-foreground">
+              <tr>
+                <th className="px-4 py-3 font-semibold">Employee</th>
+                <th className="px-4 py-3 font-semibold">Leave type</th>
+                <th className="px-4 py-3 font-semibold">Period</th>
+                <th className="px-4 py-3 font-semibold">Days</th>
+                <th className="px-4 py-3 font-semibold">Status</th>
+                <th className="px-4 py-3 font-semibold">Recorded</th>
+                <th className="px-4 py-3 text-right font-semibold">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {requestsWithMeta.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-10 text-center text-sm text-muted-foreground">
+                    No leave requests yet.
+                  </td>
+                </tr>
+              ) : (
+                requestsWithMeta.map((request) => (
+                  <tr key={request.id} className="align-top transition-colors hover:bg-muted/30">
+                    <td className="px-4 py-3">
+                      <p className="font-medium text-foreground">{request.user.name}</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">{request.user.email}</p>
+                    </td>
+                    <td className="px-4 py-3 capitalize text-foreground">
+                      <div className="flex items-center gap-2">
+                        {getLeaveLabel(request.leaveType)}
+                        {request.attachmentName && (
+                          <Link
+                            href={`/leaves/attachments/${request.id}`}
+                            className="text-muted-foreground hover:text-foreground"
+                            title="View attachment"
+                          >
+                            <Paperclip className="size-3.5" />
+                          </Link>
+                        )}
+                      </div>
+                      {request.reason && (
+                        <p className="mt-1 max-w-xs truncate text-xs normal-case text-muted-foreground" title={request.reason}>
+                          {request.reason}
+                        </p>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">{getDateLabel(request)}</td>
+                    <td className="px-4 py-3 font-medium text-foreground">{request.requestedDays}</td>
+                    <td className="px-4 py-3">
+                      <StatusBadge status={request.status} />
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">{format(request.createdAt, "MMM d, yyyy")}</td>
+                    <td className="px-4 py-3">
+                      {request.status === "PENDING" ? (
+                        <div className="flex justify-end gap-2">
+                          <form
+                            action={async () => {
+                              "use server";
+                              await updateLeaveRequestStatus(request.id, "APPROVED");
+                            }}
+                          >
+                            <SubmitButton variant="success" size="sm" className="h-8 gap-1.5">
+                              <CheckCircle2 className="size-3.5" />
+                              Approve
+                            </SubmitButton>
+                          </form>
+                          <form
+                            action={async () => {
+                              "use server";
+                              await updateLeaveRequestStatus(request.id, "REJECTED");
+                            }}
+                          >
+                            <SubmitButton variant="destructive-outline" size="sm" className="h-8 gap-1.5">
+                              <XCircle className="size-3.5" />
+                              Reject
+                            </SubmitButton>
+                          </form>
+                        </div>
+                      ) : (
+                        <span className="block text-right text-xs text-muted-foreground">
+                          {format(request.updatedAt, "MMM d, yyyy")}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
 }

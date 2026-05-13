@@ -1,84 +1,92 @@
 "use client"
 
+import Link from "next/link"
 import { usePathname } from "next/navigation"
 
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/app-sidebar"
 import { ThemeIconToggle } from "@/components/theme-toggle"
+import { NotificationsMenu } from "@/components/notifications-dropdown-section"
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
 
-function getPageCopy(pathname: string) {
+function getPageLabel(pathname: string) {
   switch (pathname) {
     case "/":
-      return {
-        title: "Dashboard",
-        description: "Your daily snapshot of time logs, leave credits, and activity.",
-      }
+      return "Home"
     case "/timesheets":
-      return {
-        title: "Timesheets",
-        description: "Review your attendance history and total hours worked.",
-      }
+      return "Timesheets"
     case "/schedule":
-      return {
-        title: "My Weekly Schedule",
-        description: "View your assigned working hours for the week.",
-      }
+      return "My Weekly Schedule"
     case "/leaves":
-      return {
-        title: "Pre-Funded Flex Days (PFFD)",
-        description: "Request PFFD time off and view your balances.",
-      }
+      return "Pre-Funded Flex Days"
     case "/directory":
-      return {
-        title: "Team Directory",
-        description: "Find contact information for everyone at Concertina HR.",
-      }
+      return "Team Directory"
     case "/holidays":
-      return {
-        title: "Company Holidays",
-        description: `View the upcoming official Concertina company holidays for ${new Date().getFullYear()}.`,
-      }
+      return "Company Holidays"
     case "/profile":
-      return {
-        title: "My Profile",
-        description: "View and update your personal information.",
-      }
+      return "My Profile"
     case "/admin/employees":
-      return {
-        title: "Team Management",
-        description: "Add new employees, manage roles, and migrate starting PFFD balances.",
-      }
+      return "Team Management"
     case "/admin/timesheets":
-      return {
-        title: "Company Time Logs",
-        description: "Advanced Multi-Filter Search",
-      }
+      return "Company Time Logs"
     case "/admin/leaves":
-      return {
-        title: "PFFD Approvals",
-        description: "Review and manage employee PFFD requests.",
-      }
+      return "PFFD Approvals"
     case "/admin/schedules":
-      return {
-        title: "Schedule Management",
-        description: "Assign and modify weekly work schedules for all team members.",
-      }
+      return "Schedule Management"
     case "/admin/holidays":
-      return {
-        title: "Holiday Management",
-        description: "Add and manage official Concertina company holidays.",
-      }
+      return "Holiday Management"
     case "/admin/reports":
-      return {
-        title: "Reporting Dashboard",
-        description: "Generate and download CSV reports for payroll and analytics.",
-      }
+      return "Reporting Dashboard"
+    case "/notifications":
+      return "Notifications"
     default:
-      return {
-        title: "Concertina HR",
-        description: "Employee workspace",
-      }
+      return "Concertina HR"
   }
+}
+
+function AppBreadcrumbs({ pathname }: { pathname: string }) {
+  const currentLabel = getPageLabel(pathname)
+  const isHome = pathname === "/"
+  const isAdmin = pathname.startsWith("/admin")
+
+  return (
+    <Breadcrumb>
+      <BreadcrumbList>
+        {isHome ? (
+          <BreadcrumbItem>
+            <BreadcrumbPage>Home</BreadcrumbPage>
+          </BreadcrumbItem>
+        ) : (
+          <>
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link href="/">Home</Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            {isAdmin && (
+              <>
+                <BreadcrumbItem className="hidden sm:inline-flex">
+                  <span className="text-muted-foreground">Administration</span>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator className="hidden sm:inline-flex" />
+              </>
+            )}
+            <BreadcrumbItem>
+              <BreadcrumbPage>{currentLabel}</BreadcrumbPage>
+            </BreadcrumbItem>
+          </>
+        )}
+      </BreadcrumbList>
+    </Breadcrumb>
+  )
 }
 
 export function AppShell({
@@ -93,7 +101,6 @@ export function AppShell({
   children: React.ReactNode
 }) {
   const pathname = usePathname()
-  const pageCopy = getPageCopy(pathname)
 
   return (
     <SidebarProvider defaultOpen>
@@ -102,31 +109,23 @@ export function AppShell({
         <header className="hidden h-16 items-center justify-between border-b border-border/70 bg-background/85 px-6 backdrop-blur lg:flex">
           <div className="flex items-center gap-3">
             <SidebarTrigger className="rounded-xl border border-border/70 bg-card shadow-sm hover:bg-accent" />
-            <div className="flex min-w-0 flex-col justify-center items-start gap-0.5">
-              <p className="flex items-center gap-2 truncate text-[15px] font-semibold leading-5 tracking-tight">
-                <span className="inline-block h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: "var(--brand-red)" }} />
-                {pageCopy.title}
-              </p>
-              <p className="truncate text-[13px] leading-5 text-muted-foreground">{pageCopy.description}</p>
-            </div>
+            <AppBreadcrumbs pathname={pathname} />
           </div>
           <div className="flex items-center gap-2">
             <ThemeIconToggle />
+            <NotificationsMenu />
           </div>
         </header>
 
         <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border/70 bg-background/85 px-4 backdrop-blur md:px-6 lg:hidden">
           <SidebarTrigger />
-          <div className="flex min-w-0 flex-col justify-center items-start gap-0.5">
-            <p className="flex items-center gap-2 truncate text-[15px] font-semibold leading-5 tracking-tight">
-              <span className="inline-block h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: "var(--brand-red)" }} />
-              {pageCopy.title}
-            </p>
-            <p className="truncate text-[13px] leading-5 text-muted-foreground">{pageCopy.description}</p>
+          <div className="min-w-0 flex-1">
+            <AppBreadcrumbs pathname={pathname} />
           </div>
           <div className="ml-auto">
             <ThemeIconToggle />
           </div>
+          <NotificationsMenu />
         </header>
 
         <main className="flex-1 p-4 md:p-6 lg:p-8">{children}</main>

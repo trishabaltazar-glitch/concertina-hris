@@ -69,7 +69,7 @@ export default function AdminReportsPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 py-8 px-4">
+    <div className="w-full space-y-8">
       <div className="rounded-2xl border bg-card text-card-foreground shadow-sm overflow-hidden border-border">
         <div className="p-6 border-b border-border bg-card/50 flex flex-col md:flex-row md:items-end gap-6">
           <div className="flex-1 space-y-4">
