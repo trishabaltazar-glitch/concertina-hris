@@ -6,8 +6,48 @@ import { auth } from "@/auth";
 import { createNotification } from "@/lib/notifications";
 import { sendLeaveNotificationEmail } from "@/lib/leave-notification-email";
 
+async function ensureLeaveDayBreakdownColumn() {
+    await prisma.$executeRawUnsafe(`ALTER TABLE "LeaveRequest" ADD COLUMN IF NOT EXISTS "dayBreakdown" JSONB`);
+}
+
 function formatLeaveDateRange(startDate: Date, endDate: Date) {
     return `${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}`;
+}
+
+type LeaveDayBreakdownItem = {
+    date: string;
+    dayType: "FULL_DAY" | "HALF_DAY";
+    days: number;
+};
+
+function normalizeLeaveBreakdown(value: unknown): LeaveDayBreakdownItem[] {
+    if (!Array.isArray(value)) return [];
+
+    return value.flatMap((item) => {
+        if (!item || typeof item !== "object") return [];
+        const candidate = item as Partial<LeaveDayBreakdownItem>;
+        if (typeof candidate.date !== "string") return [];
+        if (candidate.dayType !== "FULL_DAY" && candidate.dayType !== "HALF_DAY") return [];
+
+        return [{
+            date: candidate.date,
+            dayType: candidate.dayType,
+            days: candidate.dayType === "HALF_DAY" ? 0.5 : 1,
+        }];
+    });
+}
+
+function formatLeaveBreakdown(dayBreakdown: LeaveDayBreakdownItem[], startDate: Date, endDate: Date, dayType: string) {
+    if (dayBreakdown.length === 1) {
+        const item = dayBreakdown[0];
+        return `${new Date(`${item.date}T00:00:00`).toLocaleDateString()} (${item.dayType === "HALF_DAY" ? "half-day" : "full day"})`;
+    }
+
+    if (dayBreakdown.length > 1) {
+        return `${dayBreakdown.length} selected dates (${dayBreakdown.reduce((sum, item) => sum + item.days, 0)} PFFD days)`;
+    }
+
+    return dayType === "HALF_DAY" ? `${startDate.toLocaleDateString()} (half-day)` : formatLeaveDateRange(startDate, endDate);
 }
 
 function getTimeLogStatus(clockIn: Date) {
@@ -19,6 +59,8 @@ function getTimeLogStatus(clockIn: Date) {
 
 export async function updateLeaveRequestStatus(requestId: string, status: "APPROVED" | "REJECTED") {
     try {
+        await ensureLeaveDayBreakdownColumn();
+
         const session = await auth();
         const role = (session?.user as { role?: string } | undefined)?.role;
 
@@ -39,12 +81,13 @@ export async function updateLeaveRequestStatus(requestId: string, status: "APPRO
             return { success: false, error: "You can only review requests from your direct reports." };
         }
 
-        const requestMeta = await prisma.$queryRaw<{ requestedDays: number; dayType: string }[]>`
-            SELECT "requestedDays", "dayType"
+        const requestMeta = await prisma.$queryRaw<{ requestedDays: number; dayType: string; dayBreakdown: unknown }[]>`
+            SELECT "requestedDays", "dayType", "dayBreakdown"
             FROM "LeaveRequest"
             WHERE "id" = ${requestId}
             LIMIT 1
         `;
+        const dayBreakdown = normalizeLeaveBreakdown(requestMeta[0]?.dayBreakdown);
 
         // If status hasn't changed, do nothing
         if (request.status === status) {
@@ -78,10 +121,7 @@ export async function updateLeaveRequestStatus(requestId: string, status: "APPRO
 
         const leaveLabel = request.leaveType === "LEAVE_CREDITS" ? "PFFD" : request.leaveType;
         const statusLabel = status === "APPROVED" ? "approved" : "rejected";
-        const dateRange =
-            requestMeta[0]?.dayType === "HALF_DAY"
-                ? `${request.startDate.toLocaleDateString()} (half-day)`
-                : formatLeaveDateRange(request.startDate, request.endDate);
+        const dateRange = formatLeaveBreakdown(dayBreakdown, request.startDate, request.endDate, requestMeta[0]?.dayType || "FULL_DAY");
 
         await createNotification({
             userId: request.userId,

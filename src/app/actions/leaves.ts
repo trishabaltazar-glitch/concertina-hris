@@ -6,8 +6,31 @@ import { auth } from "@/auth";
 import { createNotifications } from "@/lib/notifications";
 import { sendLeaveNotificationEmail } from "@/lib/leave-notification-email";
 
+async function ensureLeaveDayBreakdownColumn() {
+    await prisma.$executeRawUnsafe(`ALTER TABLE "LeaveRequest" ADD COLUMN IF NOT EXISTS "dayBreakdown" JSONB`);
+}
+
 function formatLeaveDateRange(startDate: Date, endDate: Date) {
     return `${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}`;
+}
+
+type LeaveDayBreakdownItem = {
+    date: string;
+    dayType: "FULL_DAY" | "HALF_DAY";
+    days: number;
+};
+
+function formatLeaveBreakdown(dayBreakdown: LeaveDayBreakdownItem[] | null | undefined, startDate: Date, endDate: Date, dayType: string) {
+    if (dayBreakdown?.length) {
+        if (dayBreakdown.length === 1) {
+            const item = dayBreakdown[0];
+            return `${new Date(`${item.date}T00:00:00`).toLocaleDateString()} (${item.dayType === "HALF_DAY" ? "half-day" : "full day"})`;
+        }
+
+        return `${dayBreakdown.length} selected dates (${dayBreakdown.reduce((sum, item) => sum + item.days, 0)} PFFD days)`;
+    }
+
+    return dayType === "HALF_DAY" ? `${startDate.toLocaleDateString()} (half-day)` : formatLeaveDateRange(startDate, endDate);
 }
 
 function getRequestedDays(startDate: Date, endDate: Date, dayType: string) {
@@ -17,29 +40,77 @@ function getRequestedDays(startDate: Date, endDate: Date, dayType: string) {
     return Math.max(1, Math.ceil((endDate.getTime() - startDate.getTime()) / msPerDay) + 1);
 }
 
+function getDateOnly(value: string) {
+    return value.match(/^\d{4}-\d{2}-\d{2}$/) ? value : null;
+}
+
+function parseDayBreakdown(formData: FormData) {
+    const dates = formData.getAll("leaveDate").map((value) => String(value));
+    const dayTypes = formData.getAll("leaveDateType").map((value) => String(value));
+    const items: LeaveDayBreakdownItem[] = [];
+
+    dates.forEach((date, index) => {
+        const dateOnly = getDateOnly(date);
+        const dayType = dayTypes[index] === "HALF_DAY" ? "HALF_DAY" : dayTypes[index] === "FULL_DAY" ? "FULL_DAY" : null;
+
+        if (!dateOnly || !dayType) {
+            return;
+        }
+
+        if (items.some((item) => item.date === dateOnly)) {
+            return;
+        }
+
+        items.push({
+            date: dateOnly,
+            dayType,
+            days: dayType === "HALF_DAY" ? 0.5 : 1,
+        });
+    });
+
+    items.sort((a, b) => a.date.localeCompare(b.date));
+    return items;
+}
+
 async function getValidatedLeaveInput(formData: FormData) {
     const leaveType = formData.get("leaveType") as string;
     const startDateStr = formData.get("startDate") as string;
     const endDateStr = formData.get("endDate") as string;
     const reason = formData.get("reason") as string;
-    const dayType = (formData.get("dayType") as string) === "HALF_DAY" ? "HALF_DAY" : "FULL_DAY";
     const attachment = formData.get("attachment");
+    const dayBreakdown = parseDayBreakdown(formData);
 
     if (!leaveType || !startDateStr || !endDateStr) {
         return { error: "Missing required fields" };
     }
 
-    const startDate = new Date(startDateStr);
-    const endDate = dayType === "HALF_DAY" ? new Date(startDateStr) : new Date(endDateStr);
+    let dayType = "FULL_DAY";
+    let startDate = new Date(startDateStr);
+    let endDate = new Date(endDateStr);
+
+    if (dayBreakdown.length > 0) {
+        startDate = new Date(`${dayBreakdown[0].date}T00:00:00`);
+        endDate = new Date(`${dayBreakdown[dayBreakdown.length - 1].date}T00:00:00`);
+        const hasFullDays = dayBreakdown.some((item) => item.dayType === "FULL_DAY");
+        const hasHalfDays = dayBreakdown.some((item) => item.dayType === "HALF_DAY");
+        dayType = hasFullDays && hasHalfDays ? "CUSTOM" : hasHalfDays ? "HALF_DAY" : "FULL_DAY";
+    } else {
+        dayType = (formData.get("dayType") as string) === "HALF_DAY" ? "HALF_DAY" : "FULL_DAY";
+        endDate = dayType === "HALF_DAY" ? new Date(startDateStr) : new Date(endDateStr);
+    }
 
     if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
         return { error: "Enter a valid leave date" };
     }
 
-    const requestedDays = getRequestedDays(startDate, endDate, dayType);
+    const requestedDays = dayBreakdown.length > 0 ? dayBreakdown.reduce((sum, item) => sum + item.days, 0) : getRequestedDays(startDate, endDate, dayType);
 
     if (endDate < startDate) {
         return { error: "End date cannot be before start date" };
+    }
+
+    if (requestedDays <= 0) {
+        return { error: "Select at least one request date" };
     }
 
     let attachmentName: string | null = null;
@@ -70,6 +141,7 @@ async function getValidatedLeaveInput(formData: FormData) {
         reason,
         dayType,
         requestedDays,
+        dayBreakdown,
         attachmentName,
         attachmentType,
         attachmentData,
@@ -78,6 +150,8 @@ async function getValidatedLeaveInput(formData: FormData) {
 
 export async function submitLeaveRequest(formData: FormData) {
     try {
+        await ensureLeaveDayBreakdownColumn();
+
         const parsed = await getValidatedLeaveInput(formData);
         if ("error" in parsed) return { success: false, error: parsed.error };
 
@@ -108,6 +182,7 @@ export async function submitLeaveRequest(formData: FormData) {
                 SET
                     "dayType" = ${parsed.dayType},
                     "requestedDays" = ${parsed.requestedDays},
+                    "dayBreakdown" = ${JSON.stringify(parsed.dayBreakdown)}::jsonb,
                     "attachmentName" = ${parsed.attachmentName},
                     "attachmentType" = ${parsed.attachmentType},
                     "attachmentData" = ${parsed.attachmentData}
@@ -116,7 +191,7 @@ export async function submitLeaveRequest(formData: FormData) {
         } else {
             await prisma.$executeRaw`
                 UPDATE "LeaveRequest"
-                SET "dayType" = ${parsed.dayType}, "requestedDays" = ${parsed.requestedDays}
+                SET "dayType" = ${parsed.dayType}, "requestedDays" = ${parsed.requestedDays}, "dayBreakdown" = ${JSON.stringify(parsed.dayBreakdown)}::jsonb
                 WHERE "id" = ${leaveRequest.id}
             `;
         }
@@ -132,7 +207,7 @@ export async function submitLeaveRequest(formData: FormData) {
             },
         });
 
-        const dateRange = parsed.dayType === "HALF_DAY" ? `${parsed.startDate.toLocaleDateString()} (half-day)` : formatLeaveDateRange(parsed.startDate, parsed.endDate);
+        const dateRange = formatLeaveBreakdown(parsed.dayBreakdown, parsed.startDate, parsed.endDate, parsed.dayType);
         const leaveLabel = parsed.leaveType === "LEAVE_CREDITS" ? "PFFD" : parsed.leaveType;
 
         await createNotifications(
@@ -167,6 +242,8 @@ export async function submitLeaveRequest(formData: FormData) {
 
 export async function updatePendingLeaveRequest(requestId: string, formData: FormData) {
     try {
+        await ensureLeaveDayBreakdownColumn();
+
         const session = await auth();
         if (!session?.user?.id) {
             return { success: false, error: "Not authenticated" };
@@ -200,6 +277,7 @@ export async function updatePendingLeaveRequest(requestId: string, formData: For
                 SET
                     "dayType" = ${parsed.dayType},
                     "requestedDays" = ${parsed.requestedDays},
+                    "dayBreakdown" = ${JSON.stringify(parsed.dayBreakdown)}::jsonb,
                     "attachmentName" = ${parsed.attachmentName},
                     "attachmentType" = ${parsed.attachmentType},
                     "attachmentData" = ${parsed.attachmentData}
@@ -210,7 +288,8 @@ export async function updatePendingLeaveRequest(requestId: string, formData: For
                 UPDATE "LeaveRequest"
                 SET
                     "dayType" = ${parsed.dayType},
-                    "requestedDays" = ${parsed.requestedDays}
+                    "requestedDays" = ${parsed.requestedDays},
+                    "dayBreakdown" = ${JSON.stringify(parsed.dayBreakdown)}::jsonb
                 WHERE "id" = ${requestId}
             `;
         }

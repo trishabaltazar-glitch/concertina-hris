@@ -12,6 +12,10 @@ import { SubmitButton } from "@/components/ui/submit-button";
 
 export const dynamic = "force-dynamic";
 
+async function ensureLeaveDayBreakdownColumn() {
+  await prisma.$executeRawUnsafe(`ALTER TABLE "LeaveRequest" ADD COLUMN IF NOT EXISTS "dayBreakdown" JSONB`);
+}
+
 type LeaveRequestWithMeta = {
   id: string;
   leaveType: string;
@@ -23,6 +27,7 @@ type LeaveRequestWithMeta = {
   updatedAt: Date;
   requestedDays: number;
   dayType: string;
+  dayBreakdown: LeaveDayBreakdownItem[];
   attachmentName: string | null;
   user: {
     name: string;
@@ -30,17 +35,57 @@ type LeaveRequestWithMeta = {
   };
 };
 
+type LeaveDayBreakdownItem = {
+  date: string;
+  dayType: "FULL_DAY" | "HALF_DAY";
+  days: number;
+};
+
+function normalizeLeaveBreakdown(value: unknown): LeaveDayBreakdownItem[] {
+  if (!Array.isArray(value)) return [];
+
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const candidate = item as Partial<LeaveDayBreakdownItem>;
+    if (typeof candidate.date !== "string") return [];
+    if (candidate.dayType !== "FULL_DAY" && candidate.dayType !== "HALF_DAY") return [];
+
+    return [{
+      date: candidate.date,
+      dayType: candidate.dayType,
+      days: candidate.dayType === "HALF_DAY" ? 0.5 : 1,
+    }];
+  });
+}
+
 function getLeaveLabel(leaveType: string) {
   if (leaveType === "LEAVE_CREDITS") return "PFFD Credits";
   return leaveType.replaceAll("_", " ").toLowerCase();
 }
 
 function getDateLabel(request: LeaveRequestWithMeta) {
+  if (request.dayBreakdown.length === 1) {
+    const item = request.dayBreakdown[0];
+    return `${format(new Date(`${item.date}T00:00:00`), "MMM d, yyyy")} (${item.dayType === "HALF_DAY" ? "half-day" : "full day"})`;
+  }
+
+  if (request.dayBreakdown.length > 1) {
+    return `${format(new Date(`${request.dayBreakdown[0].date}T00:00:00`), "MMM d")} to ${format(new Date(`${request.dayBreakdown[request.dayBreakdown.length - 1].date}T00:00:00`), "MMM d, yyyy")}`;
+  }
+
   if (request.dayType === "HALF_DAY") {
     return `${format(request.startDate, "MMM d, yyyy")} (half-day)`;
   }
 
   return `${format(request.startDate, "MMM d")} to ${format(request.endDate, "MMM d, yyyy")}`;
+}
+
+function getBreakdownLabel(request: LeaveRequestWithMeta) {
+  if (!request.dayBreakdown.length) return null;
+
+  return request.dayBreakdown
+    .map((item) => `${format(new Date(`${item.date}T00:00:00`), "MMM d")} ${item.dayType === "HALF_DAY" ? "half" : "full"}`)
+    .join(", ");
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -96,7 +141,10 @@ export default async function AdminLeavesPage() {
     redirect("/");
   }
 
+  await ensureLeaveDayBreakdownColumn();
+
   const requests = await prisma.leaveRequest.findMany({
+    where: userRole === "ADMIN" ? undefined : { user: { managerId: session.user.id } },
     include: {
       user: {
         select: {
@@ -112,9 +160,9 @@ export default async function AdminLeavesPage() {
   const requestsWithMeta = await Promise.all(
     requests.map(async (request) => {
       const meta = await prisma.$queryRaw<
-        { requestedDays: number; dayType: string; attachmentName: string | null }[]
+        { requestedDays: number; dayType: string; dayBreakdown: unknown; attachmentName: string | null }[]
       >`
-        SELECT "requestedDays", "dayType", "attachmentName"
+        SELECT "requestedDays", "dayType", "dayBreakdown", "attachmentName"
         FROM "LeaveRequest"
         WHERE "id" = ${request.id}
         LIMIT 1
@@ -124,6 +172,7 @@ export default async function AdminLeavesPage() {
         ...request,
         requestedDays: meta[0]?.requestedDays || 1,
         dayType: meta[0]?.dayType || "FULL_DAY",
+        dayBreakdown: normalizeLeaveBreakdown(meta[0]?.dayBreakdown),
         attachmentName: meta[0]?.attachmentName || null,
       };
     })
@@ -221,7 +270,14 @@ export default async function AdminLeavesPage() {
                         </p>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">{getDateLabel(request)}</td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      <div>{getDateLabel(request)}</div>
+                      {getBreakdownLabel(request) && (
+                        <div className="mt-0.5 max-w-xs truncate text-xs" title={getBreakdownLabel(request) || undefined}>
+                          {getBreakdownLabel(request)}
+                        </div>
+                      )}
+                    </td>
                     <td className="px-4 py-3 font-medium text-foreground">{request.requestedDays}</td>
                     <td className="px-4 py-3">
                       <StatusBadge status={request.status} />

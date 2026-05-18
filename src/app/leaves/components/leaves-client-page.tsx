@@ -1,8 +1,22 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { differenceInCalendarDays, format, isValid, parseISO } from "date-fns";
-import { CalendarDays, CheckCircle2, Clock3, FileText, Hourglass, Paperclip, XCircle } from "lucide-react";
+import {
+  addMonths,
+  differenceInCalendarDays,
+  eachDayOfInterval,
+  endOfMonth,
+  endOfWeek,
+  format,
+  isSameMonth,
+  isToday,
+  isValid,
+  parseISO,
+  startOfMonth,
+  startOfWeek,
+  subMonths,
+} from "date-fns";
+import { CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, FileText, Hourglass, Paperclip, Trash2, XCircle } from "lucide-react";
 
 import { cancelPendingLeaveRequest, submitLeaveRequest, updatePendingLeaveRequest } from "@/app/actions/leaves";
 import { Button } from "@/components/ui/button";
@@ -22,6 +36,7 @@ type LeaveRequestItem = {
   endDate: string;
   dayType: string;
   requestedDays: number;
+  dayBreakdown: LeaveDaySelection[] | null;
   attachmentName: string | null;
   reason: string | null;
   status: string;
@@ -34,6 +49,14 @@ type LeavesClientPageProps = {
 };
 
 const STATUS_FILTERS = ["ALL", "PENDING", "APPROVED", "REJECTED"] as const;
+const DAY_OPTIONS = ["FULL_DAY", "HALF_DAY"] as const;
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+type LeaveDaySelection = {
+  date: string;
+  dayType: "FULL_DAY" | "HALF_DAY";
+  days: number;
+};
 
 function getRequestDays(startDate: string | Date, endDate: string | Date, requestedDays?: number) {
   if (typeof requestedDays === "number") return requestedDays;
@@ -50,6 +73,31 @@ function getRequestDays(startDate: string | Date, endDate: string | Date, reques
 
 function getLeaveLabel(leaveType: string) {
   return leaveType === "LEAVE_CREDITS" ? "PFFD Credits" : leaveType.toLowerCase();
+}
+
+function getRequestDateLabel(request: LeaveRequestItem) {
+  if (request.dayBreakdown?.length) {
+    if (request.dayBreakdown.length === 1) {
+      const item = request.dayBreakdown[0];
+      return `${format(parseISO(item.date), "MMM d, yyyy")} (${item.dayType === "HALF_DAY" ? "half-day" : "full day"})`;
+    }
+
+    return `${format(parseISO(request.dayBreakdown[0].date), "MMM d")} - ${format(parseISO(request.dayBreakdown[request.dayBreakdown.length - 1].date), "MMM d, yyyy")}`;
+  }
+
+  if (request.dayType === "HALF_DAY") {
+    return `${format(parseISO(request.startDate), "MMM d, yyyy")} (half-day)`;
+  }
+
+  return `${format(parseISO(request.startDate), "MMM d")} - ${format(parseISO(request.endDate), "MMM d, yyyy")}`;
+}
+
+function getBreakdownLabel(dayBreakdown: LeaveDaySelection[] | null) {
+  if (!dayBreakdown?.length) return null;
+
+  return dayBreakdown
+    .map((item) => `${format(parseISO(item.date), "MMM d")} ${item.dayType === "HALF_DAY" ? "half" : "full"}`)
+    .join(", ");
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -80,9 +128,8 @@ function FieldLabel({ children, htmlFor }: { children: React.ReactNode; htmlFor:
 
 export function LeavesClientPage({ balances, leaveRequests }: LeavesClientPageProps) {
   const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>("ALL");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [dayType, setDayType] = useState("FULL_DAY");
+  const [dayTypesByDate, setDayTypesByDate] = useState<Record<string, (typeof DAY_OPTIONS)[number]>>({});
+  const [visibleMonth, setVisibleMonth] = useState(() => startOfMonth(new Date()));
   const [editingRequestId, setEditingRequestId] = useState<string | null>(null);
   const editingRequest = useMemo(
     () => leaveRequests.find((request) => request.id === editingRequestId && request.status === "PENDING") || null,
@@ -97,28 +144,62 @@ export function LeavesClientPage({ balances, leaveRequests }: LeavesClientPagePr
     }
 
     setEditingRequestId(null);
-    setStartDate("");
-    setEndDate("");
-    setDayType("FULL_DAY");
+    setDayTypesByDate({});
+    setVisibleMonth(startOfMonth(new Date()));
   }
 
   function startEditingRequest(request: LeaveRequestItem) {
     setEditingRequestId(request.id);
-    setStartDate(format(parseISO(request.startDate), "yyyy-MM-dd"));
-    setEndDate(format(parseISO(request.endDate), "yyyy-MM-dd"));
-    setDayType(request.dayType);
+    if (request.dayBreakdown?.length) {
+      setDayTypesByDate(Object.fromEntries(request.dayBreakdown.map((item) => [item.date, item.dayType])));
+    } else {
+      const type = request.dayType === "HALF_DAY" ? "HALF_DAY" : "FULL_DAY";
+      const dates = eachDayOfInterval({ start: parseISO(request.startDate), end: parseISO(request.endDate) });
+      setDayTypesByDate(Object.fromEntries(dates.map((date) => [format(date, "yyyy-MM-dd"), type])));
+    }
+    setVisibleMonth(startOfMonth(parseISO(request.startDate)));
   }
 
   function clearEditingRequest() {
     setEditingRequestId(null);
-    setStartDate("");
-    setEndDate("");
-    setDayType("FULL_DAY");
+    setDayTypesByDate({});
+    setVisibleMonth(startOfMonth(new Date()));
+  }
+
+  function toggleCalendarDate(date: Date) {
+    const dateKey = format(date, "yyyy-MM-dd");
+    setDayTypesByDate((current) => ({
+      ...current,
+      [dateKey]: current[dateKey] ? (current[dateKey] === "FULL_DAY" ? "HALF_DAY" : "FULL_DAY") : "FULL_DAY",
+    }));
   }
 
   const pffdBalance = balances.find((balance) => balance.leaveType === "LEAVE_CREDITS")?.balance ?? 0;
-  const requestedDays = dayType === "HALF_DAY" ? 0.5 : getRequestDays(startDate, endDate);
-  const hasDateRange = startDate !== "" && endDate !== "";
+  const selectedBreakdown = useMemo(
+    () =>
+      Object.entries(dayTypesByDate)
+        .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
+        .flatMap(([date, type]) => {
+          if (!isValid(parseISO(date))) return [];
+          return [{
+            date,
+            dayType: type,
+            days: type === "HALF_DAY" ? 0.5 : 1,
+          }];
+        }),
+    [dayTypesByDate],
+  );
+  const requestedDays = selectedBreakdown.reduce((sum, item) => sum + item.days, 0);
+  const requestStartDate = selectedBreakdown[0]?.date || "";
+  const requestEndDate = selectedBreakdown[selectedBreakdown.length - 1]?.date || "";
+  const calendarDates = useMemo(
+    () =>
+      eachDayOfInterval({
+        start: startOfWeek(startOfMonth(visibleMonth)),
+        end: endOfWeek(endOfMonth(visibleMonth)),
+      }),
+    [visibleMonth],
+  );
 
   const stats = useMemo(() => {
     return leaveRequests.reduce(
@@ -221,56 +302,119 @@ export function LeavesClientPage({ balances, leaveRequests }: LeavesClientPagePr
               </div>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-              <div>
-                <FieldLabel htmlFor="dayType">Duration</FieldLabel>
-                <select
-                  name="dayType"
-                  id="dayType"
-                  value={dayType}
-                  onChange={(event) => {
-                    setDayType(event.target.value);
-                    if (event.target.value === "HALF_DAY" && startDate) {
-                      setEndDate(startDate);
-                    }
-                  }}
-                  className="flex h-9 w-full rounded-lg border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                >
-                  <option value="FULL_DAY">Full day</option>
-                  <option value="HALF_DAY">Half day</option>
-                </select>
+            <input type="hidden" name="startDate" value={requestStartDate} />
+            <input type="hidden" name="endDate" value={requestEndDate} />
+
+            <div className="rounded-lg border border-border p-3">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <Button type="button" variant="ghost" size="icon-sm" onClick={() => setVisibleMonth((month) => subMonths(month, 1))} aria-label="Previous month">
+                  <ChevronLeft className="size-4" />
+                </Button>
+                <p className="text-sm font-semibold text-foreground">{format(visibleMonth, "MMMM yyyy")}</p>
+                <Button type="button" variant="ghost" size="icon-sm" onClick={() => setVisibleMonth((month) => addMonths(month, 1))} aria-label="Next month">
+                  <ChevronRight className="size-4" />
+                </Button>
               </div>
-              <div>
-                <FieldLabel htmlFor="startDate">Start</FieldLabel>
-                <input
-                  type="date"
-                  name="startDate"
-                  id="startDate"
-                  required
-                  value={startDate}
-                  onChange={(event) => {
-                    setStartDate(event.target.value);
-                    if (dayType === "HALF_DAY") {
-                      setEndDate(event.target.value);
-                    }
-                  }}
-                  className="flex h-9 w-full rounded-lg border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                />
+              <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {WEEKDAYS.map((day) => (
+                  <div key={day} className="py-1">
+                    {day}
+                  </div>
+                ))}
               </div>
-              <div>
-                <FieldLabel htmlFor="endDate">End</FieldLabel>
-                <input
-                  type="date"
-                  name="endDate"
-                  id="endDate"
-                  required
-                  value={endDate}
-                  onChange={(event) => setEndDate(event.target.value)}
-                  disabled={dayType === "HALF_DAY"}
-                  className="flex h-9 w-full rounded-lg border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                />
+              <div className="mt-1 grid grid-cols-7 gap-1">
+                {calendarDates.map((date) => {
+                  const dateKey = format(date, "yyyy-MM-dd");
+                  const selectedType = dayTypesByDate[dateKey];
+                  const inMonth = isSameMonth(date, visibleMonth);
+
+                  return (
+                    <button
+                      key={dateKey}
+                      type="button"
+                      onClick={() => toggleCalendarDate(date)}
+                      className={cn(
+                        "flex aspect-square min-h-9 flex-col items-center justify-center rounded-md border text-xs transition-colors",
+                        selectedType
+                          ? selectedType === "HALF_DAY"
+                            ? "border-amber-300 bg-amber-50 text-amber-800"
+                            : "border-primary/30 bg-primary/10 text-primary"
+                          : "border-transparent bg-background text-foreground hover:border-border hover:bg-muted/50",
+                        !inMonth && "text-muted-foreground/45",
+                        isToday(date) && !selectedType && "border-primary/30",
+                      )}
+                      aria-label={`${format(date, "MMMM d, yyyy")}${selectedType ? ` ${selectedType === "HALF_DAY" ? "half day" : "full day"}` : ""}`}
+                    >
+                      <span className="font-medium">{format(date, "d")}</span>
+                      {selectedType && (
+                        <span className="mt-0.5 text-[9px] font-semibold uppercase leading-none">
+                          {selectedType === "HALF_DAY" ? "Half" : "Full"}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                <div className="rounded-md border border-primary/20 bg-primary/10 px-2 py-1.5 text-primary">Selected full day</div>
+                <div className="rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-amber-800">Selected half day</div>
               </div>
             </div>
+
+            {selectedBreakdown.map((item) => (
+              <span key={item.date} className="hidden">
+                <input type="hidden" name="leaveDate" value={item.date} />
+                <input type="hidden" name="leaveDateType" value={item.dayType} />
+              </span>
+            ))}
+
+            {selectedBreakdown.length > 0 && (
+              <div className="rounded-lg border border-border">
+                <div className="border-b border-border px-3 py-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Selected days</p>
+                </div>
+                <div className="max-h-64 divide-y divide-border overflow-y-auto">
+                  {selectedBreakdown.map((item) => {
+                    return (
+                      <div key={item.date} className="grid grid-cols-[1fr_116px_auto] items-center gap-2 px-3 py-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-foreground">{format(parseISO(item.date), "MMM d, yyyy")}</p>
+                          <p className="text-xs text-muted-foreground">{format(parseISO(item.date), "EEEE")}</p>
+                        </div>
+                        <select
+                          value={item.dayType}
+                          onChange={(event) => {
+                            setDayTypesByDate((current) => ({
+                              ...current,
+                              [item.date]: event.target.value as (typeof DAY_OPTIONS)[number],
+                            }));
+                          }}
+                          className="h-8 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
+                        >
+                          <option value="FULL_DAY">Full day</option>
+                          <option value="HALF_DAY">Half day</option>
+                        </select>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() => {
+                            setDayTypesByDate((current) => {
+                              const next = { ...current };
+                              delete next[item.date];
+                              return next;
+                            });
+                          }}
+                          aria-label={`Remove ${format(parseISO(item.date), "MMM d, yyyy")}`}
+                        >
+                          <Trash2 className="size-3.5" />
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             <div className="rounded-lg border border-border bg-muted/25 p-3">
               <div className="flex items-start gap-2.5">
@@ -278,15 +422,13 @@ export function LeavesClientPage({ balances, leaveRequests }: LeavesClientPagePr
                 <div className="min-w-0">
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Summary</p>
                   <p className="mt-1 truncate text-sm text-muted-foreground">
-                    {hasDateRange && requestedDays > 0
-                      ? dayType === "HALF_DAY"
-                        ? `${format(parseISO(startDate), "MMM d, yyyy")} (half-day)`
-                        : `${format(parseISO(startDate), "MMM d")} to ${format(parseISO(endDate), "MMM d, yyyy")}`
-                      : "Choose dates to preview this request."}
+                    {selectedBreakdown.length > 0
+                      ? `${selectedBreakdown.length} selected date${selectedBreakdown.length === 1 ? "" : "s"}`
+                      : "Add dates to preview this request."}
                   </p>
-                  {hasDateRange && (
+                  {selectedBreakdown.length > 0 && (
                     <p className={cn("mt-0.5 text-sm font-semibold", requestedDays > 0 ? "text-primary" : "text-destructive")}>
-                      {requestedDays > 0 ? `${requestedDays} PFFD day${requestedDays === 1 ? "" : "s"}` : "End date is before start date"}
+                      {requestedDays > 0 ? `${requestedDays} PFFD day${requestedDays === 1 ? "" : "s"}` : "Select at least one date"}
                     </p>
                   )}
                 </div>
@@ -317,7 +459,7 @@ export function LeavesClientPage({ balances, leaveRequests }: LeavesClientPagePr
               />
             </div>
 
-            <SubmitButton size="sm">{editingRequest ? "Save Changes" : "Submit Request"}</SubmitButton>
+            <SubmitButton size="sm" disabled={selectedBreakdown.length === 0}>{editingRequest ? "Save Changes" : "Submit Request"}</SubmitButton>
           </form>
         </section>
 
@@ -376,7 +518,12 @@ export function LeavesClientPage({ balances, leaveRequests }: LeavesClientPagePr
                       <tr key={request.id} className="transition-colors hover:bg-muted/30">
                         <td className="px-4 py-3 font-medium capitalize">{getLeaveLabel(request.leaveType)}</td>
                         <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
-                          {format(parseISO(request.startDate), "MMM d")} - {format(parseISO(request.endDate), "MMM d, yyyy")}
+                          <div>{getRequestDateLabel(request)}</div>
+                          {getBreakdownLabel(request.dayBreakdown) && (
+                            <div className="mt-0.5 max-w-xs truncate text-xs" title={getBreakdownLabel(request.dayBreakdown) || undefined}>
+                              {getBreakdownLabel(request.dayBreakdown)}
+                            </div>
+                          )}
                         </td>
                         <td className="px-4 py-3 font-medium">{request.requestedDays}</td>
                         <td className="px-4 py-3">
@@ -424,11 +571,14 @@ export function LeavesClientPage({ balances, leaveRequests }: LeavesClientPagePr
                       <div>
                         <h3 className="font-semibold capitalize">{getLeaveLabel(request.leaveType)}</h3>
                         <p className="mt-0.5 text-sm text-muted-foreground">
-                          {format(parseISO(request.startDate), "MMM d")} - {format(parseISO(request.endDate), "MMM d, yyyy")}
+                          {getRequestDateLabel(request)}
                         </p>
                       </div>
                       <StatusBadge status={request.status} />
                     </div>
+                    {getBreakdownLabel(request.dayBreakdown) && (
+                      <p className="mt-2 text-xs text-muted-foreground">{getBreakdownLabel(request.dayBreakdown)}</p>
+                    )}
                     <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
                       <div className="rounded-md bg-muted/30 p-2.5">
                         <p className="text-muted-foreground">Days</p>

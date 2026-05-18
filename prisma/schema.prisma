@@ -142,6 +142,7 @@ model LeaveRequest {
   endDate   DateTime
   dayType   String   @default("FULL_DAY")
   requestedDays Float @default(1)
+  dayBreakdown Json?
   reason    String?
   attachmentName String?
   attachmentType String?
