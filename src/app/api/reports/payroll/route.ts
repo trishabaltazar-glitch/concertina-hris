@@ -1,24 +1,56 @@
 import { NextResponse } from 'next/server';
+import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
+
+type ReportSessionUser = {
+    id: string;
+    role: string;
+};
 
 export async function GET(request: Request) {
     try {
-        // Authenticate
-        const sessionAuth = request.headers.get('cookie');
-        if (!sessionAuth) {
+        const session = await auth();
+        const user = session?.user as ReportSessionUser | undefined;
+
+        if (!session || !user || (user.role !== "ADMIN" && user.role !== "MANAGER")) {
             return new NextResponse('Unauthorized', { status: 401 });
         }
 
+        const url = new URL(request.url);
+        const startDate = url.searchParams.get("startDate");
+        const endDate = url.searchParams.get("endDate");
+        const department = url.searchParams.get("department");
+        const managerId = url.searchParams.get("managerId");
+        const start = startDate ? new Date(`${startDate}T00:00:00.000Z`) : undefined;
+        const end = endDate ? new Date(`${endDate}T23:59:59.999Z`) : undefined;
+
         const users = await prisma.user.findMany({
-            where: { role: { in: ['EMPLOYEE', 'MANAGER'] } },
+            where: {
+                role: { in: ['EMPLOYEE', 'MANAGER'] },
+                ...(user.role === "ADMIN" ? {} : { managerId: user.id }),
+                ...(department && department !== "ALL" ? { department } : {}),
+                ...(managerId && managerId !== "ALL" ? { managerId } : {}),
+            },
             include: {
-                timeLogs: { orderBy: { clockIn: 'asc' } },
-                leaveRequests: { where: { status: 'APPROVED' } }
+                timeLogs: {
+                    where: start && end ? { clockIn: { gte: start, lte: end } } : undefined,
+                    orderBy: { clockIn: 'asc' }
+                },
+                leaveRequests: {
+                    where: {
+                        status: 'APPROVED',
+                        ...(start && end ? { startDate: { lte: end }, endDate: { gte: start } } : {}),
+                    }
+                }
             }
         });
 
         // Generate Consolidated Master CSV String
-        let csvString = "==== CONCERTINA HR MASTER PAYROLL REPORT ====\n\n";
+        let csvString = "==== CONCERTINA HR MASTER PAYROLL REPORT ====\n";
+        if (startDate && endDate) {
+            csvString += `Period,${startDate} to ${endDate}\n`;
+        }
+        csvString += "\n";
         
         // 1. Attendance Summary Section
         csvString += "--- ATTENDANCE SUMMARY ---\n";

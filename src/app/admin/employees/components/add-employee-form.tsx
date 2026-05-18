@@ -5,7 +5,13 @@ import { addEmployee } from "@/app/actions/employees";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export function AddEmployeeForm({ onSuccess }: { onSuccess: () => void }) {
+type ManagerOption = {
+    id: string;
+    name: string;
+    email: string;
+};
+
+export function AddEmployeeForm({ managers, onSuccess }: { managers: ManagerOption[]; onSuccess: () => void }) {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [inviteLink, setInviteLink] = useState<string | null>(null);
@@ -92,6 +98,40 @@ export function AddEmployeeForm({ onSuccess }: { onSuccess: () => void }) {
                         className="w-full bg-background border border-input text-foreground rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/50" 
                     />
                 </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Department</label>
+                    <input
+                        name="department"
+                        className="w-full bg-background border border-input text-foreground placeholder:text-muted-foreground rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/50"
+                        placeholder="Operations"
+                    />
+                </div>
+                <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Position</label>
+                    <input
+                        name="position"
+                        className="w-full bg-background border border-input text-foreground placeholder:text-muted-foreground rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/50"
+                        placeholder="Team Lead"
+                    />
+                </div>
+            </div>
+
+            <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Manager</label>
+                <select
+                    name="managerId"
+                    className="w-full bg-background border border-input text-foreground rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/50"
+                >
+                    <option value="">No manager</option>
+                    {managers.map((manager) => (
+                        <option key={manager.id} value={manager.id}>
+                            {manager.name} ({manager.email})
+                        </option>
+                    ))}
+                </select>
             </div>
 
             <div className="pt-4 flex justify-end gap-3">

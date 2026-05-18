@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminSchedulesPage() {
   const session = await auth();
-  const sessionUser = session?.user as { role?: string } | undefined;
+  const sessionUser = session?.user as { id?: string; role?: string } | undefined;
 
   if (!session || !sessionUser || (sessionUser.role !== "ADMIN" && sessionUser.role !== "MANAGER")) {
     redirect("/");
@@ -16,6 +16,7 @@ export default async function AdminSchedulesPage() {
 
   // Fetch users and their assigned schedules
   const users = await prisma.user.findMany({
+    where: sessionUser.role === "ADMIN" ? undefined : { managerId: sessionUser.id },
     orderBy: { name: 'asc' },
     include: {
       schedules: true

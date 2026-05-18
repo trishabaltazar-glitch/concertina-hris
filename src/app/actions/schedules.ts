@@ -14,12 +14,41 @@ function canManageSchedules(role?: string) {
   return role === "ADMIN" || role === "MANAGER";
 }
 
+async function canManageUserSchedule(actor: { id?: string; role?: string }, userId: string) {
+  if (actor.role === "ADMIN") return true;
+  if (!actor.id || actor.role !== "MANAGER") return false;
+
+  const directReport = await prisma.user.findFirst({
+    where: { id: userId, managerId: actor.id },
+    select: { id: true },
+  });
+
+  return Boolean(directReport);
+}
+
+async function filterManageableScheduleUserIds(actor: { id?: string; role?: string }, userIds: string[]) {
+  const uniqueUserIds = Array.from(new Set(userIds)).filter(Boolean);
+  if (actor.role === "ADMIN") return uniqueUserIds;
+  if (!actor.id || actor.role !== "MANAGER") return [];
+
+  const directReports = await prisma.user.findMany({
+    where: { id: { in: uniqueUserIds }, managerId: actor.id },
+    select: { id: true },
+  });
+
+  return directReports.map((user) => user.id);
+}
+
 export async function upsertSchedule(userId: string, dayOfWeek: number, startTime: string, endTime: string) {
   const session = await auth();
-  const user = session?.user as { role?: string } | undefined;
+  const user = session?.user as { id?: string; role?: string } | undefined;
 
   if (!session || !user || !canManageSchedules(user.role)) {
     throw new Error("Unauthorized: Only Admins can manage schedules.");
+  }
+
+  if (!(await canManageUserSchedule(user, userId))) {
+    throw new Error("Unauthorized: You can only manage schedules for direct reports.");
   }
 
   // Allow clearing a schedule for a specific day by passing empty times
@@ -43,10 +72,14 @@ export async function upsertSchedule(userId: string, dayOfWeek: number, startTim
 
 export async function upsertWeeklySchedule(userId: string, schedules: ScheduleEntry[]) {
   const session = await auth();
-  const user = session?.user as { role?: string } | undefined;
+  const user = session?.user as { id?: string; role?: string } | undefined;
 
   if (!session || !user || !canManageSchedules(user.role)) {
     throw new Error("Unauthorized: Only Admins can manage schedules.");
+  }
+
+  if (!(await canManageUserSchedule(user, userId))) {
+    throw new Error("Unauthorized: You can only manage schedules for direct reports.");
   }
 
   await prisma.$transaction(
@@ -77,13 +110,18 @@ export async function upsertWeeklySchedule(userId: string, schedules: ScheduleEn
 
 export async function upsertBulkSchedules(userIds: string[], schedules: ScheduleEntry[]) {
   const session = await auth();
-  const user = session?.user as { role?: string } | undefined;
+  const user = session?.user as { id?: string; role?: string } | undefined;
 
   if (!session || !user || !canManageSchedules(user.role)) {
     throw new Error("Unauthorized: Only Admins can manage schedules.");
   }
 
-  const operations = userIds.flatMap((userId) =>
+  const manageableUserIds = await filterManageableScheduleUserIds(user, userIds);
+  if (manageableUserIds.length === 0) {
+    throw new Error("Unauthorized: You can only manage schedules for direct reports.");
+  }
+
+  const operations = manageableUserIds.flatMap((userId) =>
     schedules.map((schedule) => {
       const dayOfWeek = Number(schedule.dayOfWeek);
       const startTime = schedule.startTime;
