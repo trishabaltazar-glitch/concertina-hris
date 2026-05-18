@@ -1,7 +1,5 @@
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
-import { updateProfile } from "@/app/actions/profile";
-import { SubmitButton } from "@/components/ui/submit-button";
 import { PasswordForm } from "./components/password-form";
 
 function splitName(name: string) {
@@ -165,56 +163,16 @@ export default async function ProfilePage() {
           <section id="contact" className="scroll-mt-24 rounded-xl border border-border/70 bg-card p-6 shadow-sm">
             <SectionHeader
               title="Contact details"
-              description="Keep your phone, emergency contact, and home address current."
+              description="Admin-managed phone, emergency contact, and home address."
             />
-            <form action={updateProfile} className="mt-6 space-y-5">
-              <div className="grid gap-5 sm:grid-cols-2">
-                <div>
-                  <label htmlFor="contactNumber" className="text-sm font-medium text-foreground">
-                    Phone
-                  </label>
-                  <input
-                    type="text"
-                    id="contactNumber"
-                    name="contactNumber"
-                    defaultValue={user.contactNumber || ""}
-                    className="mt-2 w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50"
-                    placeholder="+1 (555) 000-0000"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="emergencyContact" className="text-sm font-medium text-foreground">
-                    Emergency contact
-                  </label>
-                  <input
-                    type="text"
-                    id="emergencyContact"
-                    name="emergencyContact"
-                    defaultValue={user.emergencyContact || ""}
-                    className="mt-2 w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50"
-                    placeholder="Name and number"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="address" className="text-sm font-medium text-foreground">
-                  Home address
-                </label>
-                <textarea
-                  id="address"
-                  name="address"
-                  defaultValue={user.address || ""}
-                  rows={3}
-                  className="mt-2 w-full resize-none rounded-lg border border-input bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50"
-                  placeholder="123 Example St, City, Country"
-                />
-              </div>
-
-              <div className="flex justify-end border-t border-border/70 pt-5">
-                <SubmitButton>Save Changes</SubmitButton>
-              </div>
-            </form>
+            <div className="mt-6 grid gap-x-12 gap-y-6 sm:grid-cols-2">
+              <ProfileField label="Phone" value={user.contactNumber} />
+              <ProfileField label="Emergency contact" value={user.emergencyContact} />
+              <ProfileField label="Home address" value={user.address} />
+            </div>
+            <p className="mt-6 rounded-lg border border-border/70 bg-background/60 px-4 py-3 text-xs text-muted-foreground">
+              Contact an admin if any personal or contact information needs to be updated.
+            </p>
           </section>
 
           <section id="employment" className="scroll-mt-24 rounded-xl border border-border/70 bg-card p-6 shadow-sm">
@@ -230,7 +188,7 @@ export default async function ProfilePage() {
               <ProfileField label="Manager" value={user.manager?.name} />
             </div>
             <p className="mt-6 rounded-lg border border-border/70 bg-background/60 px-4 py-3 text-xs text-muted-foreground">
-              Contact HR if any of your employment information is incorrect.
+              Contact an admin if any employment information is incorrect.
             </p>
           </section>
 

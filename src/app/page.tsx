@@ -1,15 +1,39 @@
 import { ClockWidget } from "@/components/dashboard/clock-widget";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import prisma from "@/lib/prisma";
-import { endOfDay, endOfWeek, format, startOfDay, startOfWeek } from "date-fns";
+import { endOfDay, format, startOfDay } from "date-fns";
+import { SubmitButton } from "@/components/ui/submit-button";
+import { submitManualTimeEntryRequest } from "@/app/actions/time";
 
 export const dynamic = "force-dynamic";
-const BREAK_HOURS = 1;
 
 type BreakWindow = {
   startedAt: Date;
   endedAt: Date | null;
+};
+
+type ScheduleWindow = {
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+};
+
+type AssignedHoliday = {
+  id: string;
+  name: string;
+  date: Date;
+  notes: string | null;
+};
+
+type AttendanceActivity = {
+  id: string;
+  type: "CLOCK_IN" | "CLOCK_OUT";
+  happenedAt: Date;
+  label: string;
+  detail: string;
+  duration: string | null;
 };
 
 function getBreakDurationInHours(breaks: BreakWindow[], fallbackEnd: Date | null) {
@@ -26,6 +50,51 @@ function getDurationInHours(clockIn: Date, clockOut: Date | null, breaks: BreakW
   return Math.max(0, grossHours - getBreakDurationInHours(breaks, clockOut));
 }
 
+function applyTimeToDate(date: Date, time: string) {
+  const [hours, minutes] = time.split(":").map(Number);
+  const next = new Date(date);
+  next.setHours(hours || 0, minutes || 0, 0, 0);
+  return next;
+}
+
+function getScheduleWindowForDate(date: Date, schedule: ScheduleWindow) {
+  const start = applyTimeToDate(date, schedule.startTime);
+  const end = applyTimeToDate(date, schedule.endTime);
+
+  if (end <= start) {
+    end.setDate(end.getDate() + 1);
+  }
+
+  return { start, end };
+}
+
+function getShiftWindowForLog(
+  clockIn: Date,
+  clockOut: Date | null,
+  schedules: ScheduleWindow[]
+) {
+  const fallback = { start: startOfDay(clockIn), end: endOfDay(clockIn) };
+  const referenceEnd = clockOut || clockIn;
+
+  for (const schedule of schedules) {
+    for (const offset of [-1, 0, 1]) {
+      const date = startOfDay(clockIn);
+      date.setDate(date.getDate() + offset);
+
+      if (date.getDay() !== schedule.dayOfWeek) continue;
+
+      const window = getScheduleWindowForDate(date, schedule);
+      const overlapsShift = clockIn < window.end && referenceEnd >= window.start;
+
+      if (overlapsShift) {
+        return window;
+      }
+    }
+  }
+
+  return fallback;
+}
+
 function getHoursAndMinutes(totalHours: number) {
   const safeHours = Math.max(0, totalHours);
   const hours = Math.floor(safeHours);
@@ -38,24 +107,13 @@ function getHoursAndMinutes(totalHours: number) {
   return { hours, minutes };
 }
 
-function parseScheduleHours(startTime: string, endTime: string) {
-  const [startHour, startMinute] = startTime.split(":").map(Number);
-  const [endHour, endMinute] = endTime.split(":").map(Number);
-
-  const start = startHour * 60 + startMinute;
-  const end = endHour * 60 + endMinute;
-  const minutes = Math.max(0, end - start);
-
-  return Math.max(0, minutes / 60 - BREAK_HOURS);
-}
-
 function formatDurationParts(totalHours: number) {
   const { hours, minutes } = getHoursAndMinutes(totalHours);
   return { hours: String(hours), minutes: String(minutes).padStart(2, "0") };
 }
 
 function getDurationLabel(clockIn: Date, clockOut: Date | null, breaks: BreakWindow[] = []) {
-  if (!clockOut) return "Ongoing";
+  if (!clockOut) return "-";
 
   const diffInMinutes = Math.max(
     0,
@@ -72,19 +130,32 @@ function getDurationLabel(clockIn: Date, clockOut: Date | null, breaks: BreakWin
 function getStatusLabel(status: string) {
   if (status === "ON_TIME") return "On Time";
   if (status === "LATE") return "Late";
+  if (status === "FORCED_CHECKOUT") return "Auto clock-out";
   return status.replaceAll("_", " ");
 }
 
-function getStatusClass(status: string) {
-  if (status === "ON_TIME") {
-    return "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300";
-  }
+function getActivityClass(type: "CLOCK_IN" | "CLOCK_OUT") {
+  return type === "CLOCK_IN"
+    ? "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
+    : "bg-brand-steel/12 text-brand-steel dark:text-sky-300";
+}
 
-  if (status === "LATE") {
-    return "bg-amber-500/12 text-amber-700 dark:text-amber-300";
-  }
+function getClockOutDetail(
+  log: { clockIn: Date; clockOut: Date; breaks: BreakWindow[] },
+  logs: { clockIn: Date; clockOut: Date | null; breaks: BreakWindow[] }[],
+  schedules: ScheduleWindow[]
+) {
+  const shiftWindow = getShiftWindowForLog(log.clockIn, log.clockOut, schedules);
+  const completedHoursForShift = logs.reduce((sum, item) => {
+    if (!item.clockOut) return sum;
+    if (item.clockIn >= shiftWindow.end || item.clockOut <= shiftWindow.start) return sum;
+    if (item.clockOut > log.clockOut) return sum;
+    return sum + getDurationInHours(item.clockIn, item.clockOut, item.breaks);
+  }, 0);
 
-  return "bg-muted text-muted-foreground";
+  return completedHoursForShift >= 8
+    ? "Shift completed"
+    : "Partial shift";
 }
 
 function formatRoleLabel(role?: string | null) {
@@ -104,12 +175,12 @@ export default async function DashboardPage() {
   }
 
   const now = new Date();
-  const weekStart = startOfWeek(now, { weekStartsOn: 1 });
-  const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
+  const todayStart = startOfDay(now);
+  const todayEnd = endOfDay(now);
   const firstName = session.user.name?.trim().split(/\s+/)[0] || "there";
   const roleLabel = formatRoleLabel((session.user as { role?: string | null }).role);
 
-  const [balances, recentLogs, weeklyLogs, schedules] = await Promise.all([
+  const [balances, recentLogs, todayLogs, schedules, assignedHolidays] = await Promise.all([
     prisma.leaveBalance.findMany({
       where: { userId: session.user.id },
     }),
@@ -122,8 +193,6 @@ export default async function DashboardPage() {
         clockIn: true,
         clockOut: true,
         status: true,
-        projectName: true,
-        notes: true,
         breaks: {
           select: {
             startedAt: true,
@@ -136,8 +205,8 @@ export default async function DashboardPage() {
       where: {
         userId: session.user.id,
         clockIn: {
-          gte: weekStart,
-          lte: weekEnd,
+          gte: todayStart,
+          lte: todayEnd,
         },
       },
       orderBy: { clockIn: "desc" },
@@ -156,62 +225,63 @@ export default async function DashboardPage() {
     }),
     prisma.schedule.findMany({
       where: { userId: session.user.id },
-      orderBy: { dayOfWeek: "asc" },
       select: {
-        id: true,
         dayOfWeek: true,
         startTime: true,
         endTime: true,
       },
     }),
+    prisma.$queryRaw<AssignedHoliday[]>`
+      SELECT "id", "name", "date", "notes"
+      FROM "HolidayAssignment"
+      WHERE "userId" = ${session.user.id}
+        AND "date" >= ${todayStart}
+        AND "date" <= ${todayEnd}
+      ORDER BY "date" ASC
+    `,
   ]);
 
   const leaveCreditsBalance =
     balances.find((balance) => balance.leaveType === "LEAVE_CREDITS")?.balance || 0;
 
-  const totalPlannedHours = schedules.reduce((sum, schedule) => {
-    return sum + parseScheduleHours(schedule.startTime, schedule.endTime);
-  }, 0);
-
-  const totalWorkedHours = weeklyLogs.reduce((sum, log) => {
-    return sum + getDurationInHours(log.clockIn, log.clockOut, log.breaks);
-  }, 0);
-
-  const todayStart = startOfDay(now);
-  const todayEnd = endOfDay(now);
-  const todayLogs = weeklyLogs.filter((log) => {
-    return log.clockIn >= todayStart && log.clockIn <= todayEnd;
-  });
   const todayWorkedHours = todayLogs.reduce((sum, log) => {
     return sum + getDurationInHours(log.clockIn, log.clockOut, log.breaks);
   }, 0);
-  const latestTodayLog = todayLogs[0];
 
-  const plannedDuration = formatDurationParts(totalPlannedHours);
-  const workedDuration = formatDurationParts(totalWorkedHours);
   const todayDuration = formatDurationParts(todayWorkedHours);
-  const remainingHours = Math.max(0, totalPlannedHours - totalWorkedHours);
-  const overageHours = Math.max(0, totalWorkedHours - totalPlannedHours);
-  const remainingDuration = formatDurationParts(remainingHours);
-  const overageDuration = formatDurationParts(overageHours);
-  const hasOverage = overageHours > 0;
-  const completionPercent =
-    totalPlannedHours > 0
-      ? Math.min(100, Math.round((totalWorkedHours / totalPlannedHours) * 100))
-      : 0;
-  const remainingStatusLabel =
-    totalPlannedHours === 0
-      ? "No schedule"
-      : hasOverage
-        ? "Over schedule"
-        : remainingHours === 0
-          ? "Target met"
-          : `${completionPercent}% complete`;
-  const todayStatusLabel = latestTodayLog
-    ? latestTodayLog.clockOut
-      ? getStatusLabel(latestTodayLog.status)
-      : "Active now"
-    : "No logs today";
+  const todayHoliday = assignedHolidays[0];
+  const recentActivity = recentLogs
+    .flatMap((log) => {
+      const events: AttendanceActivity[] = [
+        {
+          id: `${log.id}-clock-in`,
+          type: "CLOCK_IN",
+          happenedAt: log.clockIn,
+          label: "Clocked in",
+          detail: getStatusLabel(log.status),
+          duration: null as string | null,
+        },
+      ];
+
+      if (log.clockOut) {
+        events.push({
+          id: `${log.id}-clock-out`,
+          type: "CLOCK_OUT",
+          happenedAt: log.clockOut,
+          label: "Clocked out",
+          detail: getClockOutDetail(
+            { clockIn: log.clockIn, clockOut: log.clockOut, breaks: log.breaks },
+            recentLogs,
+            schedules
+          ),
+          duration: getDurationLabel(log.clockIn, log.clockOut, log.breaks),
+        });
+      }
+
+      return events;
+    })
+    .sort((a, b) => b.happenedAt.getTime() - a.happenedAt.getTime())
+    .slice(0, 6);
 
   return (
     <div className="w-full space-y-4">
@@ -228,122 +298,34 @@ export default async function DashboardPage() {
               {roleLabel} | {format(now, "MMMM d, yyyy | h:mm a")}
             </p>
           </div>
-          <div className="w-fit shrink-0 rounded-md border border-border/70 bg-background px-3 py-2 text-xs font-medium text-muted-foreground lg:mt-1">
-            {format(weekStart, "MMM d")} - {format(weekEnd, "MMM d, yyyy")}
-          </div>
         </div>
 
-        <div className="grid gap-3 p-3 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)_minmax(0,0.95fr)]">
+        <div className="grid gap-3 p-3 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)_minmax(0,0.8fr)]">
           <ClockWidget />
 
-          <div className="rounded-lg border border-border/70 bg-background/70 p-4">
-            <div className="flex items-start justify-between gap-3">
+          <div className="flex h-full flex-col rounded-lg border border-border/70 bg-background/70 p-4">
+            <div>
               <div>
-                <p className="text-sm font-semibold text-foreground">Remaining hours</p>
+                <p className="text-sm font-semibold text-foreground">Logged hours today</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Left to complete based on this week&apos;s schedule
+                  Total time recorded today
                 </p>
               </div>
-              <span className="rounded-md border border-border/70 bg-card px-2.5 py-1 text-xs font-medium text-muted-foreground">
-                {remainingStatusLabel}
-              </span>
             </div>
 
-            <div className="mt-4 space-y-4">
-              <div>
-                <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                  {hasOverage ? "Over schedule" : "Hours left"}
-                </p>
-                <div className="mt-1 flex items-end gap-1 text-foreground">
-                  <span className="text-3xl font-semibold tracking-tight">
-                    {hasOverage ? overageDuration.hours : remainingDuration.hours}
-                  </span>
-                  <span className="pb-1 text-sm font-medium text-muted-foreground">
-                    hrs
-                  </span>
-                  <span className="text-xl font-semibold tracking-tight">
-                    {hasOverage ? overageDuration.minutes : remainingDuration.minutes}
-                  </span>
-                  <span className="pb-1 text-sm font-medium text-muted-foreground">
-                    mins
-                  </span>
-                </div>
-              </div>
-
-              <div className="space-y-2 rounded-lg border border-border/70 bg-card p-3">
-                <div className="flex items-center justify-between gap-3 text-xs">
-                  <span className="font-medium text-foreground">Weekly progress</span>
-                  <span className="text-muted-foreground">
-                    {completionPercent}% of {plannedDuration.hours}h {plannedDuration.minutes}m
-                  </span>
-                </div>
-                <div className="h-2 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className={`h-full rounded-full ${
-                      hasOverage
-                        ? "bg-amber-500"
-                        : remainingHours === 0 && totalPlannedHours > 0
-                          ? "bg-emerald-500"
-                          : "bg-brand-red"
-                    }`}
-                    style={{ width: `${completionPercent}%` }}
-                  />
-                </div>
-              </div>
-
-              <div className="grid gap-2 sm:grid-cols-2">
-                <div className="rounded-lg border border-border/70 bg-card p-3">
-                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                    Days this week
-                  </p>
-                  <p className="mt-1 text-xl font-semibold tracking-tight text-foreground">
-                    {schedules.length}
-                  </p>
-                </div>
-                <div className="rounded-lg border border-border/70 bg-card p-3">
-                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                    Weekly target
-                  </p>
-                  <p className="mt-1 text-xl font-semibold tracking-tight text-foreground">
-                    {plannedDuration.hours}h {plannedDuration.minutes}m
-                  </p>
-                </div>
-              </div>
-
-              <div className="rounded-md bg-muted/50 px-3 py-2 text-xs leading-5 text-muted-foreground">
-                Planned: {plannedDuration.hours}h {plannedDuration.minutes}m / Worked:{" "}
-                {workedDuration.hours}h {workedDuration.minutes}m
-                {hasOverage ? " / You are over the scheduled hours." : ""}
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-border/70 bg-background/70 p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold text-foreground">Logged this week</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Total time recorded this week
-                </p>
-              </div>
-              <span className="rounded-md border border-border/70 bg-card px-2.5 py-1 text-xs font-medium text-muted-foreground">
-                This week
-              </span>
-            </div>
-
-            <div className="mt-4 rounded-lg bg-card px-4 py-5 text-center ring-1 ring-border/70">
+            <div className="mt-4 flex min-h-36 flex-col justify-center rounded-lg bg-card px-4 py-5 text-center ring-1 ring-border/70">
               <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                 Total hours
               </p>
               <div className="mt-2 flex items-end justify-center gap-1 text-foreground">
                 <span className="text-3xl font-semibold tracking-tight">
-                  {workedDuration.hours}
+                  {todayDuration.hours}
                 </span>
                 <span className="pb-1 text-sm font-medium text-muted-foreground">
                   hrs
                 </span>
                 <span className="text-xl font-semibold tracking-tight">
-                  {workedDuration.minutes}
+                  {todayDuration.minutes}
                 </span>
                 <span className="pb-1 text-sm font-medium text-muted-foreground">
                   mins
@@ -351,87 +333,170 @@ export default async function DashboardPage() {
               </div>
             </div>
 
-            <div className="mt-4 grid gap-2 sm:grid-cols-2">
-              <div className="rounded-lg border border-border/70 bg-card p-3">
-                <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                  Time entries
-                </p>
-                <p className="mt-1 text-xl font-semibold tracking-tight text-foreground">
-                  {weeklyLogs.length}
-                </p>
-              </div>
-              <div className="rounded-lg border border-border/70 bg-card p-3">
-                <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                  Latest status
-                </p>
-                <p className="mt-1 text-base font-semibold tracking-tight text-foreground">
-                  {recentLogs[0] ? getStatusLabel(recentLogs[0].status) : "No logs"}
-                </p>
-              </div>
-              <div className="rounded-lg border border-border/70 bg-card p-3">
-                <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                  Today
-                </p>
-                <p className="mt-1 text-base font-semibold tracking-tight text-foreground">
-                  {todayStatusLabel}
-                </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {todayDuration.hours}h {todayDuration.minutes}m logged
-                </p>
-              </div>
-              <div className="rounded-lg border border-border/70 bg-card p-3">
-                <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                  PFFD balance
-                </p>
-                <p className="mt-1 text-xl font-semibold tracking-tight text-foreground">
-                  {leaveCreditsBalance.toFixed(1).replace(".0", "")}
-                </p>
-              </div>
-            </div>
-
             <p className="mt-3 text-xs leading-5 text-muted-foreground">
-              Includes completed entries recorded during the current week.
+              Includes completed entries recorded today.
             </p>
           </div>
+
+          <div className="flex h-full flex-col rounded-lg border border-border/70 bg-background/70 p-4">
+            <div>
+              <p className="text-sm font-semibold text-foreground">PFFD balance</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Available pre-funded flex days
+              </p>
+            </div>
+
+            <div className="mt-4 flex min-h-36 flex-col justify-center rounded-lg bg-card px-4 py-5 text-center ring-1 ring-border/70">
+              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                Available
+              </p>
+              <p className="mt-2 text-4xl font-semibold tracking-tight text-foreground">
+                {leaveCreditsBalance.toFixed(1).replace(".0", "")}
+              </p>
+            </div>
+
+            <Link
+              href="/leaves"
+              className="mt-4 inline-flex h-10 items-center justify-center rounded-md border border-border/70 bg-card px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            >
+              View PFFD
+            </Link>
+          </div>
         </div>
+        {todayHoliday && (
+          <div className="border-t border-border/70 px-3 py-3">
+            <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm">
+              <p className="font-semibold text-emerald-700 dark:text-emerald-300">
+                {todayHoliday.name} is assigned for today.
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                You do not need to clock in or out for this assigned holiday.
+              </p>
+            </div>
+          </div>
+        )}
       </section>
 
       <section className="rounded-lg border border-border/70 bg-card p-4 shadow-sm">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-brand-steel">
-              Recent Time Logs
-            </p>
-            <h2 className="mt-1 text-lg font-semibold tracking-tight text-foreground">
-              Your latest activity
-            </h2>
-          </div>
+        <div className="flex flex-col gap-1">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-brand-steel">
+            Manual Entry
+          </p>
+          <h2 className="text-lg font-semibold tracking-tight text-foreground">
+            Request a time correction
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Submit missed or corrected hours for manager approval.
+          </p>
         </div>
 
-        {recentLogs.length === 0 ? (
+        <form
+          action={async (formData) => {
+            "use server";
+            await submitManualTimeEntryRequest(formData);
+          }}
+          className="mt-4 grid gap-3 lg:grid-cols-[150px_130px_130px_minmax(0,1fr)_auto] lg:items-end"
+        >
+          <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
+            Date
+            <input
+              type="date"
+              name="date"
+              defaultValue={format(now, "yyyy-MM-dd")}
+              required
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            />
+          </label>
+          <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
+            Clock in
+            <input
+              type="time"
+              name="clockIn"
+              required
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            />
+          </label>
+          <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
+            Clock out
+            <input
+              type="time"
+              name="clockOut"
+              required
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            />
+          </label>
+          <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
+            Reason
+            <input
+              type="text"
+              name="reason"
+              required
+              maxLength={500}
+              placeholder="Example: Forgot to clock out"
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            />
+          </label>
+          <SubmitButton size="sm" className="h-10 px-4">
+            Submit
+          </SubmitButton>
+        </form>
+      </section>
+
+      <section className="rounded-lg border border-border/70 bg-card p-4 shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-brand-steel">
+              Recent Activity
+            </p>
+            <h2 className="mt-1 text-lg font-semibold tracking-tight text-foreground">
+              Your latest attendance events
+            </h2>
+          </div>
+          <Link
+            href="/timesheets"
+            className="inline-flex h-9 items-center justify-center rounded-md border border-border/70 bg-background px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          >
+            View timesheets
+          </Link>
+        </div>
+
+        {recentActivity.length === 0 ? (
           <div className="mt-4 rounded-lg border border-dashed border-border/80 bg-muted/35 px-4 py-8 text-center text-sm text-muted-foreground">
-            No recent logs to display today.
+            No recent attendance activity to display.
           </div>
         ) : (
           <div className="mt-4 overflow-hidden rounded-lg border border-border/70 bg-background/70">
-            <div className="hidden grid-cols-[1.1fr_1fr_minmax(0,1.35fr)_110px_82px] gap-3 border-b border-border/70 bg-muted/35 px-3 py-2 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground md:grid">
+            <div className="hidden grid-cols-[1.15fr_1fr_1fr_90px] gap-3 border-b border-border/70 bg-muted/35 px-3 py-2 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground md:grid">
+              <span>Activity</span>
               <span>Date</span>
               <span>Time</span>
-              <span>Details</span>
-              <span className="text-right">Status</span>
               <span className="text-right">Duration</span>
             </div>
-            {recentLogs.map((log) => (
+            {recentActivity.map((event) => (
               <div
-                key={log.id}
-                className="grid gap-2 border-b border-border/70 px-3 py-3 last:border-b-0 md:grid-cols-[1.1fr_1fr_minmax(0,1.35fr)_110px_82px] md:items-center md:gap-3"
+                key={event.id}
+                className="grid gap-2 border-b border-border/70 px-3 py-3 last:border-b-0 md:grid-cols-[1.15fr_1fr_1fr_90px] md:items-center md:gap-3"
               >
+                <div className="min-w-0">
+                  <p className="md:hidden text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                    Activity
+                  </p>
+                  <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-foreground">
+                    <span
+                      className={`inline-flex rounded-md px-2 py-0.5 text-[11px] font-semibold ${getActivityClass(event.type)}`}
+                    >
+                      {event.label}
+                    </span>
+                    <span className="text-xs text-muted-foreground">{event.detail}</span>
+                  </p>
+                </div>
+
                 <div className="min-w-0">
                   <p className="md:hidden text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
                     Date
                   </p>
                   <p className="text-sm font-medium text-foreground">
-                    {format(log.clockIn, "EEEE, MMM d")}
+                    {format(event.happenedAt, "EEEE, MMM d")}
                   </p>
                 </div>
 
@@ -440,29 +505,8 @@ export default async function DashboardPage() {
                     Time
                   </p>
                   <p className="text-xs text-muted-foreground md:text-sm md:text-foreground">
-                    {format(log.clockIn, "h:mm a")} -{" "}
-                    {log.clockOut ? format(log.clockOut, "h:mm a") : "Active"}
+                    {format(event.happenedAt, "h:mm a")}
                   </p>
-                </div>
-
-                <div className="min-w-0">
-                  <p className="md:hidden text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                    Details
-                  </p>
-                  <p className="truncate text-xs text-muted-foreground md:text-sm">
-                    {[log.projectName, log.notes].filter(Boolean).join(" | ") || "No details"}
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-between gap-2 md:justify-end">
-                  <p className="md:hidden text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                    Status
-                  </p>
-                  <span
-                    className={`inline-flex rounded-md px-2 py-0.5 text-[11px] font-semibold ${getStatusClass(log.status)}`}
-                  >
-                    {getStatusLabel(log.status)}
-                  </span>
                 </div>
 
                 <div className="flex items-center justify-between gap-2 md:justify-end">
@@ -470,7 +514,7 @@ export default async function DashboardPage() {
                     Duration
                   </p>
                   <span className="text-xs text-muted-foreground">
-                    {getDurationLabel(log.clockIn, log.clockOut, log.breaks)}
+                    {event.duration || "-"}
                   </span>
                 </div>
               </div>

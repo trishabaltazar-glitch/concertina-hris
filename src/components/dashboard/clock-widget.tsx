@@ -7,7 +7,6 @@ import { CheckCircle2, Coffee, Loader2, Play, Square, TimerReset } from "lucide-
 import { toggleBreakStatus, toggleClockStatus, getClockStatus } from "@/app/actions/time";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 
 type ClockStatus = Awaited<ReturnType<typeof getClockStatus>>;
 type PendingAction = "clock-in" | "clock-out" | "break-start" | "break-end" | null;
@@ -34,8 +33,6 @@ export function ClockWidget() {
   const [isOnBreak, setIsOnBreak] = useState(false);
   const [clockInTime, setClockInTime] = useState<Date | null>(null);
   const [breakStartTime, setBreakStartTime] = useState<Date | null>(null);
-  const [projectName, setProjectName] = useState("");
-  const [notes, setNotes] = useState("");
   const [isPending, setIsPending] = useState(false);
   const [isBreakPending, setIsBreakPending] = useState(false);
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
@@ -99,14 +96,10 @@ export function ClockWidget() {
     );
     setIsPending(true);
     try {
-      const res = await toggleClockStatus(projectName, notes);
+      const res = await toggleClockStatus();
       if (res.success) {
         const nextStatus = res.status || (await getClockStatus());
         applyClockStatus(nextStatus);
-        if (nextStatus.isClockedIn) {
-          setProjectName("");
-          setNotes("");
-        }
       } else {
         applyClockStatus(previousStatus);
         setErrorMessage(res.error || "Could not update your clock status.");
@@ -175,7 +168,7 @@ export function ClockWidget() {
   }
 
   return (
-    <div className="rounded-lg border border-border/70 bg-background/70 p-4">
+    <div className="flex h-full flex-col rounded-lg border border-border/70 bg-background/70 p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm font-semibold text-foreground">Clock-in</p>
@@ -203,7 +196,7 @@ export function ClockWidget() {
 
       <div
         className={cn(
-          "relative mt-4 overflow-hidden rounded-lg bg-card px-4 py-5 text-center ring-1 ring-border/70",
+          "relative mt-4 flex min-h-36 flex-col justify-center overflow-hidden rounded-lg bg-card px-4 py-5 text-center ring-1 ring-border/70",
           isSyncing && "ring-brand-steel/35"
         )}
       >
@@ -259,23 +252,6 @@ export function ClockWidget() {
               {errorMessage && <p className="mt-1 text-muted-foreground">{errorMessage}</p>}
             </div>
           </div>
-        </div>
-      )}
-
-      {!isClockedIn && (
-        <div className="mt-4 grid gap-2">
-          <Input
-            value={projectName}
-            onChange={(event) => setProjectName(event.target.value)}
-            placeholder="Project or work item (optional)"
-            maxLength={120}
-          />
-          <Input
-            value={notes}
-            onChange={(event) => setNotes(event.target.value)}
-            placeholder="Notes (optional)"
-            maxLength={500}
-          />
         </div>
       )}
 

@@ -15,8 +15,14 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { AlertCircle, CalendarX2, CheckCircle2, Clock3, Coffee, Plus, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { TimesheetFilterBar } from "@/app/timesheets/components/timesheet-filter-bar";
 import { DeleteTimeLogButton } from "@/app/timesheets/components/delete-time-log-button";
+import {
+    cancelPendingManualTimeEntryRequest,
+    submitManualTimeEntryRequest,
+    updatePendingManualTimeEntryRequest,
+} from "@/app/actions/time";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +56,16 @@ type TimelineSegment = {
     type: "work" | "break" | "overtime";
     startMinute: number;
     endMinute: number;
+};
+
+type ManualTimeEntryRequest = {
+    id: string;
+    clockIn: Date;
+    clockOut: Date;
+    reason: string | null;
+    status: string;
+    createdAt: Date;
+    reviewedAt: Date | null;
 };
 
 const WORKDAY_START_MINUTE = 9 * 60;
@@ -175,6 +191,20 @@ function buildDays(fromDate: Date, toDate: Date) {
     return Array.from({ length: count + 1 }, (_, index) => addDays(fromDate, count - index));
 }
 
+function getRequestStatusClass(status: string) {
+    if (status === "APPROVED") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    if (status === "REJECTED") return "border-red-200 bg-red-50 text-red-700";
+    return "border-amber-200 bg-amber-50 text-amber-700";
+}
+
+function RequestStatusBadge({ status }: { status: string }) {
+    return (
+        <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${getRequestStatusClass(status)}`}>
+            {status.charAt(0) + status.slice(1).toLowerCase()}
+        </span>
+    );
+}
+
 export default async function TimesheetsPage({ searchParams }: TimesheetsPageProps) {
     const session = await auth();
     if (!session || !session.user || !session.user.id) {
@@ -196,28 +226,38 @@ export default async function TimesheetsPage({ searchParams }: TimesheetsPagePro
     const displayRange = `${format(fromDate, "MMM dd")} - ${format(toDate, "MMM dd yyyy")}`;
 
     let timeLogs: TimeLogWithBreaks[] = [];
+    let manualRequests: ManualTimeEntryRequest[] = [];
     let databaseError: string | null = null;
 
     try {
-        timeLogs = await prisma.timeLog.findMany({
-            where: {
-                userId: session.user.id,
-                clockIn: {
-                    gte: fromDate,
-                    lte: toDate,
-                },
-            },
-            orderBy: { clockIn: "asc" },
-            include: {
-                breaks: {
-                    orderBy: { startedAt: "asc" },
-                    select: {
-                        startedAt: true,
-                        endedAt: true,
+        [timeLogs, manualRequests] = await Promise.all([
+            prisma.timeLog.findMany({
+                where: {
+                    userId: session.user.id,
+                    clockIn: {
+                        gte: fromDate,
+                        lte: toDate,
                     },
                 },
-            },
-        });
+                orderBy: { clockIn: "asc" },
+                include: {
+                    breaks: {
+                        orderBy: { startedAt: "asc" },
+                        select: {
+                            startedAt: true,
+                            endedAt: true,
+                        },
+                    },
+                },
+            }),
+            prisma.$queryRaw<ManualTimeEntryRequest[]>`
+                SELECT "id", "clockIn", "clockOut", "reason", "status", "createdAt", "reviewedAt"
+                FROM "TimeEntryRequest"
+                WHERE "userId" = ${session.user.id}
+                ORDER BY "createdAt" DESC
+                LIMIT 8
+            `,
+        ]);
     } catch (error) {
         console.error("Failed to load timesheet logs:", error);
         databaseError = "Timesheet data could not be loaded right now. Please refresh or try again in a moment.";
@@ -264,6 +304,175 @@ export default async function TimesheetsPage({ searchParams }: TimesheetsPagePro
                 displayRange={displayRange}
                 showEmptyDays={showEmptyDays}
             />
+
+            <section className="grid gap-3 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+                <div className="rounded-2xl border bg-card shadow-sm">
+                    <div className="border-b px-4 py-3">
+                        <div className="flex items-center gap-2">
+                            <span className="flex size-6 items-center justify-center rounded-full border text-muted-foreground">
+                                <Plus className="size-3.5" />
+                            </span>
+                            <h2 className="text-sm font-semibold text-foreground">Manual entry request</h2>
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                            Submit missed or corrected hours for manager approval.
+                        </p>
+                    </div>
+                    <form
+                        action={async (formData) => {
+                            "use server";
+                            await submitManualTimeEntryRequest(formData);
+                        }}
+                        className="space-y-3 px-4 py-4"
+                    >
+                        <div className="grid gap-3 sm:grid-cols-3">
+                            <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
+                                Date
+                                <input
+                                    type="date"
+                                    name="date"
+                                    defaultValue={format(today, "yyyy-MM-dd")}
+                                    required
+                                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                                />
+                            </label>
+                            <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
+                                Clock in
+                                <input
+                                    type="time"
+                                    name="clockIn"
+                                    required
+                                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                                />
+                            </label>
+                            <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
+                                Clock out
+                                <input
+                                    type="time"
+                                    name="clockOut"
+                                    required
+                                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                                />
+                            </label>
+                        </div>
+                        <label className="block space-y-1.5 text-xs font-medium text-muted-foreground">
+                            Reason
+                            <textarea
+                                name="reason"
+                                required
+                                rows={3}
+                                maxLength={500}
+                                placeholder="Example: Forgot to clock in after client call."
+                                className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                            />
+                        </label>
+                        <div className="flex justify-end">
+                            <SubmitButton size="sm">Submit for approval</SubmitButton>
+                        </div>
+                    </form>
+                </div>
+
+                <div className="rounded-2xl border bg-card shadow-sm">
+                    <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
+                        <div>
+                            <h2 className="text-sm font-semibold text-foreground">Manual entry requests</h2>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                                Your latest approval status.
+                            </p>
+                        </div>
+                        <span className="rounded-full border border-border px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                            {manualRequests.length}
+                        </span>
+                    </div>
+                    <div className="divide-y">
+                        {manualRequests.length === 0 ? (
+                            <div className="px-4 py-10 text-center text-sm text-muted-foreground">
+                                No manual entry requests yet.
+                            </div>
+                        ) : (
+                            manualRequests.map((request) => (
+                                <div key={request.id} className="px-4 py-3">
+                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-medium text-foreground">
+                                                {format(request.clockIn, "MMM d, h:mm a")} - {format(request.clockOut, "h:mm a")}
+                                            </p>
+                                            <p className="mt-1 truncate text-xs text-muted-foreground" title={request.reason || undefined}>
+                                                {request.reason || "No reason provided"}
+                                            </p>
+                                        </div>
+                                        <div className="flex shrink-0 items-center gap-2 sm:justify-end">
+                                            <RequestStatusBadge status={request.status} />
+                                            <span className="text-xs text-muted-foreground">
+                                                {format(request.createdAt, "MMM d")}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    {request.status === "PENDING" && (
+                                        <div className="mt-3 rounded-lg border border-border bg-background/60 p-3">
+                                            <form
+                                                action={async (formData) => {
+                                                    "use server";
+                                                    await updatePendingManualTimeEntryRequest(request.id, formData);
+                                                }}
+                                                className="grid gap-2 lg:grid-cols-[140px_110px_110px_minmax(0,1fr)_auto]"
+                                            >
+                                                <input
+                                                    type="date"
+                                                    name="date"
+                                                    defaultValue={format(request.clockIn, "yyyy-MM-dd")}
+                                                    required
+                                                    className="h-9 rounded-md border border-input bg-background px-2 text-xs text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                                                    aria-label="Manual request date"
+                                                />
+                                                <input
+                                                    type="time"
+                                                    name="clockIn"
+                                                    defaultValue={format(request.clockIn, "HH:mm")}
+                                                    required
+                                                    className="h-9 rounded-md border border-input bg-background px-2 text-xs text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                                                    aria-label="Manual request clock in"
+                                                />
+                                                <input
+                                                    type="time"
+                                                    name="clockOut"
+                                                    defaultValue={format(request.clockOut, "HH:mm")}
+                                                    required
+                                                    className="h-9 rounded-md border border-input bg-background px-2 text-xs text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                                                    aria-label="Manual request clock out"
+                                                />
+                                                <input
+                                                    type="text"
+                                                    name="reason"
+                                                    defaultValue={request.reason || ""}
+                                                    required
+                                                    maxLength={500}
+                                                    className="h-9 rounded-md border border-input bg-background px-2 text-xs text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                                                    aria-label="Manual request reason"
+                                                />
+                                                <SubmitButton size="xs" className="h-9">
+                                                    Save
+                                                </SubmitButton>
+                                            </form>
+                                            <form
+                                                action={async () => {
+                                                    "use server";
+                                                    await cancelPendingManualTimeEntryRequest(request.id);
+                                                }}
+                                                className="mt-2 flex justify-end"
+                                            >
+                                                <SubmitButton variant="destructive-outline" size="xs" className="h-8 text-xs">
+                                                    Cancel request
+                                                </SubmitButton>
+                                            </form>
+                                        </div>
+                                    )}
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+            </section>
 
             <section className="rounded-2xl border bg-card shadow-sm">
                 <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
@@ -380,11 +589,6 @@ export default async function TimesheetsPage({ searchParams }: TimesheetsPagePro
                                 );
                                 const segments = buildSegments(logsForDay);
                                 const isLate = logsForDay.some((log) => log.status === "LATE");
-                                const noteText = logsForDay
-                                    .flatMap((log) => [log.projectName, log.notes])
-                                    .filter(Boolean)
-                                    .join(" | ");
-
                                 return (
                                     <div key={day.toISOString()} className="px-4 py-5">
                                         <div className="mb-3 flex items-start justify-between gap-4">
@@ -392,11 +596,6 @@ export default async function TimesheetsPage({ searchParams }: TimesheetsPagePro
                                                 <p className="text-sm font-semibold text-foreground">
                                                     {isToday(day) ? "Today" : format(day, "EEEE, d")}
                                                 </p>
-                                                {noteText && (
-                                                    <p className="mt-1 max-w-xl truncate text-xs text-muted-foreground">
-                                                        {noteText}
-                                                    </p>
-                                                )}
                                             </div>
                                             <p className="text-sm text-muted-foreground">
                                                 Duration: <span className="font-semibold text-foreground">{formatDuration(totalMinutes)}</span>
@@ -504,11 +703,6 @@ export default async function TimesheetsPage({ searchParams }: TimesheetsPagePro
                                                                     {log.clockOut ? formatDuration(workedMinutes) : "Active"}
                                                                 </span>
                                                             </div>
-                                                            {(log.projectName || log.notes) && (
-                                                                <p className="mt-1 truncate text-xs text-muted-foreground">
-                                                                    {[log.projectName, log.notes].filter(Boolean).join(" | ")}
-                                                                </p>
-                                                            )}
                                                         </div>
                                                         <DeleteTimeLogButton timeLogId={log.id} label={entryLabel} />
                                                     </div>

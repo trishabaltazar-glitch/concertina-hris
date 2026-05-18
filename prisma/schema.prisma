@@ -38,6 +38,10 @@ model User {
   updatedAt        DateTime @updatedAt
 
   timeLogs         TimeLog[]
+  timeEntryRequests TimeEntryRequest[] @relation("TimeEntryRequestUser")
+  reviewedTimeEntryRequests TimeEntryRequest[] @relation("TimeEntryRequestReviewer")
+  holidayAssignments HolidayAssignment[] @relation("HolidayAssignmentUser")
+  assignedHolidayAssignments HolidayAssignment[] @relation("HolidayAssignmentAssigner")
   leaveBalances    LeaveBalance[]
   leaveRequests    LeaveRequest[]
   announcements    Announcement[] // Link to authored announcements
@@ -97,6 +101,24 @@ model TimeBreak {
   endedAt   DateTime?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+}
+
+model TimeEntryRequest {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation("TimeEntryRequestUser", fields: [userId], references: [id])
+  clockIn      DateTime
+  clockOut     DateTime
+  reason       String?
+  status       String    @default("PENDING")
+  reviewedById String?
+  reviewedBy   User?     @relation("TimeEntryRequestReviewer", fields: [reviewedById], references: [id])
+  reviewedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([userId, status])
+  @@index([status, createdAt])
 }
 
 model LeaveBalance {
@@ -161,6 +183,23 @@ model Holiday {
   description String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model HolidayAssignment {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation("HolidayAssignmentUser", fields: [userId], references: [id])
+  assignedById String
+  assignedBy   User     @relation("HolidayAssignmentAssigner", fields: [assignedById], references: [id])
+  name         String
+  date         DateTime
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([userId, date, name])
+  @@index([userId, date])
+  @@index([assignedById, date])
 }
 
 model Schedule {

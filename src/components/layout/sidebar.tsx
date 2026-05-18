@@ -2,24 +2,23 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Clock, CalendarHeart, Users, Settings, BookUser, UserCircle, Calendar, CalendarDays, ClipboardList } from "lucide-react";
+import { LayoutDashboard, Clock, CalendarHeart, Users, Settings, UserCircle, Calendar, CalendarDays, ClipboardList } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { handleSignOut } from "@/app/actions/auth";
 
 const EMP_ROUTES = [
-    { name: "Home", href: "/", icon: LayoutDashboard },
+    { name: "Overview", href: "/", icon: LayoutDashboard },
     { name: "Timesheets", href: "/timesheets", icon: Clock },
     { name: "Schedules", href: "/schedule", icon: CalendarDays },
     { name: "PFFD Requests", href: "/leaves", icon: CalendarHeart },
-    { name: "Team Directory", href: "/directory", icon: BookUser },
-    { name: "Company Holidays", href: "/holidays", icon: Calendar },
     { name: "My Profile", href: "/profile", icon: UserCircle },
 ];
 
 const ADMIN_ROUTES = [
+    { name: "Admin Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
     { name: "Leave Approvals", href: "/admin/leaves", icon: Users },
     { name: "Schedules Manager", href: "/admin/schedules", icon: CalendarDays },
-    { name: "Holiday Manager", href: "/admin/holidays", icon: Calendar },
+    { name: "Holiday Assignments", href: "/admin/holidays", icon: Calendar },
     { name: "Reports Dashboard", href: "/admin/reports", icon: ClipboardList },
     { name: "Settings", href: "/admin/settings", icon: Settings },
 ];

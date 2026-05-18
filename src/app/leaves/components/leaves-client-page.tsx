@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { differenceInCalendarDays, format, isValid, parseISO } from "date-fns";
 import { CalendarDays, CheckCircle2, Clock3, FileText, Hourglass, Paperclip, XCircle } from "lucide-react";
 
-import { submitLeaveRequest } from "@/app/actions/leaves";
+import { cancelPendingLeaveRequest, submitLeaveRequest, updatePendingLeaveRequest } from "@/app/actions/leaves";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { cn } from "@/lib/utils";
@@ -83,9 +83,37 @@ export function LeavesClientPage({ balances, leaveRequests }: LeavesClientPagePr
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [dayType, setDayType] = useState("FULL_DAY");
+  const [editingRequestId, setEditingRequestId] = useState<string | null>(null);
+  const editingRequest = useMemo(
+    () => leaveRequests.find((request) => request.id === editingRequestId && request.status === "PENDING") || null,
+    [editingRequestId, leaveRequests]
+  );
 
   async function handleSubmit(formData: FormData) {
-    await submitLeaveRequest(formData);
+    if (editingRequestId) {
+      await updatePendingLeaveRequest(editingRequestId, formData);
+    } else {
+      await submitLeaveRequest(formData);
+    }
+
+    setEditingRequestId(null);
+    setStartDate("");
+    setEndDate("");
+    setDayType("FULL_DAY");
+  }
+
+  function startEditingRequest(request: LeaveRequestItem) {
+    setEditingRequestId(request.id);
+    setStartDate(format(parseISO(request.startDate), "yyyy-MM-dd"));
+    setEndDate(format(parseISO(request.endDate), "yyyy-MM-dd"));
+    setDayType(request.dayType);
+  }
+
+  function clearEditingRequest() {
+    setEditingRequestId(null);
+    setStartDate("");
+    setEndDate("");
+    setDayType("FULL_DAY");
   }
 
   const pffdBalance = balances.find((balance) => balance.leaveType === "LEAVE_CREDITS")?.balance ?? 0;
@@ -174,7 +202,14 @@ export function LeavesClientPage({ balances, leaveRequests }: LeavesClientPagePr
       <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
         <section className="rounded-lg border border-border bg-background">
           <div className="border-b px-4 py-3">
-            <h2 className="font-semibold">New Request</h2>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="font-semibold">{editingRequest ? "Edit Request" : "New Request"}</h2>
+              {editingRequest && (
+                <Button type="button" variant="ghost" size="xs" onClick={clearEditingRequest}>
+                  Cancel edit
+                </Button>
+              )}
+            </div>
           </div>
 
           <form action={handleSubmit} className="space-y-3 p-4">
@@ -275,12 +310,14 @@ export function LeavesClientPage({ balances, leaveRequests }: LeavesClientPagePr
               <textarea
                 name="reason"
                 id="reason"
+                key={editingRequest?.id || "new-reason"}
+                defaultValue={editingRequest?.reason || ""}
                 rows={3}
                 className="flex min-h-20 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
               />
             </div>
 
-            <SubmitButton size="sm">Submit Request</SubmitButton>
+            <SubmitButton size="sm">{editingRequest ? "Save Changes" : "Submit Request"}</SubmitButton>
           </form>
         </section>
 
@@ -331,6 +368,7 @@ export function LeavesClientPage({ balances, leaveRequests }: LeavesClientPagePr
                       <th className="px-4 py-3 font-semibold">Days</th>
                       <th className="px-4 py-3 font-semibold">Status</th>
                       <th className="px-4 py-3 font-semibold">Filed</th>
+                      <th className="px-4 py-3 text-right font-semibold">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -351,6 +389,26 @@ export function LeavesClientPage({ balances, leaveRequests }: LeavesClientPagePr
                               <Paperclip className="size-3" />
                               Attachment
                             </a>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          {request.status === "PENDING" ? (
+                            <div className="flex justify-end gap-2">
+                              <Button type="button" variant="outline" size="xs" onClick={() => startEditingRequest(request)}>
+                                Edit
+                              </Button>
+                              <form
+                                action={async () => {
+                                  await cancelPendingLeaveRequest(request.id);
+                                }}
+                              >
+                                <SubmitButton variant="destructive-outline" size="xs" className="h-7 text-xs">
+                                  Cancel
+                                </SubmitButton>
+                              </form>
+                            </div>
+                          ) : (
+                            <span className="block text-right text-xs text-muted-foreground">Reviewed</span>
                           )}
                         </td>
                       </tr>
@@ -386,6 +444,22 @@ export function LeavesClientPage({ balances, leaveRequests }: LeavesClientPagePr
                         <Paperclip className="size-3" />
                         View attachment
                       </a>
+                    )}
+                    {request.status === "PENDING" && (
+                      <div className="mt-3 flex gap-2">
+                        <Button type="button" variant="outline" size="xs" onClick={() => startEditingRequest(request)}>
+                          Edit
+                        </Button>
+                        <form
+                          action={async () => {
+                            await cancelPendingLeaveRequest(request.id);
+                          }}
+                        >
+                          <SubmitButton variant="destructive-outline" size="xs" className="h-7 text-xs">
+                            Cancel
+                          </SubmitButton>
+                        </form>
+                      </div>
                     )}
                   </article>
                 ))}

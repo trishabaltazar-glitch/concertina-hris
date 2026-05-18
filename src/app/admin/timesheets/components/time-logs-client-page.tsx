@@ -21,7 +21,6 @@ type TimeLogData = {
     clockIn: Date;
     clockOut: Date | null;
     status: string;
-    projectName: string | null;
     user: {
         name: string;
         email: string;
@@ -49,7 +48,10 @@ function getLogDuration(log: TimeLogData) {
 }
 
 function getStatusLabel(status: string) {
-    return status === "ON_TIME" ? "On Time" : "Late";
+    if (status === "ON_TIME") return "On Time";
+    if (status === "LATE") return "Late";
+    if (status === "FORCED_CHECKOUT") return "Auto clock-out";
+    return status.replaceAll("_", " ");
 }
 
 function formatRole(role: string) {
@@ -93,8 +95,7 @@ export function TimeLogsClientPage({ initialLogs }: { initialLogs: TimeLogData[]
         // 1. Search Query Filter
         const matchesSearch = 
             log.user.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-            log.user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            (log.projectName || "").toLowerCase().includes(searchQuery.toLowerCase());
+            log.user.email.toLowerCase().includes(searchQuery.toLowerCase());
         
         // 2. Status Filter
         const matchesStatus = statusFilter === "ALL" || log.status === statusFilter;
@@ -185,7 +186,7 @@ export function TimeLogsClientPage({ initialLogs }: { initialLogs: TimeLogData[]
                         </div>
                         <input
                             type="text"
-                            placeholder="Search name, email, or project..."
+                            placeholder="Search name or email..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="w-full bg-background border border-input text-foreground placeholder:text-muted-foreground rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/50"
@@ -321,7 +322,6 @@ export function TimeLogsClientPage({ initialLogs }: { initialLogs: TimeLogData[]
                             <tr>
                                 <th className="px-4 py-3 font-semibold">Employee</th>
                                 <th className="px-4 py-3 font-semibold">Role</th>
-                                <th className="px-4 py-3 font-semibold">Project</th>
                                 <th className="px-4 py-3 font-semibold">Date</th>
                                 <th className="px-4 py-3 font-semibold">Clock in</th>
                                 <th className="px-4 py-3 font-semibold">Clock out</th>
@@ -332,7 +332,7 @@ export function TimeLogsClientPage({ initialLogs }: { initialLogs: TimeLogData[]
                         <tbody className="divide-y divide-border">
                             {filteredLogs.length === 0 ? (
                                 <tr>
-                                    <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">
+                                    <td colSpan={7} className="px-4 py-12 text-center text-muted-foreground">
                                         <div className="flex flex-col items-center">
                                             <CalendarIcon className="size-8 text-muted-foreground" />
                                             <p className="mt-3 font-semibold text-foreground">
@@ -356,13 +356,6 @@ export function TimeLogsClientPage({ initialLogs }: { initialLogs: TimeLogData[]
                                             </td>
                                             <td className="px-4 py-3">
                                                 <RolePill role={log.user.role} />
-                                            </td>
-                                            <td className="px-4 py-3 text-muted-foreground">
-                                                {log.projectName ? (
-                                                    <span className="font-medium text-foreground">{log.projectName}</span>
-                                                ) : (
-                                                    "-"
-                                                )}
                                             </td>
                                             <td className="px-4 py-3 font-medium text-foreground">
                                                 {format(new Date(log.clockIn), "MMM d, yyyy")}
@@ -433,7 +426,6 @@ export function TimeLogsClientPage({ initialLogs }: { initialLogs: TimeLogData[]
 
                                 <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                                     <span className="font-medium text-foreground">{format(new Date(log.clockIn), "MMM d, yyyy")}</span>
-                                    <span>{log.projectName || "No project"}</span>
                                 </div>
                             </div>
                         ))

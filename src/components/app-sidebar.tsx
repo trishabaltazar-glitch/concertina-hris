@@ -9,7 +9,6 @@ import {
   HugeiconsIcon,
 } from "@hugeicons/react"
 import {
-  AddressBookIcon,
   ArrowDown01Icon,
   Calendar03Icon,
   CalendarCheckIn01Icon,
@@ -50,20 +49,19 @@ import {
 } from "@/components/ui/sidebar"
 
 const EMP_ROUTES = [
-  { name: "Home", href: "/", icon: DashboardSquare02Icon },
+  { name: "Overview", href: "/", icon: DashboardSquare02Icon },
   { name: "Timesheets", href: "/timesheets", icon: TimeQuarterPassIcon },
   { name: "Schedules", href: "/schedule", icon: CalendarUserIcon },
   { name: "PFFD Requests", href: "/leaves", icon: TaskDaily02Icon },
-  { name: "Team Directory", href: "/directory", icon: AddressBookIcon },
-  { name: "Company Holidays", href: "/holidays", icon: Calendar03Icon },
 ]
 
 const ADMIN_ROUTES = [
+  { name: "Admin Dashboard", href: "/admin/dashboard", icon: DashboardSquare02Icon },
   { name: "Team Management", href: "/admin/employees", icon: UserGroupIcon },
   { name: "Time Logs", href: "/admin/timesheets", icon: CalendarCheckIn01Icon },
   { name: "Leave Approvals", href: "/admin/leaves", icon: FileUserIcon },
   { name: "Schedules Manager", href: "/admin/schedules", icon: CalendarUserIcon },
-  { name: "Holiday Manager", href: "/admin/holidays", icon: Calendar03Icon },
+  { name: "Holiday Assignments", href: "/admin/holidays", icon: Calendar03Icon },
   { name: "Reports Dashboard", href: "/admin/reports", icon: Analytics02Icon },
 ]
 

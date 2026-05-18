@@ -2,7 +2,14 @@ import { randomUUID } from "crypto";
 
 import prisma from "@/lib/prisma";
 
-export type NotificationType = "INFO" | "LEAVE_REQUEST" | "LEAVE_APPROVED" | "LEAVE_REJECTED";
+export type NotificationType =
+  | "INFO"
+  | "LEAVE_REQUEST"
+  | "LEAVE_APPROVED"
+  | "LEAVE_REJECTED"
+  | "TIME_ENTRY_REQUEST"
+  | "TIME_ENTRY_APPROVED"
+  | "TIME_ENTRY_REJECTED";
 
 type CreateNotificationInput = {
   userId: string;

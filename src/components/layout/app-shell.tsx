@@ -19,21 +19,19 @@ import {
 function getPageLabel(pathname: string) {
   switch (pathname) {
     case "/":
-      return "Home"
+      return "Overview"
     case "/timesheets":
       return "Timesheets"
     case "/schedule":
       return "My Weekly Schedule"
     case "/leaves":
       return "Pre-Funded Flex Days"
-    case "/directory":
-      return "Team Directory"
-    case "/holidays":
-      return "Company Holidays"
     case "/profile":
       return "My Profile"
     case "/admin/employees":
       return "Team Management"
+    case "/admin/dashboard":
+      return "Admin Dashboard"
     case "/admin/timesheets":
       return "Company Time Logs"
     case "/admin/leaves":
@@ -41,9 +39,9 @@ function getPageLabel(pathname: string) {
     case "/admin/schedules":
       return "Schedule Management"
     case "/admin/holidays":
-      return "Holiday Management"
+      return "Holiday Assignments"
     case "/admin/reports":
-      return "Reporting Dashboard"
+      return "Reports Dashboard"
     case "/notifications":
       return "Notifications"
     default:
@@ -60,14 +58,14 @@ function AppBreadcrumbs({ pathname }: { pathname: string }) {
     <Breadcrumb>
       <BreadcrumbList>
         {isHome ? (
-          <BreadcrumbItem>
-            <BreadcrumbPage>Home</BreadcrumbPage>
+            <BreadcrumbItem>
+            <BreadcrumbPage>Overview</BreadcrumbPage>
           </BreadcrumbItem>
         ) : (
           <>
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
-                <Link href="/">Home</Link>
+                <Link href="/">Overview</Link>
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
