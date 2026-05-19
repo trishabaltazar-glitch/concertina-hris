@@ -502,11 +502,11 @@ export function ScheduleClientPage({ initialUsers }: { initialUsers: User[] }) {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <div className="rounded-lg border border-border bg-card shadow-sm">
-        <div className="grid min-h-[30rem] gap-0 lg:grid-cols-[260px_minmax(0,1fr)]">
-          <aside className="flex min-h-0 flex-col border-b border-border lg:max-h-[36rem] lg:border-b-0 lg:border-r">
-            <div className="space-y-2 border-b border-border px-3 py-3">
+        <div className="grid min-h-[26rem] gap-0 lg:grid-cols-[232px_minmax(0,1fr)]">
+          <aside className="flex min-h-0 flex-col border-b border-border lg:max-h-[32rem] lg:border-b-0 lg:border-r">
+            <div className="space-y-1.5 border-b border-border px-2.5 py-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-xs font-semibold uppercase text-muted-foreground">
                   <Users className="size-3.5" />
@@ -523,14 +523,14 @@ export function ScheduleClientPage({ initialUsers }: { initialUsers: User[] }) {
                   placeholder="Search employees..."
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
-                  className="h-8 w-full rounded-lg border border-input bg-background pl-8 pr-3 text-xs text-foreground shadow-sm transition-all placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50"
+                  className="h-7 w-full rounded-lg border border-input bg-background pl-8 pr-2 text-xs text-foreground shadow-sm transition-all placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50"
                 />
               </div>
               <select
                 aria-label="Filter team by role"
                 value={roleFilter}
                 onChange={(event) => setRoleFilter(event.target.value)}
-                className="h-8 w-full rounded-lg border border-input bg-background px-2 text-xs text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring/50"
+                className="h-7 w-full rounded-lg border border-input bg-background px-2 text-xs text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring/50"
               >
                 <option value="ALL">All roles</option>
                 {roleOptions.map((role) => (
@@ -540,7 +540,7 @@ export function ScheduleClientPage({ initialUsers }: { initialUsers: User[] }) {
                 ))}
               </select>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
+            <div className="min-h-0 flex-1 overflow-y-auto p-1">
               {filteredUsers.map((user, index) => {
                 const weeklyHours = getTotalWeeklyHours(user.schedules);
                 const isSelected = user.id === selectedUser?.id;
@@ -551,11 +551,11 @@ export function ScheduleClientPage({ initialUsers }: { initialUsers: User[] }) {
                     type="button"
                     onClick={() => setSelectedUserId(user.id)}
                     className={cn(
-                      "flex w-full items-center gap-3 rounded-lg border border-transparent px-3 py-2.5 text-left transition-colors hover:bg-muted",
+                      "flex w-full items-center gap-2 rounded-lg border border-transparent px-2 py-1.5 text-left transition-colors hover:bg-muted",
                       isSelected && "border-border bg-muted shadow-sm"
                     )}
                   >
-                    <div className="relative flex size-9 shrink-0 items-center justify-center rounded-lg bg-background text-xs font-semibold text-foreground ring-1 ring-border">
+                    <div className="relative flex size-8 shrink-0 items-center justify-center rounded-lg bg-background text-[11px] font-semibold text-foreground ring-1 ring-border">
                       {initials(user.name)}
                       <span
                         className={cn(
@@ -565,7 +565,7 @@ export function ScheduleClientPage({ initialUsers }: { initialUsers: User[] }) {
                       />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-semibold text-foreground">{user.name}</div>
+                      <div className="truncate text-xs font-semibold text-foreground">{user.name}</div>
                       <div className="truncate text-xs text-muted-foreground">{user.position || user.department || user.role}</div>
                     </div>
                     <div className="text-right text-xs text-muted-foreground">
@@ -587,29 +587,29 @@ export function ScheduleClientPage({ initialUsers }: { initialUsers: User[] }) {
           <main className="min-w-0 overflow-hidden">
             {selectedUser ? (
               <>
-                <div className="border-b border-border px-3 py-3">
-                  <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
-                    <div className="flex min-w-0 items-center gap-3">
-                      <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-sm font-semibold text-primary-foreground">
+                <div className="border-b border-border px-3 py-2">
+                  <div className="grid gap-2 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-xs font-semibold text-primary-foreground">
                         {initials(selectedUser.name)}
                       </div>
                       <div className="min-w-0">
-                        <div className="truncate text-lg font-semibold text-foreground">{selectedUser.name}</div>
-                        <div className="truncate text-sm text-muted-foreground">
+                        <div className="truncate text-base font-semibold text-foreground">{selectedUser.name}</div>
+                        <div className="truncate text-xs text-muted-foreground">
                           {selectedUser.email} - {selectedUser.position || selectedUser.department || selectedUser.role}
                         </div>
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-[repeat(2,minmax(132px,1fr))_minmax(150px,auto)]">
-                      <div className="rounded-lg border border-border bg-background px-3 py-2.5">
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-[repeat(2,minmax(116px,1fr))_minmax(138px,auto)]">
+                      <div className="rounded-lg border border-border bg-background px-2.5 py-2">
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex min-w-0 items-center gap-2">
-                            <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-brand-steel/10 text-brand-steel">
+                            <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-brand-steel/10 text-brand-steel">
                               <Clock3 className="size-3.5" />
                             </span>
                             <div className="min-w-0">
                               <div className="truncate text-xs font-semibold text-muted-foreground">Weekly hours</div>
-                              <div className="mt-0.5 text-lg font-semibold leading-none text-foreground">
+                              <div className="mt-0.5 text-base font-semibold leading-none text-foreground">
                                 {selectedWeeklyHours.toFixed(selectedWeeklyHours % 1 ? 1 : 0)}
                                 <span className="ml-1 text-xs font-medium text-muted-foreground">hrs</span>
                               </div>
@@ -623,15 +623,15 @@ export function ScheduleClientPage({ initialUsers }: { initialUsers: User[] }) {
                           />
                         </div>
                       </div>
-                      <div className="rounded-lg border border-border bg-background px-3 py-2.5">
+                      <div className="rounded-lg border border-border bg-background px-2.5 py-2">
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex min-w-0 items-center gap-2">
-                            <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-brand-red/10 text-brand-red">
+                            <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-brand-red/10 text-brand-red">
                               <CalendarDays className="size-3.5" />
                             </span>
                             <div className="min-w-0">
                               <div className="truncate text-xs font-semibold text-muted-foreground">Scheduled days</div>
-                              <div className="mt-0.5 text-lg font-semibold leading-none text-foreground">
+                              <div className="mt-0.5 text-base font-semibold leading-none text-foreground">
                                 {selectedScheduledDays}
                                 <span className="ml-1 text-xs font-medium text-muted-foreground">of 7</span>
                               </div>
@@ -659,30 +659,30 @@ export function ScheduleClientPage({ initialUsers }: { initialUsers: User[] }) {
                         <Button
                           type="button"
                           size="sm"
-                          className="h-9 justify-start sm:min-w-44"
+                          className="h-8 justify-start text-xs sm:min-w-40"
                           onClick={openEmployeeDaysModal}
                         >
-                          <Pencil className="size-4" />
+                          <Pencil className="size-3.5" />
                           Edit Employee Days
                         </Button>
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="h-9 justify-start sm:min-w-44"
+                          className="h-8 justify-start text-xs sm:min-w-40"
                           onClick={openBulkModal}
                         >
-                          <Users className="size-4" />
+                          <Users className="size-3.5" />
                           Bulk Edit Multiple
                         </Button>
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="h-9 justify-start sm:min-w-44"
+                          className="h-8 justify-start text-xs sm:min-w-40"
                           onClick={openSpecialScheduleModal}
                         >
-                          <CalendarDays className="size-4" />
+                          <CalendarDays className="size-3.5" />
                           Special Shift
                         </Button>
                       </div>
@@ -690,20 +690,20 @@ export function ScheduleClientPage({ initialUsers }: { initialUsers: User[] }) {
                   </div>
                 </div>
 
-                <div className="p-3">
-                  <div className="space-y-3">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div className="p-2">
+                  <div className="space-y-2">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                       <div>
-                        <div className="text-sm font-semibold text-foreground">
+                        <div className="text-xs font-semibold text-foreground">
                           {overviewMode === "MONTH" ? "Monthly overview" : "Weekly overview"}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           Select a calendar day to preview team coverage below.
                         </div>
                       </div>
-                      <div className="flex flex-col gap-2 sm:items-end">
+                      <div className="flex flex-col gap-1.5 sm:items-end">
                         <div className="flex flex-wrap justify-start gap-2 sm:justify-end">
-                          <div className="flex max-w-full items-center gap-1 rounded-lg border border-border bg-background p-1">
+                          <div className="flex max-w-full items-center gap-1 rounded-lg border border-border bg-background p-0.5">
                             <Button
                               type="button"
                               variant="ghost"
@@ -719,7 +719,7 @@ export function ScheduleClientPage({ initialUsers }: { initialUsers: User[] }) {
                             >
                               <ChevronLeft className="size-3.5" />
                             </Button>
-                            <div className="min-w-0 px-2 text-center text-xs font-medium text-muted-foreground sm:min-w-36">
+                            <div className="min-w-0 px-2 text-center text-xs font-medium text-muted-foreground sm:min-w-32">
                               {overviewMode === "MONTH" ? formatMonthHeader(selectedDate) : formatDateHeader(weekDates[0])}
                             </div>
                             <Button
@@ -738,12 +738,12 @@ export function ScheduleClientPage({ initialUsers }: { initialUsers: User[] }) {
                               <ChevronRight className="size-3.5" />
                             </Button>
                           </div>
-                          <div className="flex rounded-lg border border-border bg-background p-1 text-xs">
+                          <div className="flex rounded-lg border border-border bg-background p-0.5 text-xs">
                             <button
                               type="button"
                               onClick={() => setOverviewMode("MONTH")}
                               className={cn(
-                                "h-8 rounded-md px-3 font-semibold transition-colors",
+                                "h-7 rounded-md px-2.5 font-semibold transition-colors",
                                 overviewMode === "MONTH"
                                   ? "bg-primary text-primary-foreground shadow-sm"
                                   : "text-muted-foreground hover:text-foreground"
@@ -755,7 +755,7 @@ export function ScheduleClientPage({ initialUsers }: { initialUsers: User[] }) {
                               type="button"
                               onClick={() => setOverviewMode("WEEK")}
                               className={cn(
-                                "h-8 rounded-md px-3 font-semibold transition-colors",
+                                "h-7 rounded-md px-2.5 font-semibold transition-colors",
                                 overviewMode === "WEEK"
                                   ? "bg-primary text-primary-foreground shadow-sm"
                                   : "text-muted-foreground hover:text-foreground"
@@ -790,17 +790,17 @@ export function ScheduleClientPage({ initialUsers }: { initialUsers: User[] }) {
                               type="button"
                               onClick={() => setSelectedDate(date)}
                               className={cn(
-                                "min-h-20 rounded-lg border border-border bg-background p-2 text-left shadow-sm transition-colors hover:bg-muted/50",
+                                "min-h-16 rounded-lg border border-border bg-background p-1.5 text-left shadow-sm transition-colors hover:bg-muted/50",
                                 isSelectedDate && "border-primary bg-primary/5 ring-2 ring-primary/10",
                                 isToday && !isSelectedDate && "border-brand-red ring-2 ring-brand-red/15",
                                 !isCurrentMonth && "opacity-60"
                               )}
                             >
-                              <div className="mb-2 flex items-center justify-between gap-2">
+                              <div className="mb-1.5 flex items-center justify-between gap-2">
                                 <div className="flex min-w-0 items-center gap-2">
                                   <div
                                     className={cn(
-                                      "flex size-7 shrink-0 items-center justify-center rounded-md border text-xs font-semibold",
+                                      "flex size-6 shrink-0 items-center justify-center rounded-md border text-[11px] font-semibold",
                                       isSelectedDate
                                         ? "border-primary bg-primary text-primary-foreground"
                                         : isToday
@@ -820,7 +820,7 @@ export function ScheduleClientPage({ initialUsers }: { initialUsers: User[] }) {
                               </div>
                               <div
                                 className={cn(
-                                  "truncate rounded-md px-2 py-1 text-[11px] font-semibold",
+                                  "truncate rounded-md px-1.5 py-0.5 text-[10px] font-semibold",
                                   schedule
                                     ? "bg-muted text-foreground"
                                     : "bg-transparent px-0 font-medium text-muted-foreground"
@@ -857,16 +857,16 @@ export function ScheduleClientPage({ initialUsers }: { initialUsers: User[] }) {
                               type="button"
                               onClick={() => setSelectedDate(weekDates[dayIndex])}
                               className={cn(
-                                "min-h-20 rounded-lg border border-border bg-background p-2 text-left shadow-sm transition-colors hover:bg-muted/50",
+                                "min-h-16 rounded-lg border border-border bg-background p-1.5 text-left shadow-sm transition-colors hover:bg-muted/50",
                                 isSelectedDay && "border-primary bg-primary/5 ring-2 ring-primary/10",
                                 isToday && !isSelectedDay && "border-brand-red ring-2 ring-brand-red/15"
                               )}
                             >
-                              <div className="mb-2 flex items-center justify-between gap-2">
+                              <div className="mb-1.5 flex items-center justify-between gap-2">
                                 <div className="flex min-w-0 items-center gap-2">
                                   <div
                                     className={cn(
-                                      "flex size-7 shrink-0 items-center justify-center rounded-md border text-xs font-semibold",
+                                      "flex size-6 shrink-0 items-center justify-center rounded-md border text-[11px] font-semibold",
                                       isSelectedDay
                                         ? "border-primary bg-primary text-primary-foreground"
                                         : isToday
@@ -886,7 +886,7 @@ export function ScheduleClientPage({ initialUsers }: { initialUsers: User[] }) {
                               </div>
                               <div
                                 className={cn(
-                                  "truncate rounded-md px-2 py-1 text-[11px] font-semibold",
+                                  "truncate rounded-md px-1.5 py-0.5 text-[10px] font-semibold",
                                   schedule
                                     ? "bg-muted text-foreground"
                                     : "bg-transparent px-0 font-medium text-muted-foreground"
@@ -915,10 +915,10 @@ export function ScheduleClientPage({ initialUsers }: { initialUsers: User[] }) {
           </main>
         </div>
 
-        <div className="border-t border-border p-3">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="border-t border-border p-2">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <div>
-              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
                 <BriefcaseBusiness className="size-4 text-muted-foreground" />
                 {DAYS[selectedDay]} team timeline
               </div>
@@ -930,7 +930,7 @@ export function ScheduleClientPage({ initialUsers }: { initialUsers: User[] }) {
 
           <div className="overflow-hidden rounded-lg border border-border bg-background shadow-sm">
             <div>
-              <div className="grid h-9 grid-cols-[92px_minmax(0,1fr)] border-b border-border bg-muted/35 sm:grid-cols-[160px_minmax(0,1fr)]">
+              <div className="grid h-8 grid-cols-[92px_minmax(0,1fr)] border-b border-border bg-muted/35 sm:grid-cols-[148px_minmax(0,1fr)]">
                 <div className="flex items-center px-3 text-xs font-semibold uppercase text-muted-foreground">
                   Employee
                 </div>
@@ -976,12 +976,12 @@ export function ScheduleClientPage({ initialUsers }: { initialUsers: User[] }) {
                   <div
                     key={user.id}
                     className={cn(
-                      "grid h-14 grid-cols-[92px_minmax(0,1fr)] border-b border-border transition-colors last:border-b-0 sm:grid-cols-[160px_minmax(0,1fr)]",
+                      "grid h-12 grid-cols-[92px_minmax(0,1fr)] border-b border-border transition-colors last:border-b-0 sm:grid-cols-[148px_minmax(0,1fr)]",
                       selectedUser?.id === user.id && "bg-muted/45"
                     )}
                   >
                     <div className="flex min-w-0 items-center gap-2 px-2 sm:px-2.5">
-                      <div className="hidden size-7 shrink-0 items-center justify-center rounded-md bg-card text-[11px] font-semibold ring-1 ring-border sm:flex">
+                      <div className="hidden size-6 shrink-0 items-center justify-center rounded-md bg-card text-[10px] font-semibold ring-1 ring-border sm:flex">
                         {initials(user.name)}
                       </div>
                       <div className="min-w-0">
@@ -1007,7 +1007,7 @@ export function ScheduleClientPage({ initialUsers }: { initialUsers: User[] }) {
                           type="button"
                           onClick={() => setSelectedUserId(user.id)}
                           className={cn(
-                            "absolute top-2 flex h-10 items-center justify-between gap-2 rounded-md border-l-4 px-2.5 text-xs font-semibold shadow-sm ring-1 transition-transform hover:scale-[1.01]",
+                            "absolute top-2 flex h-8 items-center justify-between gap-2 rounded-md border-l-4 px-2 text-[11px] font-semibold shadow-sm ring-1 transition-transform hover:scale-[1.01]",
                             SHIFT_STYLES[index % SHIFT_STYLES.length]
                           )}
                           style={{ left: `${left}%`, width: `${width}%` }}

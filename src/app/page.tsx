@@ -359,9 +359,37 @@ export default async function DashboardPage() {
               {roleLabel} | {format(now, "MMMM d, yyyy | h:mm a")}
             </p>
           </div>
+
+          <Link
+            href="/schedule"
+            className="flex w-full items-start justify-between gap-4 rounded-lg border border-brand-red bg-rose-50/80 px-4 py-3 text-left transition-colors hover:bg-rose-50 dark:bg-rose-950/20 dark:hover:bg-rose-950/30 lg:w-auto lg:min-w-72"
+          >
+            <div>
+              <p className="text-sm font-semibold text-brand-red">{format(now, "EEEE")}</p>
+              <p className="mt-0.5 text-xs font-medium text-muted-foreground">Today</p>
+            </div>
+            <div className="min-w-0 text-right">
+              <div className="flex items-center justify-end gap-1.5 text-sm font-semibold text-slate-950 dark:text-foreground">
+                <CalendarDays className="size-3.5 shrink-0 text-brand-red" />
+                <span className="truncate">
+                  {todayHoliday
+                    ? todayHoliday.name
+                    : todaySchedule
+                      ? `${formatScheduleTime(todaySchedule.startTime)} - ${formatScheduleTime(todaySchedule.endTime)}`
+                      : "Off today"}
+                </span>
+              </div>
+              <p className="mt-1 text-xs font-medium text-muted-foreground">
+                {todayHoliday ? "Assigned holiday" : todayScheduleHours || "No scheduled hours"}
+              </p>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                {todayOverride?.notes || "PH Timezone (GMT +8)"}
+              </p>
+            </div>
+          </Link>
         </div>
 
-        <div className="grid gap-3 p-3 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)_minmax(0,0.8fr)]">
+        <div className="grid gap-3 p-3 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
           <ClockWidget />
 
           <div className="flex h-full flex-col rounded-lg border border-border/70 bg-background/70 p-4">
@@ -397,45 +425,6 @@ export default async function DashboardPage() {
             <p className="mt-3 text-xs leading-5 text-muted-foreground">
               Includes completed entries recorded today.
             </p>
-          </div>
-
-          <div className="flex h-full flex-col">
-            <Link
-              href="/schedule"
-              className="flex min-h-[138px] flex-1 flex-col rounded-[18px] border border-brand-red bg-rose-50/80 px-4 py-4 text-left transition-colors hover:bg-rose-50 dark:bg-rose-950/20 dark:hover:bg-rose-950/30"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-base font-semibold text-brand-red">{format(now, "EEEE")}</p>
-                  <p className="mt-0.5 text-xs font-medium text-muted-foreground">
-                    Today
-                  </p>
-                </div>
-                <div className="min-w-0 text-right">
-                  <div className="flex items-center justify-end gap-1.5 text-sm font-semibold text-slate-950 dark:text-foreground">
-                    <CalendarDays className="size-3.5 shrink-0 text-brand-red" />
-                    <span className="truncate">
-                      {todayHoliday
-                        ? todayHoliday.name
-                        : todaySchedule
-                          ? `${formatScheduleTime(todaySchedule.startTime)} - ${formatScheduleTime(todaySchedule.endTime)}`
-                          : "Off today"}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-xs font-medium text-muted-foreground">
-                    {todayHoliday ? "Assigned holiday" : todayScheduleHours || "No scheduled hours"}
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-auto pt-4">
-                {todayOverride?.notes ? (
-                  <p className="line-clamp-2 text-xs leading-5 text-muted-foreground">{todayOverride.notes}</p>
-                ) : (
-                  <p className="text-xs leading-5 text-muted-foreground">PH Timezone (GMT +8)</p>
-                )}
-              </div>
-            </Link>
           </div>
         </div>
         {todayHoliday && (

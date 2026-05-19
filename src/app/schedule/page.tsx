@@ -146,90 +146,90 @@ export default async function UserSchedulePage({ searchParams }: UserSchedulePag
 
   return (
     <div className="w-full">
-      <section className="overflow-hidden rounded-[24px] border border-border/70 bg-card shadow-sm">
-        <div className="flex flex-col gap-4 border-b border-border/70 px-5 py-5 lg:flex-row lg:items-center lg:justify-between">
+      <section className="overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm">
+        <div className="flex flex-col gap-3 border-b border-border/70 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-steel">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-steel">
               My Schedule
             </p>
-            <h1 className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
+            <h1 className="mt-0.5 text-xl font-semibold tracking-tight text-foreground">
               Standard Hours
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-0.5 text-xs text-muted-foreground">
               {format(now, "EEEE, MMMM d, yyyy | h:mm a")}
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <span className="inline-flex items-center gap-2 rounded-full border border-brand-red/25 bg-brand-red/10 px-3 py-1.5 text-sm font-medium text-brand-red">
-              <CalendarDays className="size-4" />
+          <div className="flex flex-wrap gap-1.5">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-red/25 bg-brand-red/10 px-2.5 py-1 text-xs font-medium text-brand-red">
+              <CalendarDays className="size-3.5" />
               Today is {DAYS[todayIndex]}
             </span>
-            <span className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background px-3 py-1.5 text-sm font-medium text-muted-foreground">
-              <Clock3 className="size-4" />
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-background px-2.5 py-1 text-xs font-medium text-muted-foreground">
+              <Clock3 className="size-3.5" />
               PH Timezone (GMT +8)
             </span>
-            <span className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background px-3 py-1.5 text-sm font-medium text-muted-foreground">
-              <Clock3 className="size-4" />
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-background px-2.5 py-1 text-xs font-medium text-muted-foreground">
+              <Clock3 className="size-3.5" />
               {todaySchedule ? `${formatTime(todaySchedule.startTime)} - ${formatTime(todaySchedule.endTime)}` : "Off today"}
             </span>
           </div>
         </div>
 
-        <div className="flex flex-col gap-3 border-b border-border/70 bg-background/70 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-2 border-b border-border/70 bg-background/70 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
               Week range
             </p>
-            <p className="mt-1 text-lg font-semibold tracking-tight text-foreground">
+            <p className="mt-0.5 text-base font-semibold tracking-tight text-foreground">
               {format(weekStart, "MMM d")} - {format(weekEnd, "MMM d, yyyy")}
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
             <Link
               href={getWeekHref(previousWeek)}
-              className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border/70 bg-card px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              className="inline-flex h-8 items-center gap-1 rounded-md border border-border/70 bg-card px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
             >
-              <ChevronLeft className="size-4" />
+              <ChevronLeft className="size-3.5" />
               Previous
             </Link>
             <Link
               href={getWeekHref(currentWeekStart)}
-              className="inline-flex h-9 items-center justify-center rounded-md border border-border/70 bg-card px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              className="inline-flex h-8 items-center justify-center rounded-md border border-border/70 bg-card px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
             >
               Current week
             </Link>
             <Link
               href={getWeekHref(nextWeek)}
-              className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border/70 bg-card px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              className="inline-flex h-8 items-center gap-1 rounded-md border border-border/70 bg-card px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
             >
               Next
-              <ChevronRight className="size-4" />
+              <ChevronRight className="size-3.5" />
             </Link>
           </div>
         </div>
 
-        <div className="grid gap-3 border-b border-border/70 bg-muted/20 px-5 py-4 sm:grid-cols-2">
-          <div className="rounded-2xl border border-border/70 bg-background px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+        <div className="grid gap-2 border-b border-border/70 bg-muted/20 px-4 py-3 sm:grid-cols-2">
+          <div className="rounded-lg border border-border/70 bg-background px-3 py-2">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
               Weekly hours
             </p>
-            <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
+            <p className="mt-0.5 text-xl font-semibold tracking-tight text-foreground">
               {formatHours(totalWeeklyHours)} hrs
             </p>
           </div>
-          <div className="rounded-2xl border border-border/70 bg-background px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+          <div className="rounded-lg border border-border/70 bg-background px-3 py-2">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
               Scheduled days
             </p>
-            <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
+            <p className="mt-0.5 text-xl font-semibold tracking-tight text-foreground">
               {WEEK_DAY_INDEXES.filter((_, offset) => getScheduleForDate(addDays(weekStart, offset), schedules, scheduleOverrides)).length} of 7
             </p>
           </div>
         </div>
 
-        <div className="grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-2 p-4 sm:grid-cols-2 lg:grid-cols-4">
           {WEEK_DAY_INDEXES.map((dayIndex, offset) => {
             const date = addDays(weekStart, offset);
             const dayName = DAYS[dayIndex];
@@ -241,15 +241,15 @@ export default async function UserSchedulePage({ searchParams }: UserSchedulePag
               <div
                 key={date.toISOString()}
                 className={cn(
-                  "relative min-h-[124px] rounded-2xl border p-4",
+                  "relative min-h-[104px] rounded-lg border p-3",
                   isToday
                     ? "border-brand-red bg-brand-red/10 shadow-sm shadow-brand-red/10"
                     : "border-border/70 bg-background"
                 )}
               >
-                <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start justify-between gap-2">
                   <div>
-                    <p className={cn("text-base font-semibold", isToday ? "text-brand-red" : "text-foreground")}>
+                    <p className={cn("text-sm font-semibold", isToday ? "text-brand-red" : "text-foreground")}>
                       {dayName}
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">
@@ -259,15 +259,15 @@ export default async function UserSchedulePage({ searchParams }: UserSchedulePag
 
                   <div
                     className={cn(
-                      "flex size-9 shrink-0 items-center justify-center rounded-xl",
+                      "flex size-8 shrink-0 items-center justify-center rounded-lg",
                       isToday ? "bg-brand-red text-white" : "bg-muted text-muted-foreground"
                     )}
                   >
-                    <CalendarDays className="size-4" />
+                    <CalendarDays className="size-3.5" />
                   </div>
                 </div>
 
-                <div className="mt-5">
+                <div className="mt-3">
                   {assignedHoliday ? (
                     <>
                       <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
