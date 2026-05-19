@@ -29,7 +29,7 @@ function normalizeLeaveBreakdown(value: unknown): LeaveDayBreakdownItem[] | null
 }
 
 async function ensureLeaveDayBreakdownColumn() {
-    await prisma.$executeRawUnsafe(`ALTER TABLE "LeaveRequest" ADD COLUMN IF NOT EXISTS "dayBreakdown" JSONB`);
+    // Managed by Prisma migration 20260519010000_add_leave_day_breakdown.
 }
 
 export default async function LeavesPage() {

@@ -10,6 +10,13 @@ import { SubmitButton } from "@/components/ui/submit-button";
 
 export const dynamic = "force-dynamic";
 
+const ADMIN_VISIBLE_ROLES = ["EMPLOYEE", "MANAGER"];
+
+type AdminTimesheetUser = {
+    id: string;
+    role: string;
+};
+
 type ManualTimeEntryRequest = {
     id: string;
     clockIn: Date;
@@ -38,63 +45,66 @@ function StatusBadge({ status }: { status: string }) {
 
 export default async function AdminTimesheetsPage() {
     const session = await auth();
-    const user = session?.user as any;
+    const user = session?.user as AdminTimesheetUser | undefined;
     if (!session || !user || (user.role !== "ADMIN" && user.role !== "MANAGER")) {
         redirect("/login");
     }
 
-    const [timeLogs, manualRequests] = await Promise.all([
-        prisma.timeLog.findMany({
-            where: user.role === "ADMIN" ? undefined : { user: { managerId: user.id } },
-            include: {
-                user: {
-                    select: {
-                        name: true,
-                        email: true,
-                        role: true,
-                    }
+    const timeLogs = await prisma.timeLog.findMany({
+        where: user.role === "ADMIN"
+            ? { user: { role: { in: ADMIN_VISIBLE_ROLES } } }
+            : { user: { managerId: user.id, role: "EMPLOYEE" } },
+        include: {
+            user: {
+                select: {
+                    name: true,
+                    email: true,
+                    role: true,
                 }
-            },
-            orderBy: { clockIn: "desc" },
-            take: 1000, // Show last 1000 logs across the company to allow deep client-side filtering
-        }),
-        user.role === "ADMIN"
-            ? prisma.$queryRaw<ManualTimeEntryRequest[]>`
-                SELECT
-                    ter."id",
-                    ter."clockIn",
-                    ter."clockOut",
-                    ter."reason",
-                    ter."status",
-                    ter."createdAt",
-                    u."name" as "userName",
-                    u."email" as "userEmail"
-                FROM "TimeEntryRequest" ter
-                INNER JOIN "User" u ON u."id" = ter."userId"
-                ORDER BY
-                    CASE WHEN ter."status" = 'PENDING' THEN 0 ELSE 1 END,
-                    ter."createdAt" DESC
-                LIMIT 50
-            `
-            : prisma.$queryRaw<ManualTimeEntryRequest[]>`
-                SELECT
-                    ter."id",
-                    ter."clockIn",
-                    ter."clockOut",
-                    ter."reason",
-                    ter."status",
-                    ter."createdAt",
-                    u."name" as "userName",
-                    u."email" as "userEmail"
-                FROM "TimeEntryRequest" ter
-                INNER JOIN "User" u ON u."id" = ter."userId"
-                WHERE u."managerId" = ${user.id}
-                ORDER BY
-                    CASE WHEN ter."status" = 'PENDING' THEN 0 ELSE 1 END,
-                    ter."createdAt" DESC
-                LIMIT 50
-            `,
-    ]);
+            }
+        },
+        orderBy: { clockIn: "desc" },
+        take: 1000, // Show last 1000 logs across the company to allow deep client-side filtering
+    });
+
+    const manualRequests = user.role === "ADMIN"
+        ? await prisma.$queryRaw<ManualTimeEntryRequest[]>`
+            SELECT
+                ter."id",
+                ter."clockIn",
+                ter."clockOut",
+                ter."reason",
+                ter."status",
+                ter."createdAt",
+                u."name" as "userName",
+                u."email" as "userEmail"
+            FROM "TimeEntryRequest" ter
+            INNER JOIN "User" u ON u."id" = ter."userId"
+            WHERE u."role" IN ('EMPLOYEE', 'MANAGER')
+            ORDER BY
+                CASE WHEN ter."status" = 'PENDING' THEN 0 ELSE 1 END,
+                ter."createdAt" DESC
+            LIMIT 50
+        `
+        : await prisma.$queryRaw<ManualTimeEntryRequest[]>`
+            SELECT
+                ter."id",
+                ter."clockIn",
+                ter."clockOut",
+                ter."reason",
+                ter."status",
+                ter."createdAt",
+                u."name" as "userName",
+                u."email" as "userEmail"
+            FROM "TimeEntryRequest" ter
+            INNER JOIN "User" u ON u."id" = ter."userId"
+            WHERE u."managerId" = ${user.id}
+                AND u."role" = 'EMPLOYEE'
+            ORDER BY
+                CASE WHEN ter."status" = 'PENDING' THEN 0 ELSE 1 END,
+                ter."createdAt" DESC
+            LIMIT 50
+        `;
 
     const pendingRequests = manualRequests.filter((request) => request.status === "PENDING").length;
 
@@ -110,7 +120,7 @@ export default async function AdminTimesheetsPage() {
                             <h1 className="text-sm font-semibold text-foreground">Manual time entry approvals</h1>
                         </div>
                         <p className="mt-1 text-xs text-muted-foreground">
-                            Review employee-submitted time corrections before they become time logs.
+                            Review employee-submitted manual entry requests before they become time logs.
                         </p>
                     </div>
                     <span className="w-fit rounded-full border border-border px-2 py-0.5 text-xs font-medium text-muted-foreground">

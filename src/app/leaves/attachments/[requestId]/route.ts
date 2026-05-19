@@ -15,13 +15,22 @@ export async function GET(
   const { requestId } = await params;
   const rows = await prisma.$queryRaw<{
     userId: string;
+    userRole: string;
+    managerId: string | null;
     attachmentName: string | null;
     attachmentType: string | null;
     attachmentData: Uint8Array | null;
   }[]>`
-    SELECT "userId", "attachmentName", "attachmentType", "attachmentData"
-    FROM "LeaveRequest"
-    WHERE "id" = ${requestId}
+    SELECT
+      lr."userId",
+      u."role" as "userRole",
+      u."managerId" as "managerId",
+      lr."attachmentName",
+      lr."attachmentType",
+      lr."attachmentData"
+    FROM "LeaveRequest" lr
+    INNER JOIN "User" u ON u."id" = lr."userId"
+    WHERE lr."id" = ${requestId}
     LIMIT 1
   `;
 
@@ -31,7 +40,10 @@ export async function GET(
   }
 
   const role = (session.user as { role?: string }).role;
-  const canView = attachment.userId === session.user.id || role === "ADMIN" || role === "MANAGER";
+  const canView =
+    attachment.userId === session.user.id ||
+    (role === "ADMIN" && ["EMPLOYEE", "MANAGER"].includes(attachment.userRole)) ||
+    (role === "MANAGER" && attachment.userRole === "EMPLOYEE" && attachment.managerId === session.user.id);
   if (!canView) {
     return new NextResponse("Forbidden", { status: 403 });
   }

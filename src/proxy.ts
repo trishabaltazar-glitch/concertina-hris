@@ -1,11 +1,18 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { auth } from "./auth";
+
+type AuthUser = {
+    role?: string | null;
+};
 
 // Protect all routes under /admin, /leaves, /timesheets, and the root / dashboard
 const protectedRoutes = [
     "/",
     "/timesheets",
+    "/requests",
+    "/time-corrections",
     "/leaves",
+    "/overtime",
     "/schedule",
     "/directory",
     "/holidays",
@@ -39,7 +46,7 @@ export default auth((req) => {
 
     // Role-based protection for /admin routes
     if (isLoggedIn && nextUrl.pathname.startsWith("/admin")) {
-        const userRole = (req.auth?.user as any)?.role;
+        const userRole = (req.auth?.user as AuthUser | undefined)?.role;
         
         // 1. Block regular employees entirely from /admin
         if (userRole !== "ADMIN" && userRole !== "MANAGER") {
@@ -49,7 +56,7 @@ export default auth((req) => {
         // 2. Strict Supervisor (MANAGER) Restrictions
         // Managers handle team tasks (Leaves, Reports, Schedules), but NOT global system settings.
         if (userRole === "MANAGER") {
-            const restrictedManagerRoutes = ["/admin/holidays", "/admin/announcements"];
+            const restrictedManagerRoutes = ["/admin/announcements"];
             const isRestricted = restrictedManagerRoutes.some(route => 
                 nextUrl.pathname === route || nextUrl.pathname.startsWith(`${route}/`)
             );

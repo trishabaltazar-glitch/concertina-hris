@@ -20,6 +20,8 @@ import { Button } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
 
+const ADMIN_VISIBLE_ROLES = ["EMPLOYEE", "MANAGER"];
+
 type Tone = "default" | "success" | "warn" | "danger";
 
 function MetricCard({
@@ -110,80 +112,85 @@ export default async function AdminDashboardPage() {
   const tomorrowStart = new Date(todayStart);
   tomorrowStart.setDate(todayStart.getDate() + 1);
   const staleOpenLogCutoff = new Date(now.getTime() - 12 * 60 * 60 * 1000);
-  const scopedUserWhere = isAdmin ? {} : { managerId: currentUser.id };
+  const scopedUserWhere = isAdmin
+    ? { role: { in: ADMIN_VISIBLE_ROLES } }
+    : { managerId: currentUser.id, role: "EMPLOYEE" };
 
-  const [users, todayLogs, openLogs, pendingRequests, scheduledToday, recentAuditLogs] = await Promise.all([
-    prisma.user.findMany({
-      where: scopedUserWhere,
-      orderBy: { name: "asc" },
-      include: {
-        schedules: { select: { id: true, dayOfWeek: true, startTime: true, endTime: true } },
-        leaveBalances: { where: { leaveType: "LEAVE_CREDITS" }, select: { balance: true } },
-        manager: { select: { name: true } },
-      },
-    }),
-    prisma.timeLog.findMany({
-      where: {
-        clockIn: { gte: todayStart, lt: tomorrowStart },
-        user: scopedUserWhere,
-      },
-      include: {
-        breaks: { orderBy: { startedAt: "desc" }, take: 1 },
-        user: { select: { id: true, name: true, email: true, department: true } },
-      },
-      orderBy: { clockIn: "desc" },
-    }),
-    prisma.timeLog.findMany({
-      where: {
-        clockOut: null,
-        user: scopedUserWhere,
-      },
-      include: {
-        breaks: { orderBy: { startedAt: "desc" }, take: 1 },
-        user: { select: { id: true, name: true, email: true, department: true } },
-      },
-      orderBy: { clockIn: "asc" },
-      take: 25,
-    }),
-    prisma.leaveRequest.findMany({
-      where: {
-        status: "PENDING",
-        user: scopedUserWhere,
-      },
-      include: { user: { select: { id: true, name: true, email: true, department: true, managerId: true } } },
-      orderBy: { createdAt: "asc" },
-      take: 25,
-    }),
-    prisma.schedule.findMany({
-      where: {
-        dayOfWeek: now.getDay(),
-        user: { ...scopedUserWhere, isActive: true },
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            department: true,
-            timeLogs: {
-              where: { clockIn: { gte: todayStart, lt: tomorrowStart } },
-              orderBy: { clockIn: "asc" },
-              select: { clockIn: true, clockOut: true, status: true },
-            },
+  const users = await prisma.user.findMany({
+    where: scopedUserWhere,
+    orderBy: { name: "asc" },
+    include: {
+      schedules: { select: { id: true, dayOfWeek: true, startTime: true, endTime: true } },
+      leaveBalances: { where: { leaveType: "LEAVE_CREDITS" }, select: { balance: true } },
+      manager: { select: { name: true } },
+    },
+  });
+
+  const todayLogs = await prisma.timeLog.findMany({
+    where: {
+      clockIn: { gte: todayStart, lt: tomorrowStart },
+      user: scopedUserWhere,
+    },
+    include: {
+      breaks: { orderBy: { startedAt: "desc" }, take: 1 },
+      user: { select: { id: true, name: true, email: true, department: true } },
+    },
+    orderBy: { clockIn: "desc" },
+  });
+
+  const openLogs = await prisma.timeLog.findMany({
+    where: {
+      clockOut: null,
+      user: scopedUserWhere,
+    },
+    include: {
+      breaks: { orderBy: { startedAt: "desc" }, take: 1 },
+      user: { select: { id: true, name: true, email: true, department: true } },
+    },
+    orderBy: { clockIn: "asc" },
+    take: 25,
+  });
+
+  const pendingRequests = await prisma.leaveRequest.findMany({
+    where: {
+      status: "PENDING",
+      user: scopedUserWhere,
+    },
+    include: { user: { select: { id: true, name: true, email: true, department: true, managerId: true } } },
+    orderBy: { createdAt: "asc" },
+    take: 25,
+  });
+
+  const scheduledToday = await prisma.schedule.findMany({
+    where: {
+      dayOfWeek: now.getDay(),
+      user: { ...scopedUserWhere, isActive: true },
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          department: true,
+          timeLogs: {
+            where: { clockIn: { gte: todayStart, lt: tomorrowStart } },
+            orderBy: { clockIn: "asc" },
+            select: { clockIn: true, clockOut: true, status: true },
           },
         },
       },
-      orderBy: [{ startTime: "asc" }, { user: { name: "asc" } }],
-      take: 50,
-    }),
-    prisma.auditLog.findMany({
-      where: { user: scopedUserWhere },
-      include: { user: { select: { name: true, email: true } } },
-      orderBy: { createdAt: "desc" },
-      take: 8,
-    }),
-  ]);
+    },
+    orderBy: [{ startTime: "asc" }, { user: { name: "asc" } }],
+    take: 50,
+  });
+
+  const recentAuditLogs = await prisma.auditLog.findMany({
+    where: { user: scopedUserWhere },
+    include: { user: { select: { name: true, email: true } } },
+    orderBy: { createdAt: "desc" },
+    take: 8,
+  });
 
   const activeUsers = users.filter((user) => user.isActive);
   const activeUserIds = new Set(activeUsers.map((user) => user.id));

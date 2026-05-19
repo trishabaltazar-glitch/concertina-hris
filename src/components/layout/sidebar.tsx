@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Clock, CalendarHeart, Users, Settings, UserCircle, Calendar, CalendarDays, ClipboardList } from "lucide-react";
+import { LayoutDashboard, Clock, ClipboardCheck, FileCheck2, Settings, UserCircle, CalendarDays, ClipboardList, Users, History } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { handleSignOut } from "@/app/actions/auth";
 
@@ -10,20 +10,20 @@ const EMP_ROUTES = [
     { name: "Overview", href: "/", icon: LayoutDashboard },
     { name: "Timesheets", href: "/timesheets", icon: Clock },
     { name: "Schedules", href: "/schedule", icon: CalendarDays },
-    { name: "PFFD Requests", href: "/leaves", icon: CalendarHeart },
+    { name: "Requests", href: "/requests", icon: ClipboardCheck },
     { name: "My Profile", href: "/profile", icon: UserCircle },
 ];
 
 const ADMIN_ROUTES = [
     { name: "Admin Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
-    { name: "Leave Approvals", href: "/admin/leaves", icon: Users },
-    { name: "Schedules Manager", href: "/admin/schedules", icon: CalendarDays },
-    { name: "Holiday Assignments", href: "/admin/holidays", icon: Calendar },
+    { name: "Time Logs", href: "/admin/timesheets", icon: History },
+    { name: "Management", href: "/admin/management", icon: Users },
+    { name: "Approvals", href: "/admin/approvals", icon: FileCheck2 },
     { name: "Reports Dashboard", href: "/admin/reports", icon: ClipboardList },
     { name: "Settings", href: "/admin/settings", icon: Settings },
 ];
 
-export function Sidebar({ user }: { user?: any }) {
+export function Sidebar({ user }: { user?: { name?: string | null; email?: string | null; role?: string | null } | null }) {
     const pathname = usePathname();
     const showAdminPanel = user && (user.role === "ADMIN" || user.role === "MANAGER");
 
@@ -41,11 +41,12 @@ export function Sidebar({ user }: { user?: any }) {
                     Main Menu
                 </div>
                 {EMP_ROUTES.map((route) => {
-                    const isActive = pathname === route.href;
+                    const isActive = pathname === route.href || (route.href === "/requests" && ["/leaves", "/overtime", "/time-corrections"].includes(pathname));
                     return (
                         <Link
                             key={route.name}
                             href={route.href}
+                            prefetch={route.href !== "/requests"}
                             className={cn(
                                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
                                 isActive
@@ -65,11 +66,15 @@ export function Sidebar({ user }: { user?: any }) {
                             Administration
                         </div>
                         {ADMIN_ROUTES.map((route) => {
-                            const isActive = pathname === route.href;
+                            const isActive =
+                                pathname === route.href ||
+                                (route.href === "/admin/management" && ["/admin/employees", "/admin/schedules", "/admin/holidays"].includes(pathname)) ||
+                                (route.href === "/admin/approvals" && ["/admin/leaves", "/admin/overtime"].includes(pathname));
                             return (
                                 <Link
                                     key={route.name}
                                     href={route.href}
+                                    prefetch={route.href !== "/admin/management" && route.href !== "/admin/approvals"}
                                     className={cn(
                                         "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
                                         isActive

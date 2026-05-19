@@ -17,6 +17,7 @@ type ReportSessionUser = {
 type ReportUser = Awaited<ReturnType<typeof getReportUsers>>[number];
 
 const STANDARD_DAY_MINUTES = 8 * 60;
+const ADMIN_VISIBLE_ROLES = ["EMPLOYEE", "MANAGER"];
 
 function csvEscape(value: string | number | null | undefined) {
   const stringValue = value === null || value === undefined ? "" : String(value);
@@ -52,7 +53,7 @@ async function requireReportUser() {
 async function getReportUsers(currentUser: ReportSessionUser, filters: ReportFilters = {}) {
   return prisma.user.findMany({
     where: {
-      role: { in: ["EMPLOYEE", "MANAGER"] },
+      role: currentUser.role === "ADMIN" ? { in: ADMIN_VISIBLE_ROLES } : "EMPLOYEE",
       ...(currentUser.role === "ADMIN" ? {} : { managerId: currentUser.id }),
       ...(filters.department && filters.department !== "ALL" ? { department: filters.department } : {}),
       ...(filters.managerId && filters.managerId !== "ALL" ? { managerId: filters.managerId } : {}),
@@ -281,35 +282,36 @@ export async function getReportPreview(startDate: string, endDate: string, filte
   const users = await getReportUsers(user, filters);
   const userIds = users.map((employee) => employee.id);
 
-  const [logs, leaveRequests, auditLogs, filterUsers] = await Promise.all([
-    prisma.timeLog.findMany({
-      where: {
-        userId: { in: userIds },
-        clockIn: { gte: start, lte: end },
-      },
-      include: { breaks: true },
-      orderBy: [{ userId: "asc" }, { clockIn: "asc" }],
-    }),
-    prisma.leaveRequest.findMany({
-      where: {
-        userId: { in: userIds },
-        status: "APPROVED",
-        leaveType: "LEAVE_CREDITS",
-        startDate: { lte: end },
-        endDate: { gte: start },
-      },
-    }),
-    prisma.auditLog.findMany({
-      where: {
-        createdAt: { gte: start, lte: end },
-        action: { in: ["PFFD_APPROVED", "PFFD_REJECTED", "EMPLOYEE_CREATED", "EMPLOYEE_UPDATED", "SCHEDULE_UPDATED"] },
-      },
-      include: { user: { select: { name: true, email: true } } },
-      orderBy: { createdAt: "desc" },
-      take: 8,
-    }),
-    getReportUsers(user),
-  ]);
+  const logs = await prisma.timeLog.findMany({
+    where: {
+      userId: { in: userIds },
+      clockIn: { gte: start, lte: end },
+    },
+    include: { breaks: true },
+    orderBy: [{ userId: "asc" }, { clockIn: "asc" }],
+  });
+
+  const leaveRequests = await prisma.leaveRequest.findMany({
+    where: {
+      userId: { in: userIds },
+      status: "APPROVED",
+      leaveType: "LEAVE_CREDITS",
+      startDate: { lte: end },
+      endDate: { gte: start },
+    },
+  });
+
+  const auditLogs = await prisma.auditLog.findMany({
+    where: {
+      createdAt: { gte: start, lte: end },
+      action: { in: ["PFFD_APPROVED", "PFFD_REJECTED", "EMPLOYEE_CREATED", "EMPLOYEE_UPDATED", "SCHEDULE_UPDATED"] },
+    },
+    include: { user: { select: { name: true, email: true } } },
+    orderBy: { createdAt: "desc" },
+    take: 8,
+  });
+
+  const filterUsers = await getReportUsers(user);
 
   const report = buildReportRows(users, logs, leaveRequests, startDate, endDate);
   const departments = Array.from(new Set(filterUsers.map((employee) => employee.department).filter(Boolean) as string[])).sort();
@@ -379,6 +381,7 @@ export async function generateTimesheetReport(startDate: string, endDate: string
   const logs = await prisma.timeLog.findMany({
     where: {
       user: {
+        role: user.role === "ADMIN" ? { in: ADMIN_VISIBLE_ROLES } : "EMPLOYEE",
         ...(user.role === "ADMIN" ? {} : { managerId: user.id }),
         ...(filters.department && filters.department !== "ALL" ? { department: filters.department } : {}),
         ...(filters.managerId && filters.managerId !== "ALL" ? { managerId: filters.managerId } : {}),
@@ -416,6 +419,7 @@ export async function generateLeaveReport(startDate: string, endDate: string, fi
   const requests = await prisma.leaveRequest.findMany({
     where: {
       user: {
+        role: user.role === "ADMIN" ? { in: ADMIN_VISIBLE_ROLES } : "EMPLOYEE",
         ...(user.role === "ADMIN" ? {} : { managerId: user.id }),
         ...(filters.department && filters.department !== "ALL" ? { department: filters.department } : {}),
         ...(filters.managerId && filters.managerId !== "ALL" ? { managerId: filters.managerId } : {}),

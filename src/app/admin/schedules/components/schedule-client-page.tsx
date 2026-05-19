@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { BriefcaseBusiness, CalendarDays, ChevronLeft, ChevronRight, Clock3, Pencil, Search, Users, X } from "lucide-react";
-import { upsertBulkSchedules, upsertWeeklySchedule } from "@/app/actions/schedules";
+import { deleteScheduleOverride, upsertBulkSchedules, upsertScheduleOverride, upsertWeeklySchedule } from "@/app/actions/schedules";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { cn } from "@/lib/utils";
@@ -25,6 +25,14 @@ type Schedule = {
   endTime: string;
 };
 
+type ScheduleOverride = {
+  id: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  notes?: string | null;
+};
+
 type User = {
   id: string;
   name: string;
@@ -33,6 +41,7 @@ type User = {
   department?: string | null;
   position?: string | null;
   schedules: Schedule[];
+  scheduleOverrides: ScheduleOverride[];
 };
 
 function initials(name: string) {
@@ -175,6 +184,22 @@ function formatDateHeader(date: Date) {
   }).format(date);
 }
 
+function getDateKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function getOverrideDateKey(override: ScheduleOverride) {
+  return override.date.slice(0, 10);
+}
+
+function getScheduleForDate(user: User, date: Date) {
+  const override = user.scheduleOverrides.find((item) => getOverrideDateKey(item) === getDateKey(date));
+  if (override) return { ...override, isOverride: true };
+
+  const weeklySchedule = user.schedules.find((item) => item.dayOfWeek === date.getDay());
+  return weeklySchedule ? { ...weeklySchedule, isOverride: false } : null;
+}
+
 function formatMonthHeader(date: Date) {
   return new Intl.DateTimeFormat("en-US", {
     month: "long",
@@ -251,8 +276,14 @@ export function ScheduleClientPage({ initialUsers }: { initialUsers: User[] }) {
   const [employeeDaySelection, setEmployeeDaySelection] = useState<number[]>([new Date().getDay()]);
   const [employeeDaysStartTime, setEmployeeDaysStartTime] = useState("9:00 AM");
   const [employeeDaysEndTime, setEmployeeDaysEndTime] = useState("6:00 PM");
+  const [isSpecialScheduleModalOpen, setIsSpecialScheduleModalOpen] = useState(false);
+  const [specialScheduleDate, setSpecialScheduleDate] = useState(getDateKey(new Date()));
+  const [specialStartTime, setSpecialStartTime] = useState("9:00 AM");
+  const [specialEndTime, setSpecialEndTime] = useState("6:00 PM");
+  const [specialNotes, setSpecialNotes] = useState("");
   const [bulkTimeError, setBulkTimeError] = useState("");
   const [employeeDaysTimeError, setEmployeeDaysTimeError] = useState("");
+  const [specialTimeError, setSpecialTimeError] = useState("");
 
   const today = new Date();
   const selectedDay = selectedDate.getDay();
@@ -284,9 +315,10 @@ export function ScheduleClientPage({ initialUsers }: { initialUsers: User[] }) {
   const selectedDaySchedules = filteredUsers
     .map((user) => ({
       user,
-      schedule: user.schedules.find((schedule) => schedule.dayOfWeek === selectedDay),
+      schedule: getScheduleForDate(user, selectedDate),
     }))
     .filter((item) => item.schedule);
+  const selectedDateOverride = selectedUser?.scheduleOverrides.find((item) => getOverrideDateKey(item) === getDateKey(selectedDate));
 
   const scheduledStartHours = selectedDaySchedules
     .map((item) => parseTime(item.schedule?.startTime))
@@ -328,6 +360,21 @@ export function ScheduleClientPage({ initialUsers }: { initialUsers: User[] }) {
     setModalUserId(userId);
     setEmployeeDaysStartTime(formatEditableTime(schedule?.startTime || "09:00"));
     setEmployeeDaysEndTime(formatEditableTime(schedule?.endTime || "18:00"));
+  }
+
+  function openSpecialScheduleModal() {
+    if (!selectedUser) return;
+
+    const dateKey = getDateKey(selectedDate);
+    const override = selectedUser.scheduleOverrides.find((item) => getOverrideDateKey(item) === dateKey);
+    const schedule = getScheduleForDate(selectedUser, selectedDate);
+
+    setSpecialScheduleDate(dateKey);
+    setSpecialStartTime(formatEditableTime(override?.startTime || schedule?.startTime || "09:00"));
+    setSpecialEndTime(formatEditableTime(override?.endTime || schedule?.endTime || "18:00"));
+    setSpecialNotes(override?.notes || "");
+    setSpecialTimeError("");
+    setIsSpecialScheduleModalOpen(true);
   }
 
   function toggleBulkUser(userId: string) {
@@ -402,6 +449,58 @@ export function ScheduleClientPage({ initialUsers }: { initialUsers: User[] }) {
     setIsEmployeeDaysModalOpen(false);
   }
 
+  async function saveSpecialSchedule(formData: FormData) {
+    const userId = formData.get("userId") as string;
+    const date = formData.get("date") as string;
+    const startTime = parseEditableTime(specialStartTime);
+    const endTime = parseEditableTime(specialEndTime);
+
+    if (!userId || !date || startTime === null || endTime === null) return;
+    if (!hasValidTimeRange(startTime, endTime)) {
+      setSpecialTimeError("End time must be after start time.");
+      return;
+    }
+
+    formData.set("startTime", startTime);
+    formData.set("endTime", endTime);
+    const savedOverride = await upsertScheduleOverride(formData);
+
+    setUsers((currentUsers) =>
+      currentUsers.map((user) => {
+        if (user.id !== userId) return user;
+
+        return {
+          ...user,
+          scheduleOverrides: [
+            ...user.scheduleOverrides.filter((item) => getOverrideDateKey(item) !== date),
+            savedOverride,
+          ].sort((a, b) => getOverrideDateKey(a).localeCompare(getOverrideDateKey(b))),
+        };
+      })
+    );
+
+    setSpecialTimeError("");
+    setSelectedDate(new Date(`${date}T00:00:00`));
+    setIsSpecialScheduleModalOpen(false);
+  }
+
+  async function removeSelectedDateOverride() {
+    if (!selectedDateOverride) return;
+
+    await deleteScheduleOverride(selectedDateOverride.id);
+    setUsers((currentUsers) =>
+      currentUsers.map((user) =>
+        user.id === selectedUser?.id
+          ? {
+              ...user,
+              scheduleOverrides: user.scheduleOverrides.filter((item) => item.id !== selectedDateOverride.id),
+            }
+          : user
+      )
+    );
+    setIsSpecialScheduleModalOpen(false);
+  }
+
   return (
     <div className="space-y-3">
       <div className="rounded-lg border border-border bg-card shadow-sm">
@@ -414,25 +513,9 @@ export function ScheduleClientPage({ initialUsers }: { initialUsers: User[] }) {
               <div className="text-sm font-semibold text-foreground">Schedule Manager</div>
               <div className="text-xs text-muted-foreground">{formatDateHeader(selectedDate)}</div>
             </div>
-            <div className="flex items-center gap-1 rounded-lg border border-border bg-background p-1">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-xs"
-                aria-label="Previous day"
-                onClick={() => setSelectedDate((date) => addDays(date, -1))}
-              >
-                <ChevronLeft className="size-3.5" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-xs"
-                aria-label="Next day"
-                onClick={() => setSelectedDate((date) => addDays(date, 1))}
-              >
-                <ChevronRight className="size-3.5" />
-              </Button>
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-2.5 py-1 text-xs font-medium text-muted-foreground">
+              <Clock3 className="size-3.5" />
+              PH Timezone (GMT +8)
             </div>
           </div>
 
@@ -620,6 +703,16 @@ export function ScheduleClientPage({ initialUsers }: { initialUsers: User[] }) {
                           <Users className="size-4" />
                           Bulk Edit Multiple
                         </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-9 justify-start sm:min-w-44"
+                          onClick={openSpecialScheduleModal}
+                        >
+                          <CalendarDays className="size-4" />
+                          Special Shift
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -637,66 +730,68 @@ export function ScheduleClientPage({ initialUsers }: { initialUsers: User[] }) {
                         </div>
                       </div>
                       <div className="flex flex-col gap-2 sm:items-end">
-                        <div className="flex rounded-lg border border-border bg-background p-1 text-xs">
-                          <button
-                            type="button"
-                            onClick={() => setOverviewMode("MONTH")}
-                            className={cn(
-                              "h-8 rounded-md px-3 font-semibold transition-colors",
-                              overviewMode === "MONTH"
-                                ? "bg-primary text-primary-foreground shadow-sm"
-                                : "text-muted-foreground hover:text-foreground"
-                            )}
-                          >
-                            Month
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setOverviewMode("WEEK")}
-                            className={cn(
-                              "h-8 rounded-md px-3 font-semibold transition-colors",
-                              overviewMode === "WEEK"
-                                ? "bg-primary text-primary-foreground shadow-sm"
-                                : "text-muted-foreground hover:text-foreground"
-                            )}
-                          >
-                            Week
-                          </button>
-                        </div>
-                        <div className="flex max-w-full items-center gap-1 rounded-lg border border-border bg-background p-1">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-xs"
-                            aria-label={overviewMode === "MONTH" ? "Previous month" : "Previous week"}
-                            onClick={() =>
-                              setSelectedDate((date) =>
-                                overviewMode === "MONTH"
-                                  ? new Date(date.getFullYear(), date.getMonth() - 1, 1)
-                                  : addDays(date, -7)
-                              )
-                            }
-                          >
-                            <ChevronLeft className="size-3.5" />
-                          </Button>
-                          <div className="min-w-0 px-2 text-center text-xs font-medium text-muted-foreground sm:min-w-36">
-                            {overviewMode === "MONTH" ? formatMonthHeader(selectedDate) : formatDateHeader(weekDates[0])}
+                        <div className="flex flex-wrap justify-start gap-2 sm:justify-end">
+                          <div className="flex max-w-full items-center gap-1 rounded-lg border border-border bg-background p-1">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-xs"
+                              aria-label={overviewMode === "MONTH" ? "Previous month" : "Previous week"}
+                              onClick={() =>
+                                setSelectedDate((date) =>
+                                  overviewMode === "MONTH"
+                                    ? new Date(date.getFullYear(), date.getMonth() - 1, 1)
+                                    : addDays(date, -7)
+                                )
+                              }
+                            >
+                              <ChevronLeft className="size-3.5" />
+                            </Button>
+                            <div className="min-w-0 px-2 text-center text-xs font-medium text-muted-foreground sm:min-w-36">
+                              {overviewMode === "MONTH" ? formatMonthHeader(selectedDate) : formatDateHeader(weekDates[0])}
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-xs"
+                              aria-label={overviewMode === "MONTH" ? "Next month" : "Next week"}
+                              onClick={() =>
+                                setSelectedDate((date) =>
+                                  overviewMode === "MONTH"
+                                    ? new Date(date.getFullYear(), date.getMonth() + 1, 1)
+                                    : addDays(date, 7)
+                                )
+                              }
+                            >
+                              <ChevronRight className="size-3.5" />
+                            </Button>
                           </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-xs"
-                            aria-label={overviewMode === "MONTH" ? "Next month" : "Next week"}
-                            onClick={() =>
-                              setSelectedDate((date) =>
+                          <div className="flex rounded-lg border border-border bg-background p-1 text-xs">
+                            <button
+                              type="button"
+                              onClick={() => setOverviewMode("MONTH")}
+                              className={cn(
+                                "h-8 rounded-md px-3 font-semibold transition-colors",
                                 overviewMode === "MONTH"
-                                  ? new Date(date.getFullYear(), date.getMonth() + 1, 1)
-                                  : addDays(date, 7)
-                              )
-                            }
-                          >
-                            <ChevronRight className="size-3.5" />
-                          </Button>
+                                  ? "bg-primary text-primary-foreground shadow-sm"
+                                  : "text-muted-foreground hover:text-foreground"
+                              )}
+                            >
+                              Month
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setOverviewMode("WEEK")}
+                              className={cn(
+                                "h-8 rounded-md px-3 font-semibold transition-colors",
+                                overviewMode === "WEEK"
+                                  ? "bg-primary text-primary-foreground shadow-sm"
+                                  : "text-muted-foreground hover:text-foreground"
+                              )}
+                            >
+                              Week
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -710,9 +805,9 @@ export function ScheduleClientPage({ initialUsers }: { initialUsers: User[] }) {
                             </div>
                           ))}
                         </div>
-                        <div className="grid gap-1.5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7">
-                          {monthDates.map((date) => {
-                          const schedule = selectedUser.schedules.find((item) => item.dayOfWeek === date.getDay());
+                      <div className="grid gap-1.5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7">
+                        {monthDates.map((date) => {
+                          const schedule = getScheduleForDate(selectedUser, date);
                           const isSelectedDate = date.toDateString() === selectedDate.toDateString();
                           const isCurrentMonth = date.getMonth() === selectedDate.getMonth();
                           const isToday = date.toDateString() === today.toDateString();
@@ -761,6 +856,9 @@ export function ScheduleClientPage({ initialUsers }: { initialUsers: User[] }) {
                               >
                                 {schedule ? `${formatTime(schedule.startTime)} - ${formatTime(schedule.endTime)}` : "No schedule"}
                               </div>
+                              {schedule?.isOverride ? (
+                                <div className="mt-1 text-[10px] font-semibold uppercase text-brand-red">Special shift</div>
+                              ) : null}
                             </button>
                           );
                           })}
@@ -777,7 +875,7 @@ export function ScheduleClientPage({ initialUsers }: { initialUsers: User[] }) {
                         </div>
                         <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-7">
                           {DAYS.map((day, dayIndex) => {
-                          const schedule = selectedUser.schedules.find((item) => item.dayOfWeek === dayIndex);
+                          const schedule = getScheduleForDate(selectedUser, weekDates[dayIndex]);
                           const isSelectedDay = selectedDay === dayIndex;
                           const isToday = weekDates[dayIndex].toDateString() === today.toDateString();
 
@@ -824,6 +922,9 @@ export function ScheduleClientPage({ initialUsers }: { initialUsers: User[] }) {
                               >
                                 {schedule ? `${formatTime(schedule.startTime)} - ${formatTime(schedule.endTime)}` : "No schedule"}
                               </div>
+                              {schedule?.isOverride ? (
+                                <div className="mt-1 text-[10px] font-semibold uppercase text-brand-red">Special shift</div>
+                              ) : null}
                             </button>
                           );
                           })}
@@ -967,6 +1068,104 @@ export function ScheduleClientPage({ initialUsers }: { initialUsers: User[] }) {
           </div>
         </div>
       </div>
+
+      {isSpecialScheduleModalOpen && selectedUser ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/35 px-4 py-6 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="special-schedule-title"
+        >
+          <div className="flex max-h-[92vh] w-full max-w-xl flex-col rounded-lg border border-border bg-card text-card-foreground shadow-xl">
+            <div className="flex items-start justify-between gap-4 border-b border-border bg-muted/30 px-4 py-3">
+              <div>
+                <h2 id="special-schedule-title" className="text-base font-semibold text-foreground">
+                  Special Shift
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Set a one-day schedule for {selectedUser.name}. This overrides the weekly schedule only on the selected date.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Close special shift dialog"
+                onClick={() => setIsSpecialScheduleModalOpen(false)}
+              >
+                <X className="size-4" />
+              </Button>
+            </div>
+
+            <form action={saveSpecialSchedule} className="flex min-h-0 flex-1 flex-col">
+              <div className="space-y-3 overflow-y-auto px-4 py-3">
+                <input type="hidden" name="userId" value={selectedUser.id} />
+
+                <label className="grid gap-1.5 text-sm font-medium text-foreground">
+                  Date
+                  <input
+                    type="date"
+                    name="date"
+                    value={specialScheduleDate}
+                    onChange={(event) => {
+                      const date = event.target.value;
+                      const override = selectedUser.scheduleOverrides.find((item) => getOverrideDateKey(item) === date);
+                      const schedule = getScheduleForDate(selectedUser, new Date(`${date}T00:00:00`));
+
+                      setSpecialScheduleDate(date);
+                      setSpecialStartTime(formatEditableTime(override?.startTime || schedule?.startTime || "09:00"));
+                      setSpecialEndTime(formatEditableTime(override?.endTime || schedule?.endTime || "18:00"));
+                      setSpecialNotes(override?.notes || "");
+                    }}
+                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/40"
+                  />
+                </label>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <TimeTextField label="Start" name="startTime" value={specialStartTime} onChange={setSpecialStartTime} />
+                  <TimeTextField label="End" name="endTime" value={specialEndTime} onChange={setSpecialEndTime} />
+                </div>
+                {specialTimeError ? (
+                  <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                    {specialTimeError}
+                  </div>
+                ) : null}
+
+                <label className="grid gap-1.5 text-sm font-medium text-foreground">
+                  Notes
+                  <textarea
+                    name="notes"
+                    rows={3}
+                    maxLength={500}
+                    value={specialNotes}
+                    onChange={(event) => setSpecialNotes(event.target.value)}
+                    placeholder="Optional context, client request, or shift reason"
+                    className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                  />
+                </label>
+              </div>
+
+              <div className="flex flex-col-reverse gap-2 border-t border-border bg-muted/30 px-4 py-3 sm:flex-row sm:justify-between">
+                <div>
+                  {selectedDateOverride ? (
+                    <Button type="button" variant="destructive-outline" onClick={removeSelectedDateOverride}>
+                      Remove Special Shift
+                    </Button>
+                  ) : null}
+                </div>
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                  <Button type="button" variant="outline" onClick={() => setIsSpecialScheduleModalOpen(false)}>
+                    Cancel
+                  </Button>
+                  <SubmitButton size="default" className="w-full sm:w-40">
+                    Save Shift
+                  </SubmitButton>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
 
       {isBulkModalOpen ? (
         <div

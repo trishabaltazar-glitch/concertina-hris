@@ -1,13 +1,26 @@
 import { format } from "date-fns";
 import { CalendarDays, CheckCircle2, Users } from "lucide-react";
-import { redirect } from "next/navigation";
 
-import { auth } from "@/auth";
 import { assignHolidayToTeamMembers, deleteHolidayAssignment } from "@/app/actions/holidays";
-import prisma from "@/lib/prisma";
+import { ScheduleClientPage } from "@/app/admin/schedules/components/schedule-client-page";
+import { EmployeeClientPage } from "@/app/admin/employees/components/employee-client-page";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { ensureScheduleOverrideTable } from "@/lib/schedule-overrides";
+import prisma from "@/lib/prisma";
 
-export const dynamic = "force-dynamic";
+type ManagementUser = {
+  id: string;
+  role: string;
+};
+
+type ScheduleOverrideRow = {
+  id: string;
+  userId: string;
+  date: Date;
+  startTime: string;
+  endTime: string;
+  notes: string | null;
+};
 
 type HolidayAssignment = {
   id: string;
@@ -20,18 +33,111 @@ type HolidayAssignment = {
   assignedByName: string;
 };
 
-export default async function AdminHolidaysPage() {
-  const session = await auth();
-  const sessionUser = session?.user as { id?: string; role?: string } | undefined;
+export async function TeamManagementPanel({ user }: { user: ManagementUser }) {
+  const isAdmin = user.role === "ADMIN";
 
-  if (!sessionUser?.id || (sessionUser.role !== "ADMIN" && sessionUser.role !== "MANAGER")) {
-    redirect("/");
-  }
+  const users = await prisma.user.findMany({
+    where: isAdmin ? undefined : { managerId: user.id },
+    orderBy: { name: "asc" },
+    include: {
+      manager: {
+        select: { id: true, name: true },
+      },
+      teamMembers: {
+        select: { id: true },
+      },
+      leaveBalances: {
+        where: { leaveType: "LEAVE_CREDITS" },
+      },
+    },
+  });
 
+  const managers = isAdmin
+    ? await prisma.user.findMany({
+        where: {
+          role: "MANAGER",
+          isActive: true,
+        },
+        orderBy: { name: "asc" },
+        select: { id: true, name: true, email: true },
+      })
+    : [];
+
+  const formattedUsers = users.map((item) => ({
+    id: item.id,
+    name: item.name,
+    email: item.email,
+    role: item.role,
+    position: item.position,
+    department: item.department,
+    contactNumber: item.contactNumber,
+    emergencyContact: item.emergencyContact,
+    address: item.address,
+    icId: item.icId,
+    managerId: item.managerId,
+    managerName: item.manager?.name ?? null,
+    directReportCount: item.teamMembers.length,
+    isActive: item.isActive,
+    invitedAt: item.invitedAt ? format(item.invitedAt, "MMM d, yyyy") : null,
+    activatedAt: item.activatedAt ? format(item.activatedAt, "MMM d, yyyy") : null,
+    inviteTokenExpiresAt: item.inviteTokenExpiresAt ? item.inviteTokenExpiresAt.toISOString() : null,
+    hasPendingInvite: Boolean(item.inviteToken && item.inviteTokenExpiresAt && item.inviteTokenExpiresAt > new Date()),
+    leaveBalance: item.leaveBalances[0]?.balance || 0,
+    joined: format(item.createdAt, "MMM d, yyyy"),
+  }));
+
+  return (
+    <EmployeeClientPage
+      initialUsers={formattedUsers}
+      managers={managers}
+      currentUserRole={user.role}
+    />
+  );
+}
+
+export async function SchedulesManagerPanel({ user }: { user: ManagementUser }) {
+  await ensureScheduleOverrideTable();
+
+  const users = await prisma.user.findMany({
+    where: user.role === "ADMIN" ? undefined : { managerId: user.id, role: "EMPLOYEE" },
+    orderBy: { name: "asc" },
+    include: {
+      schedules: true,
+    },
+  });
+
+  const scheduleOverrides = user.role === "ADMIN"
+    ? await prisma.$queryRaw<ScheduleOverrideRow[]>`
+        SELECT so."id", so."userId", so."date", so."startTime", so."endTime", so."notes"
+        FROM "ScheduleOverride" so
+        INNER JOIN "User" u ON u."id" = so."userId"
+        ORDER BY so."date" ASC
+      `
+    : await prisma.$queryRaw<ScheduleOverrideRow[]>`
+        SELECT so."id", so."userId", so."date", so."startTime", so."endTime", so."notes"
+        FROM "ScheduleOverride" so
+        INNER JOIN "User" u ON u."id" = so."userId"
+        WHERE u."managerId" = ${user.id}
+          AND u."role" = 'EMPLOYEE'
+        ORDER BY so."date" ASC
+      `;
+
+  const formattedUsers = users.map((item) => ({
+    ...item,
+    scheduleOverrides: scheduleOverrides.filter((override) => override.userId === item.id).map((override) => ({
+      ...override,
+      date: override.date.toISOString(),
+    })),
+  }));
+
+  return <ScheduleClientPage initialUsers={formattedUsers} />;
+}
+
+export async function HolidayAssignmentsPanel({ user }: { user: ManagementUser }) {
   const teamMembers = await prisma.user.findMany({
-    where: sessionUser.role === "ADMIN"
+    where: user.role === "ADMIN"
       ? { isActive: true }
-      : { managerId: sessionUser.id, role: "EMPLOYEE", isActive: true },
+      : { managerId: user.id, role: "EMPLOYEE", isActive: true },
     orderBy: { name: "asc" },
     select: {
       id: true,
@@ -41,7 +147,7 @@ export default async function AdminHolidaysPage() {
     },
   });
 
-  const assignments = sessionUser.role === "ADMIN"
+  const assignments = user.role === "ADMIN"
     ? await prisma.$queryRaw<HolidayAssignment[]>`
         SELECT
           ha."id",
@@ -71,7 +177,7 @@ export default async function AdminHolidaysPage() {
         FROM "HolidayAssignment" ha
         INNER JOIN "User" u ON u."id" = ha."userId"
         INNER JOIN "User" assigner ON assigner."id" = ha."assignedById"
-        WHERE u."managerId" = ${sessionUser.id}
+        WHERE u."managerId" = ${user.id}
           AND u."role" = 'EMPLOYEE'
         ORDER BY ha."date" DESC, ha."createdAt" DESC
         LIMIT 100
@@ -86,12 +192,12 @@ export default async function AdminHolidaysPage() {
           </span>
           <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">Holiday assignments</h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Assign client-advised holidays to specific team members. Assigned employees do not need to clock in or out on that date.
+            Assign client-advised holidays to specific employees. Assigned employees do not need to clock in or out on that date.
           </p>
         </div>
         <div className="grid grid-cols-2 gap-2 text-sm">
           <div className="rounded-lg border border-border bg-background px-3 py-2">
-            <p className="text-xs text-muted-foreground">Team members</p>
+            <p className="text-xs text-muted-foreground">Employees</p>
             <p className="mt-1 font-semibold text-foreground">{teamMembers.length}</p>
           </div>
           <div className="rounded-lg border border-border bg-background px-3 py-2">

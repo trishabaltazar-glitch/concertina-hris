@@ -22,12 +22,22 @@ function getPageLabel(pathname: string) {
       return "Overview"
     case "/timesheets":
       return "Timesheets"
+    case "/requests":
+      return "Requests"
+    case "/time-corrections":
+      return "Manual Entry"
     case "/schedule":
       return "My Weekly Schedule"
     case "/leaves":
       return "Pre-Funded Flex Days"
+    case "/overtime":
+      return "Overtime Requests"
     case "/profile":
       return "My Profile"
+    case "/admin/management":
+      return "Management"
+    case "/admin/approvals":
+      return "Approvals"
     case "/admin/employees":
       return "Team Management"
     case "/admin/dashboard":
@@ -36,6 +46,8 @@ function getPageLabel(pathname: string) {
       return "Company Time Logs"
     case "/admin/leaves":
       return "PFFD Approvals"
+    case "/admin/overtime":
+      return "OT Approvals"
     case "/admin/schedules":
       return "Schedule Management"
     case "/admin/holidays":

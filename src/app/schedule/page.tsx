@@ -5,6 +5,7 @@ import { addDays, addWeeks, endOfWeek, format, isSameDay, isValid, parseISO, sta
 import { CalendarDays, ChevronLeft, ChevronRight, Clock3 } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { ensureScheduleOverrideTable } from "@/lib/schedule-overrides";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,14 @@ type ScheduleRow = {
   dayOfWeek: number;
   startTime: string;
   endTime: string;
+};
+
+type ScheduleOverrideRow = {
+  id: string;
+  date: Date;
+  startTime: string;
+  endTime: string;
+  notes: string | null;
 };
 
 type AssignedHoliday = {
@@ -50,7 +59,7 @@ function formatTime(time?: string) {
   return `${displayHour}${minutes ? `:${String(minutes).padStart(2, "0")}` : ""} ${period}`;
 }
 
-function getScheduleHours(schedule?: ScheduleRow) {
+function getScheduleHours(schedule?: { startTime: string; endTime: string }) {
   const start = parseTime(schedule?.startTime);
   let end = parseTime(schedule?.endTime);
 
@@ -74,6 +83,14 @@ function getWeekHref(date: Date) {
   return `/schedule?week=${format(date, "yyyy-MM-dd")}`;
 }
 
+function getScheduleForDate(date: Date, schedules: ScheduleRow[], overrides: ScheduleOverrideRow[]) {
+  const override = overrides.find((item) => isSameDay(item.date, date));
+  if (override) return { startTime: override.startTime, endTime: override.endTime, notes: override.notes, isOverride: true };
+
+  const schedule = schedules.find((item) => item.dayOfWeek === date.getDay());
+  return schedule ? { startTime: schedule.startTime, endTime: schedule.endTime, notes: null, isOverride: false } : null;
+}
+
 export default async function UserSchedulePage({ searchParams }: UserSchedulePageProps) {
   const session = await auth();
 
@@ -90,29 +107,42 @@ export default async function UserSchedulePage({ searchParams }: UserSchedulePag
   const nextWeek = addWeeks(weekStart, 1);
   const currentWeekStart = startOfWeek(now, { weekStartsOn: 1 });
   const todayIndex = now.getDay();
+  await ensureScheduleOverrideTable();
 
-  const [schedules, assignedHolidays] = await Promise.all([
-    prisma.schedule.findMany({
-      where: { userId: session.user.id },
-      orderBy: { dayOfWeek: "asc" },
-      select: {
-        dayOfWeek: true,
-        startTime: true,
-        endTime: true,
-      },
-    }),
-    prisma.$queryRaw<AssignedHoliday[]>`
-      SELECT "id", "name", "date", "notes"
-      FROM "HolidayAssignment"
-      WHERE "userId" = ${session.user.id}
-        AND "date" >= ${weekStart}
-        AND "date" <= ${weekEnd}
-      ORDER BY "date" ASC
-    `,
-  ]);
+  const schedules = await prisma.schedule.findMany({
+    where: { userId: session.user.id },
+    orderBy: { dayOfWeek: "asc" },
+    select: {
+      dayOfWeek: true,
+      startTime: true,
+      endTime: true,
+    },
+  });
 
-  const todaySchedule = schedules.find((schedule) => schedule.dayOfWeek === todayIndex);
-  const totalWeeklyHours = schedules.reduce((total, schedule) => total + getScheduleHours(schedule), 0);
+  const scheduleOverrides = await prisma.$queryRaw<ScheduleOverrideRow[]>`
+    SELECT "id", "date", "startTime", "endTime", "notes"
+    FROM "ScheduleOverride"
+    WHERE "userId" = ${session.user.id}
+      AND "date" >= ${weekStart}
+      AND "date" <= ${weekEnd}
+    ORDER BY "date" ASC
+  `;
+
+  const assignedHolidays = await prisma.$queryRaw<AssignedHoliday[]>`
+    SELECT "id", "name", "date", "notes"
+    FROM "HolidayAssignment"
+    WHERE "userId" = ${session.user.id}
+      AND "date" >= ${weekStart}
+      AND "date" <= ${weekEnd}
+    ORDER BY "date" ASC
+  `;
+
+  const todaySchedule = getScheduleForDate(now, schedules, scheduleOverrides);
+  const totalWeeklyHours = WEEK_DAY_INDEXES.reduce((total, dayIndex, offset) => {
+    const date = addDays(weekStart, offset);
+    const schedule = getScheduleForDate(date, schedules, scheduleOverrides);
+    return total + getScheduleHours(schedule ?? undefined);
+  }, 0);
 
   return (
     <div className="w-full">
@@ -134,6 +164,10 @@ export default async function UserSchedulePage({ searchParams }: UserSchedulePag
             <span className="inline-flex items-center gap-2 rounded-full border border-brand-red/25 bg-brand-red/10 px-3 py-1.5 text-sm font-medium text-brand-red">
               <CalendarDays className="size-4" />
               Today is {DAYS[todayIndex]}
+            </span>
+            <span className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background px-3 py-1.5 text-sm font-medium text-muted-foreground">
+              <Clock3 className="size-4" />
+              PH Timezone (GMT +8)
             </span>
             <span className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background px-3 py-1.5 text-sm font-medium text-muted-foreground">
               <Clock3 className="size-4" />
@@ -190,7 +224,7 @@ export default async function UserSchedulePage({ searchParams }: UserSchedulePag
               Scheduled days
             </p>
             <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
-              {schedules.length} of 7
+              {WEEK_DAY_INDEXES.filter((_, offset) => getScheduleForDate(addDays(weekStart, offset), schedules, scheduleOverrides)).length} of 7
             </p>
           </div>
         </div>
@@ -199,7 +233,7 @@ export default async function UserSchedulePage({ searchParams }: UserSchedulePag
           {WEEK_DAY_INDEXES.map((dayIndex, offset) => {
             const date = addDays(weekStart, offset);
             const dayName = DAYS[dayIndex];
-            const schedule = schedules.find((item) => item.dayOfWeek === dayIndex);
+            const schedule = getScheduleForDate(date, schedules, scheduleOverrides);
             const assignedHoliday = assignedHolidays.find((holiday) => isSameDay(holiday.date, date));
             const isToday = isSameDay(date, now);
 
@@ -249,8 +283,11 @@ export default async function UserSchedulePage({ searchParams }: UserSchedulePag
                         {formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}
                       </p>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        {formatHours(getScheduleHours(schedule))} hours
+                        {formatHours(getScheduleHours(schedule))} hours{schedule.isOverride ? " - special shift" : ""}
                       </p>
+                      {schedule.isOverride && schedule.notes ? (
+                        <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{schedule.notes}</p>
+                      ) : null}
                     </>
                   ) : (
                     <p className="text-sm font-medium text-muted-foreground">Off</p>

@@ -41,7 +41,7 @@ export async function assignHolidayToTeamMembers(formData: FormData) {
     where:
       sessionUser.role === "ADMIN"
         ? { id: { in: userIds } }
-        : { id: { in: userIds }, managerId: sessionUser.id },
+        : { id: { in: userIds }, managerId: sessionUser.id, role: "EMPLOYEE" },
     select: { id: true, name: true },
   });
 
@@ -114,7 +114,7 @@ export async function deleteHolidayAssignment(assignmentId: string) {
   }
 
   const assignments = await prisma.$queryRaw<
-    { id: string; userId: string; userName: string; managerId: string | null; name: string; date: Date }[]
+    { id: string; userId: string; userName: string; managerId: string | null; role: string; name: string; date: Date }[]
   >`
     SELECT
       ha."id",
@@ -122,7 +122,8 @@ export async function deleteHolidayAssignment(assignmentId: string) {
       ha."name",
       ha."date",
       u."name" as "userName",
-      u."managerId"
+      u."managerId",
+      u."role"
     FROM "HolidayAssignment" ha
     INNER JOIN "User" u ON u."id" = ha."userId"
     WHERE ha."id" = ${assignmentId}
@@ -132,7 +133,7 @@ export async function deleteHolidayAssignment(assignmentId: string) {
 
   if (!assignment) return;
 
-  if (sessionUser.role === "MANAGER" && assignment.managerId !== sessionUser.id) {
+  if (sessionUser.role === "MANAGER" && (assignment.role !== "EMPLOYEE" || assignment.managerId !== sessionUser.id)) {
     throw new Error("Unauthorized: You can only remove assignments for your direct reports.");
   }
 

@@ -7,7 +7,7 @@ import { createNotifications } from "@/lib/notifications";
 import { sendLeaveNotificationEmail } from "@/lib/leave-notification-email";
 
 async function ensureLeaveDayBreakdownColumn() {
-    await prisma.$executeRawUnsafe(`ALTER TABLE "LeaveRequest" ADD COLUMN IF NOT EXISTS "dayBreakdown" JSONB`);
+    // Managed by Prisma migration 20260519010000_add_leave_day_breakdown.
 }
 
 function formatLeaveDateRange(startDate: Date, endDate: Date) {
