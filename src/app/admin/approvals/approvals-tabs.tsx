@@ -9,23 +9,23 @@ import { cn } from "@/lib/utils";
 const APPROVAL_TABS = [
   {
     id: "pffd",
-    label: "PFFD",
-    title: "PFFD Approvals",
-    description: "Review pre-funded flex day filings",
+    label: "Flex Day Approvals",
+    title: "Flex Day Approvals",
+    description: "Review pre-funded flex day filings.",
     icon: FileText,
   },
   {
     id: "ot",
-    label: "OT",
-    title: "OT Approvals",
-    description: "Review overtime filings and attachments",
+    label: "Overtime Approvals",
+    title: "Overtime Approvals",
+    description: "Review overtime filings and attachments.",
     icon: Clock3,
   },
   {
     id: "manual-entry",
-    label: "Manual Entry",
+    label: "Manual Entry Approvals",
     title: "Manual Entry Approvals",
-    description: "Approve missed or corrected time logs",
+    description: "Approve missed or corrected time logs.",
     icon: FileCheck2,
   },
 ] as const;
@@ -46,12 +46,12 @@ export function ApprovalsTabs({ activeTab, panels }: ApprovalsTabsProps) {
       <section className="border-b border-border pb-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-steel">Approvals</p>
-            <h1 className="mt-1 text-2xl font-semibold tracking-tight text-foreground">{selectedApproval.title}</h1>
-            <p className="mt-1 text-sm text-muted-foreground">{selectedApproval.description}</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-steel">Approvals</p>
+            <h1 className="mt-1 text-xl font-semibold tracking-tight text-foreground">{selectedApproval.title}</h1>
+            <p className="mt-1 text-xs text-muted-foreground">{selectedApproval.description}</p>
           </div>
 
-          <div role="tablist" aria-label="Approval type" className="grid gap-2 sm:grid-cols-3 lg:w-[680px]">
+          <div role="tablist" aria-label="Approval type" className="grid gap-2 sm:grid-cols-3 lg:w-[640px]">
             {APPROVAL_TABS.map((tab) => {
               const Icon = tab.icon;
               const isActive = selectedTab === tab.id;
@@ -66,7 +66,7 @@ export function ApprovalsTabs({ activeTab, panels }: ApprovalsTabsProps) {
                   id={`approval-tab-${tab.id}`}
                   onClick={() => setSelectedTab(tab.id)}
                   className={cn(
-                    "group relative flex h-11 items-center gap-2.5 rounded-lg border px-3 text-left transition-colors",
+                    "group relative flex h-10 items-center gap-2 rounded-lg border px-2.5 text-left transition-colors",
                     isActive
                       ? "border-primary bg-primary text-primary-foreground shadow-sm"
                       : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:bg-muted/50 hover:text-foreground"
@@ -74,15 +74,15 @@ export function ApprovalsTabs({ activeTab, panels }: ApprovalsTabsProps) {
                 >
                   <span
                     className={cn(
-                      "flex size-7 shrink-0 items-center justify-center rounded-md border transition-colors",
+                      "flex size-6 shrink-0 items-center justify-center rounded-md border transition-colors",
                       isActive
                         ? "border-primary-foreground/25 bg-primary-foreground/12 text-primary-foreground"
                         : "border-border bg-card text-muted-foreground group-hover:text-foreground"
                     )}
                   >
-                    <Icon className="size-4" />
+                    <Icon className="size-3.5" />
                   </span>
-                  <span className="min-w-0 truncate text-sm font-semibold">{tab.label}</span>
+                  <span className="min-w-0 truncate text-xs font-semibold">{tab.label}</span>
                 </button>
               );
             })}
