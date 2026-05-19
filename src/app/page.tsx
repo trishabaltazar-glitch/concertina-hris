@@ -411,27 +411,29 @@ export default async function DashboardPage() {
                     Today
                   </p>
                 </div>
-                <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-2xl bg-brand-red text-white shadow-sm shadow-brand-red/20">
-                  <CalendarDays className="size-4" />
-                </span>
-              </div>
-
-              <div className="flex flex-1 items-center justify-center pt-4">
-                <div className="w-full rounded-xl border border-brand-red/15 bg-white/65 px-3 py-3 text-center shadow-sm shadow-brand-red/5 dark:bg-background/35">
-                  <p className="text-lg font-semibold leading-none text-slate-950 dark:text-foreground">
-                    {todayHoliday
-                      ? todayHoliday.name
-                      : todaySchedule
-                        ? `${formatScheduleTime(todaySchedule.startTime)} - ${formatScheduleTime(todaySchedule.endTime)}`
-                        : "Off today"}
-                  </p>
-                  <p className="mt-2 text-xs font-medium text-muted-foreground">
+                <div className="min-w-0 text-right">
+                  <div className="flex items-center justify-end gap-1.5 text-sm font-semibold text-slate-950 dark:text-foreground">
+                    <CalendarDays className="size-3.5 shrink-0 text-brand-red" />
+                    <span className="truncate">
+                      {todayHoliday
+                        ? todayHoliday.name
+                        : todaySchedule
+                          ? `${formatScheduleTime(todaySchedule.startTime)} - ${formatScheduleTime(todaySchedule.endTime)}`
+                          : "Off today"}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs font-medium text-muted-foreground">
                     {todayHoliday ? "Assigned holiday" : todayScheduleHours || "No scheduled hours"}
                   </p>
-                  {todayOverride?.notes && (
-                    <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{todayOverride.notes}</p>
-                  )}
                 </div>
+              </div>
+
+              <div className="mt-auto pt-4">
+                {todayOverride?.notes ? (
+                  <p className="line-clamp-2 text-xs leading-5 text-muted-foreground">{todayOverride.notes}</p>
+                ) : (
+                  <p className="text-xs leading-5 text-muted-foreground">PH Timezone (GMT +8)</p>
+                )}
               </div>
             </Link>
           </div>
