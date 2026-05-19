@@ -9,21 +9,24 @@ import { handleSignOut } from "@/app/actions/auth";
 const EMP_ROUTES = [
     { name: "Overview", href: "/", icon: LayoutDashboard },
     { name: "Timesheets", href: "/timesheets", icon: Clock },
+    { name: "Time Corrections", href: "/time-corrections", icon: Clock },
     { name: "Schedules", href: "/schedule", icon: CalendarDays },
     { name: "PFFD Requests", href: "/leaves", icon: CalendarHeart },
+    { name: "OT Requests", href: "/overtime", icon: Clock },
     { name: "My Profile", href: "/profile", icon: UserCircle },
 ];
 
 const ADMIN_ROUTES = [
     { name: "Admin Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
     { name: "Leave Approvals", href: "/admin/leaves", icon: Users },
+    { name: "OT Approvals", href: "/admin/overtime", icon: Clock },
     { name: "Schedules Manager", href: "/admin/schedules", icon: CalendarDays },
     { name: "Holiday Assignments", href: "/admin/holidays", icon: Calendar },
     { name: "Reports Dashboard", href: "/admin/reports", icon: ClipboardList },
     { name: "Settings", href: "/admin/settings", icon: Settings },
 ];
 
-export function Sidebar({ user }: { user?: any }) {
+export function Sidebar({ user }: { user?: { name?: string | null; email?: string | null; role?: string | null } | null }) {
     const pathname = usePathname();
     const showAdminPanel = user && (user.role === "ADMIN" || user.role === "MANAGER");
 
