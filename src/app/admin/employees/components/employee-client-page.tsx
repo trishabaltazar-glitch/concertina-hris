@@ -165,7 +165,6 @@ export function EmployeeClientPage({ initialUsers, managers, currentUserRole }: 
         });
     }, [departmentFilter, managerFilter, searchQuery, statusFilter, users]);
 
-    const selectedUsers = users.filter((user) => selectedUserIds.includes(user.id));
     const activeCount = users.filter((user) => user.isActive).length;
     const invitedCount = users.filter((user) => user.hasPendingInvite).length;
     const managerCount = users.filter((user) => user.role === "MANAGER").length;
@@ -341,15 +340,8 @@ export function EmployeeClientPage({ initialUsers, managers, currentUserRole }: 
             </div>
 
             <section className="rounded-xl border bg-card shadow-sm">
-                <div className="flex flex-col gap-3 border-b px-4 py-3 xl:flex-row xl:items-center xl:justify-between">
-                    <div className="min-w-0">
-                        <h2 className="font-semibold">Team Management</h2>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                            {isAdmin ? "Manage employee profiles, reporting lines, invites, and PFFD balances." : "Viewing your assigned direct reports."}
-                        </p>
-                    </div>
-
-                    <div className="grid gap-2 md:grid-cols-[minmax(220px,1fr)_160px_170px_150px_auto] xl:w-[860px]">
+                <div className="border-b px-4 py-3">
+                    <div className="grid gap-2 md:grid-cols-[minmax(220px,1fr)_160px_170px_150px_auto]">
                         <div className="relative">
                             <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
                             <input

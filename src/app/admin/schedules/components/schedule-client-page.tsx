@@ -504,69 +504,41 @@ export function ScheduleClientPage({ initialUsers }: { initialUsers: User[] }) {
   return (
     <div className="space-y-3">
       <div className="rounded-lg border border-border bg-card shadow-sm">
-        <div className="flex flex-col gap-3 border-b border-border bg-muted/30 px-3 py-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex size-9 items-center justify-center rounded-lg bg-background ring-1 ring-border">
-              <CalendarDays className="size-4 text-brand-steel" />
-            </div>
-            <div>
-              <div className="text-sm font-semibold text-foreground">Schedule Manager</div>
-              <div className="text-xs text-muted-foreground">{formatDateHeader(selectedDate)}</div>
-            </div>
-            <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-2.5 py-1 text-xs font-medium text-muted-foreground">
-              <Clock3 className="size-3.5" />
-              PH Timezone (GMT +8)
-            </div>
-          </div>
-
-          <div className="grid w-full gap-2 sm:w-auto sm:grid-cols-[minmax(14rem,18rem)_minmax(9rem,12rem)]">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Search employees..."
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                className="h-9 w-full rounded-lg border border-input bg-background pl-9 pr-3 text-sm text-foreground shadow-sm transition-all placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50"
-              />
-            </div>
-            <select
-              aria-label="Filter team by role"
-              value={roleFilter}
-              onChange={(event) => setRoleFilter(event.target.value)}
-              className="h-9 rounded-lg border border-input bg-background px-3 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring/50"
-            >
-              <option value="ALL">All roles</option>
-              {roleOptions.map((role) => (
-                <option key={role} value={role}>
-                  {role}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
         <div className="grid min-h-[30rem] gap-0 lg:grid-cols-[260px_minmax(0,1fr)]">
           <aside className="flex min-h-0 flex-col border-b border-border lg:max-h-[36rem] lg:border-b-0 lg:border-r">
-            <div className="flex items-center justify-between border-b border-border px-3 py-2.5">
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase text-muted-foreground">
-                <Users className="size-3.5" />
-                Team
-              </div>
-              <div className="flex items-center gap-2">
-                {roleFilter !== "ALL" ? (
-                  <button
-                    type="button"
-                    onClick={() => setRoleFilter("ALL")}
-                    className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground hover:text-foreground"
-                  >
-                    {roleFilter}
-                  </button>
-                ) : null}
+            <div className="space-y-2 border-b border-border px-3 py-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase text-muted-foreground">
+                  <Users className="size-3.5" />
+                  Team
+                </div>
                 <div className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
                   {filteredUsers.length}
                 </div>
               </div>
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Search employees..."
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  className="h-8 w-full rounded-lg border border-input bg-background pl-8 pr-3 text-xs text-foreground shadow-sm transition-all placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50"
+                />
+              </div>
+              <select
+                aria-label="Filter team by role"
+                value={roleFilter}
+                onChange={(event) => setRoleFilter(event.target.value)}
+                className="h-8 w-full rounded-lg border border-input bg-background px-2 text-xs text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring/50"
+              >
+                <option value="ALL">All roles</option>
+                {roleOptions.map((role) => (
+                  <option key={role} value={role}>
+                    {role}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
               {filteredUsers.map((user, index) => {

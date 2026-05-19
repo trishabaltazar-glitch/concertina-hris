@@ -184,30 +184,19 @@ export async function HolidayAssignmentsPanel({ user }: { user: ManagementUser }
       `;
 
   return (
-    <div className="w-full space-y-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <span className="inline-flex rounded-full border border-border bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground">
-            Schedule
-          </span>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">Holiday assignments</h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Assign client-advised holidays to specific employees. Assigned employees do not need to clock in or out on that date.
-          </p>
+    <div className="w-full space-y-4">
+      <div className="grid grid-cols-2 gap-2 text-sm sm:ml-auto sm:max-w-xs">
+        <div className="rounded-lg border border-border bg-background px-3 py-2">
+          <p className="text-xs text-muted-foreground">Employees</p>
+          <p className="mt-1 font-semibold text-foreground">{teamMembers.length}</p>
         </div>
-        <div className="grid grid-cols-2 gap-2 text-sm">
-          <div className="rounded-lg border border-border bg-background px-3 py-2">
-            <p className="text-xs text-muted-foreground">Employees</p>
-            <p className="mt-1 font-semibold text-foreground">{teamMembers.length}</p>
-          </div>
-          <div className="rounded-lg border border-border bg-background px-3 py-2">
-            <p className="text-xs text-muted-foreground">Assignments</p>
-            <p className="mt-1 font-semibold text-foreground">{assignments.length}</p>
-          </div>
+        <div className="rounded-lg border border-border bg-background px-3 py-2">
+          <p className="text-xs text-muted-foreground">Assignments</p>
+          <p className="mt-1 font-semibold text-foreground">{assignments.length}</p>
         </div>
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(320px,0.85fr)_minmax(0,1.15fr)]">
+      <div className="grid gap-4 xl:grid-cols-[minmax(320px,0.85fr)_minmax(0,1.15fr)]">
         <section className="rounded-lg border border-border bg-background">
           <div className="border-b border-border px-4 py-3">
             <div className="flex items-center gap-2">
