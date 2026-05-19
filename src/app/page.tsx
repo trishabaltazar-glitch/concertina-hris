@@ -4,8 +4,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import prisma from "@/lib/prisma";
 import { endOfDay, format, startOfDay } from "date-fns";
-import { SubmitButton } from "@/components/ui/submit-button";
-import { submitManualTimeEntryRequest } from "@/app/actions/time";
+import { ensureScheduleOverrideTable } from "@/lib/schedule-overrides";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +17,13 @@ type ScheduleWindow = {
   dayOfWeek: number;
   startTime: string;
   endTime: string;
+};
+
+type ScheduleOverrideWindow = {
+  date: Date;
+  startTime: string;
+  endTime: string;
+  notes: string | null;
 };
 
 type AssignedHoliday = {
@@ -127,6 +133,13 @@ function getDurationLabel(clockIn: Date, clockOut: Date | null, breaks: BreakWin
   return `${hours}h ${minutes}m`;
 }
 
+function formatScheduleTime(time?: string) {
+  if (!time) return "";
+  const [hours, minutes] = time.split(":").map(Number);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return time;
+  return format(new Date(2025, 0, 1, hours, minutes), "h:mm a");
+}
+
 function getStatusLabel(status: string) {
   if (status === "ON_TIME") return "On Time";
   if (status === "LATE") return "Late";
@@ -179,11 +192,9 @@ export default async function DashboardPage() {
   const todayEnd = endOfDay(now);
   const firstName = session.user.name?.trim().split(/\s+/)[0] || "there";
   const roleLabel = formatRoleLabel((session.user as { role?: string | null }).role);
+  await ensureScheduleOverrideTable();
 
-  const [balances, recentLogs, todayLogs, schedules, assignedHolidays] = await Promise.all([
-    prisma.leaveBalance.findMany({
-      where: { userId: session.user.id },
-    }),
+  const [recentLogs, todayLogs, schedules, scheduleOverrides, assignedHolidays] = await Promise.all([
     prisma.timeLog.findMany({
       where: { userId: session.user.id },
       orderBy: { clockIn: "desc" },
@@ -231,6 +242,14 @@ export default async function DashboardPage() {
         endTime: true,
       },
     }),
+    prisma.$queryRaw<ScheduleOverrideWindow[]>`
+      SELECT "date", "startTime", "endTime", "notes"
+      FROM "ScheduleOverride"
+      WHERE "userId" = ${session.user.id}
+        AND "date" >= ${todayStart}
+        AND "date" <= ${todayEnd}
+      ORDER BY "date" ASC
+    `,
     prisma.$queryRaw<AssignedHoliday[]>`
       SELECT "id", "name", "date", "notes"
       FROM "HolidayAssignment"
@@ -241,15 +260,15 @@ export default async function DashboardPage() {
     `,
   ]);
 
-  const leaveCreditsBalance =
-    balances.find((balance) => balance.leaveType === "LEAVE_CREDITS")?.balance || 0;
-
   const todayWorkedHours = todayLogs.reduce((sum, log) => {
     return sum + getDurationInHours(log.clockIn, log.clockOut, log.breaks);
   }, 0);
 
   const todayDuration = formatDurationParts(todayWorkedHours);
   const todayHoliday = assignedHolidays[0];
+  const todayOverride = scheduleOverrides[0];
+  const todayWeeklySchedule = schedules.find((schedule) => schedule.dayOfWeek === now.getDay());
+  const todaySchedule = todayOverride || todayWeeklySchedule || null;
   const recentActivity = recentLogs
     .flatMap((log) => {
       const events: AttendanceActivity[] = [
@@ -340,26 +359,33 @@ export default async function DashboardPage() {
 
           <div className="flex h-full flex-col rounded-lg border border-border/70 bg-background/70 p-4">
             <div>
-              <p className="text-sm font-semibold text-foreground">PFFD balance</p>
+              <p className="text-sm font-semibold text-foreground">Today&apos;s schedule</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Available pre-funded flex days
+                PH Timezone (GMT +8)
               </p>
             </div>
 
             <div className="mt-4 flex min-h-36 flex-col justify-center rounded-lg bg-card px-4 py-5 text-center ring-1 ring-border/70">
               <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                Available
+                {todayOverride ? "Special shift" : todayHoliday ? "Assigned holiday" : "Shift"}
               </p>
-              <p className="mt-2 text-4xl font-semibold tracking-tight text-foreground">
-                {leaveCreditsBalance.toFixed(1).replace(".0", "")}
+              <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
+                {todayHoliday
+                  ? todayHoliday.name
+                  : todaySchedule
+                    ? `${formatScheduleTime(todaySchedule.startTime)} - ${formatScheduleTime(todaySchedule.endTime)}`
+                    : "Off today"}
               </p>
+              {todayOverride?.notes && (
+                <p className="mt-2 text-xs text-muted-foreground">{todayOverride.notes}</p>
+              )}
             </div>
 
             <Link
-              href="/leaves"
+              href="/schedule"
               className="mt-4 inline-flex h-10 items-center justify-center rounded-md border border-border/70 bg-card px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
             >
-              View PFFD
+              View schedule
             </Link>
           </div>
         </div>
@@ -375,71 +401,6 @@ export default async function DashboardPage() {
             </div>
           </div>
         )}
-      </section>
-
-      <section className="rounded-lg border border-border/70 bg-card p-4 shadow-sm">
-        <div className="flex flex-col gap-1">
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-brand-steel">
-            Manual Entry
-          </p>
-          <h2 className="text-lg font-semibold tracking-tight text-foreground">
-            Request a time correction
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Submit missed or corrected hours for manager approval.
-          </p>
-        </div>
-
-        <form
-          action={async (formData) => {
-            "use server";
-            await submitManualTimeEntryRequest(formData);
-          }}
-          className="mt-4 grid gap-3 lg:grid-cols-[150px_130px_130px_minmax(0,1fr)_auto] lg:items-end"
-        >
-          <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
-            Date
-            <input
-              type="date"
-              name="date"
-              defaultValue={format(now, "yyyy-MM-dd")}
-              required
-              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-            />
-          </label>
-          <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
-            Clock in
-            <input
-              type="time"
-              name="clockIn"
-              required
-              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-            />
-          </label>
-          <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
-            Clock out
-            <input
-              type="time"
-              name="clockOut"
-              required
-              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-            />
-          </label>
-          <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
-            Reason
-            <input
-              type="text"
-              name="reason"
-              required
-              maxLength={500}
-              placeholder="Example: Forgot to clock out"
-              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-            />
-          </label>
-          <SubmitButton size="sm" className="h-10 px-4">
-            Submit
-          </SubmitButton>
-        </form>
       </section>
 
       <section className="rounded-lg border border-border/70 bg-card p-4 shadow-sm">
