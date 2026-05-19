@@ -1,5 +1,5 @@
 import { differenceInMinutes, format } from "date-fns";
-import { CalendarDays, CheckCircle2, Clock3, FileText, Paperclip } from "lucide-react";
+import { AlertCircle, CalendarDays, CheckCircle2, Clock3, FileText, Paperclip } from "lucide-react";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
@@ -59,15 +59,22 @@ export default async function OvertimePage({
     ? (params?.status as (typeof STATUS_FILTERS)[number])
     : "ALL";
 
-  await ensureOvertimeRequestTable();
+  let requests: OvertimeRequestRow[] = [];
+  let databaseError: string | null = null;
 
-  const requests = await prisma.$queryRaw<OvertimeRequestRow[]>`
-    SELECT "id", "startAt", "endAt", "reason", "attachmentName", "status", "createdAt"
-    FROM "OvertimeRequest"
-    WHERE "userId" = ${session.user.id}
-    ORDER BY "createdAt" DESC
-    LIMIT 50
-  `;
+  try {
+    await ensureOvertimeRequestTable();
+    requests = await prisma.$queryRaw<OvertimeRequestRow[]>`
+      SELECT "id", "startAt", "endAt", "reason", "attachmentName", "status", "createdAt"
+      FROM "OvertimeRequest"
+      WHERE "userId" = ${session.user.id}
+      ORDER BY "createdAt" DESC
+      LIMIT 50
+    `;
+  } catch (error) {
+    console.error("Failed to load overtime requests:", error);
+    databaseError = "OT requests could not be loaded right now. Please refresh after the database connection recovers.";
+  }
   const filteredRequests = statusFilter === "ALL" ? requests : requests.filter((request) => request.status === statusFilter);
   const totalHours = requests.reduce((sum, request) => sum + differenceInMinutes(request.endAt, request.startAt) / 60, 0);
   const pendingCount = requests.filter((request) => request.status === "PENDING").length;
@@ -182,7 +189,15 @@ export default async function OvertimePage({
             </div>
           </div>
 
-          {filteredRequests.length === 0 ? (
+          {databaseError ? (
+            <div className="flex min-h-56 flex-col items-center justify-center px-6 py-10 text-center">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
+                <AlertCircle className="size-5" />
+              </div>
+              <h3 className="mt-3 font-semibold">OT requests unavailable</h3>
+              <p className="mt-1.5 max-w-sm text-sm text-muted-foreground">{databaseError}</p>
+            </div>
+          ) : filteredRequests.length === 0 ? (
             <div className="flex min-h-56 flex-col items-center justify-center px-6 py-10 text-center">
               <div className="flex size-10 items-center justify-center rounded-lg bg-muted text-muted-foreground">
                 <CalendarDays className="size-5" />
