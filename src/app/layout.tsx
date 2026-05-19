@@ -28,7 +28,7 @@ export default async function RootLayout({
 
   return (
     <html lang="en" className={cn("font-sans", poppins.variable)} suppressHydrationWarning>
-      <body className={`${poppins.className} min-h-screen bg-background antialiased flex`} suppressHydrationWarning>
+      <body className={`${poppins.className} flex min-h-screen w-full overflow-x-hidden bg-background antialiased`} suppressHydrationWarning>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
           <TooltipProvider>
             {isLoggedIn ? (
@@ -36,7 +36,7 @@ export default async function RootLayout({
                 {children}
               </AppShell>
             ) : (
-              <main className="flex-1 w-full flex flex-col min-h-screen">
+              <main className="flex min-h-screen w-full min-w-0 flex-1 flex-col overflow-x-hidden">
                 {children}
               </main>
             )}

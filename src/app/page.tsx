@@ -407,29 +407,31 @@ export default async function DashboardPage() {
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-base font-semibold text-brand-red">{format(now, "EEEE")}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">
+                  <p className="mt-0.5 text-xs font-medium text-muted-foreground">
                     Today
                   </p>
                 </div>
-                <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-2xl bg-brand-red text-white">
+                <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-2xl bg-brand-red text-white shadow-sm shadow-brand-red/20">
                   <CalendarDays className="size-4" />
                 </span>
               </div>
 
-              <div className="flex flex-1 flex-col justify-center pt-5 text-center">
-                <p className="text-base font-semibold text-slate-950 dark:text-foreground">
-                  {todayHoliday
-                    ? todayHoliday.name
-                    : todaySchedule
-                      ? `${formatScheduleTime(todaySchedule.startTime)} - ${formatScheduleTime(todaySchedule.endTime)}`
-                      : "Off today"}
-                </p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {todayHoliday ? "Assigned holiday" : todayScheduleHours || "No scheduled hours"}
-                </p>
-                {todayOverride?.notes && (
-                  <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{todayOverride.notes}</p>
-                )}
+              <div className="flex flex-1 items-center justify-center pt-4">
+                <div className="w-full rounded-xl border border-brand-red/15 bg-white/65 px-3 py-3 text-center shadow-sm shadow-brand-red/5 dark:bg-background/35">
+                  <p className="text-lg font-semibold leading-none text-slate-950 dark:text-foreground">
+                    {todayHoliday
+                      ? todayHoliday.name
+                      : todaySchedule
+                        ? `${formatScheduleTime(todaySchedule.startTime)} - ${formatScheduleTime(todaySchedule.endTime)}`
+                        : "Off today"}
+                  </p>
+                  <p className="mt-2 text-xs font-medium text-muted-foreground">
+                    {todayHoliday ? "Assigned holiday" : todayScheduleHours || "No scheduled hours"}
+                  </p>
+                  {todayOverride?.notes && (
+                    <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{todayOverride.notes}</p>
+                  )}
+                </div>
               </div>
             </Link>
           </div>

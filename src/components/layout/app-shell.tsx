@@ -115,7 +115,7 @@ export function AppShell({
   return (
     <SidebarProvider defaultOpen>
       <AppSidebar user={user} />
-      <SidebarInset className="min-h-screen bg-background">
+      <SidebarInset className="min-h-screen min-w-0 overflow-x-hidden bg-background">
         <header className="hidden h-16 items-center justify-between border-b border-border/70 bg-background/85 px-6 backdrop-blur lg:flex">
           <div className="flex items-center gap-3">
             <SidebarTrigger className="rounded-xl border border-border/70 bg-card shadow-sm hover:bg-accent" />
@@ -138,7 +138,7 @@ export function AppShell({
           <NotificationsMenu />
         </header>
 
-        <main className="flex-1 p-4 md:p-6 lg:p-8">{children}</main>
+        <main className="min-w-0 flex-1 overflow-x-hidden p-4 md:p-6 lg:p-8">{children}</main>
       </SidebarInset>
     </SidebarProvider>
   )

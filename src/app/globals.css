@@ -141,11 +141,14 @@
 
   html {
     @apply font-sans;
+    overflow-x: clip;
   }
 
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+    max-width: 100%;
+    overflow-x: clip;
   }
 
   .text-brand-red { color: var(--brand-red); }
