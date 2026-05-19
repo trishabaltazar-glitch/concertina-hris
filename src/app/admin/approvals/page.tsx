@@ -9,6 +9,7 @@ import AdminLeavesPage from "@/app/admin/leaves/page";
 import AdminOvertimePage from "@/app/admin/overtime/page";
 import { type ApprovalTab, ApprovalsTabs } from "@/app/admin/approvals/approvals-tabs";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { TableSearchPagination } from "@/components/table/table-search-pagination";
 import prisma from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -158,14 +159,10 @@ async function ManualEntryApprovalsPanel({ user }: { user: AdminUser }) {
       </div>
 
       <section className="rounded-lg border border-border bg-background">
-        <div className="flex justify-end border-b border-border px-4 py-3">
-          <span className="w-fit rounded-full border border-border px-2 py-0.5 text-xs font-medium text-muted-foreground">
-            {pendingRequests} pending
-          </span>
-        </div>
+        <TableSearchPagination tableId="manual-entry-approvals-table" itemLabel="manual entry requests" />
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[860px] text-left text-sm">
+          <table id="manual-entry-approvals-table" className="w-full min-w-[860px] text-left text-sm">
             <thead className="border-b border-border bg-muted/30 text-xs text-muted-foreground">
               <tr>
                 <th className="px-4 py-3 font-semibold">Employee</th>
@@ -185,7 +182,12 @@ async function ManualEntryApprovalsPanel({ user }: { user: AdminUser }) {
                 </tr>
               ) : (
                 manualRequests.map((request) => (
-                  <tr key={request.id} className="align-top transition-colors hover:bg-muted/30">
+                  <tr
+                    key={request.id}
+                    data-table-row
+                    data-status={request.status}
+                    className="align-top transition-colors hover:bg-muted/30"
+                  >
                     <td className="px-4 py-3">
                       <p className="font-medium text-foreground">{request.userName}</p>
                       <p className="mt-0.5 text-xs text-muted-foreground">{request.userEmail}</p>

@@ -8,6 +8,7 @@ import prisma from "@/lib/prisma";
 import { ensureOvertimeRequestTable } from "@/lib/overtime-requests";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { cn } from "@/lib/utils";
+import { TableSearchPagination } from "@/components/table/table-search-pagination";
 
 export const dynamic = "force-dynamic";
 
@@ -104,13 +105,9 @@ export default async function AdminOvertimePage() {
       </div>
 
       <section className="rounded-lg border border-border bg-background">
-        <div className="flex justify-end border-b border-border px-4 py-3">
-          <span className="rounded-full border border-border px-2 py-0.5 text-xs font-medium text-muted-foreground">
-            {pendingRequests} pending
-          </span>
-        </div>
+        <TableSearchPagination tableId="ot-approvals-table" itemLabel="OT requests" />
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[920px] text-left text-sm">
+          <table id="ot-approvals-table" className="w-full min-w-[920px] text-left text-sm">
             <thead className="border-b border-border bg-muted/30 text-xs text-muted-foreground">
               <tr>
                 <th className="px-4 py-3 font-semibold">Employee</th>
@@ -125,7 +122,12 @@ export default async function AdminOvertimePage() {
               {requests.length === 0 ? (
                 <tr><td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">No OT requests yet.</td></tr>
               ) : requests.map((request) => (
-                <tr key={request.id} className="align-top transition-colors hover:bg-muted/30">
+                <tr
+                  key={request.id}
+                  data-table-row
+                  data-status={request.status}
+                  className="align-top transition-colors hover:bg-muted/30"
+                >
                   <td className="px-4 py-3"><p className="font-medium text-foreground">{request.userName}</p><p className="mt-0.5 text-xs text-muted-foreground">{request.userEmail}</p></td>
                   <td className="px-4 py-3 text-muted-foreground">{format(request.startAt, "MMM d, yyyy h:mm a")} - {format(request.endAt, "MMM d, yyyy h:mm a")}</td>
                   <td className="px-4 py-3 text-muted-foreground">{request.reason}</td>

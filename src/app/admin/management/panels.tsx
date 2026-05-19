@@ -185,17 +185,6 @@ export async function HolidayAssignmentsPanel({ user }: { user: ManagementUser }
 
   return (
     <div className="w-full space-y-4">
-      <div className="grid grid-cols-2 gap-2 text-sm sm:ml-auto sm:max-w-xs">
-        <div className="rounded-lg border border-border bg-background px-3 py-2">
-          <p className="text-xs text-muted-foreground">Employees</p>
-          <p className="mt-1 font-semibold text-foreground">{teamMembers.length}</p>
-        </div>
-        <div className="rounded-lg border border-border bg-background px-3 py-2">
-          <p className="text-xs text-muted-foreground">Assignments</p>
-          <p className="mt-1 font-semibold text-foreground">{assignments.length}</p>
-        </div>
-      </div>
-
       <div className="grid gap-4 xl:grid-cols-[minmax(320px,0.85fr)_minmax(0,1.15fr)]">
         <section className="rounded-lg border border-border bg-background">
           <div className="border-b border-border px-4 py-3">
