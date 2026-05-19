@@ -40,10 +40,14 @@ model User {
   timeLogs         TimeLog[]
   timeEntryRequests TimeEntryRequest[] @relation("TimeEntryRequestUser")
   reviewedTimeEntryRequests TimeEntryRequest[] @relation("TimeEntryRequestReviewer")
+  scheduleOverrides ScheduleOverride[] @relation("ScheduleOverrideUser")
+  assignedScheduleOverrides ScheduleOverride[] @relation("ScheduleOverrideAssigner")
   holidayAssignments HolidayAssignment[] @relation("HolidayAssignmentUser")
   assignedHolidayAssignments HolidayAssignment[] @relation("HolidayAssignmentAssigner")
   leaveBalances    LeaveBalance[]
   leaveRequests    LeaveRequest[]
+  overtimeRequests OvertimeRequest[] @relation("OvertimeRequestUser")
+  reviewedOvertimeRequests OvertimeRequest[] @relation("OvertimeRequestReviewer")
   announcements    Announcement[] // Link to authored announcements
   pages            Page[]         // Link to authored knowledge base pages
   schedules        Schedule[]     // Assigned schedules
@@ -152,6 +156,27 @@ model LeaveRequest {
   updatedAt DateTime @updatedAt
 }
 
+model OvertimeRequest {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation("OvertimeRequestUser", fields: [userId], references: [id])
+  startAt        DateTime
+  endAt          DateTime
+  reason         String
+  attachmentName String
+  attachmentType String
+  attachmentData Bytes
+  status         String   @default("PENDING")
+  reviewedById   String?
+  reviewedBy     User?    @relation("OvertimeRequestReviewer", fields: [reviewedById], references: [id])
+  reviewedAt     DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([userId, status])
+  @@index([status, createdAt])
+}
+
 model Announcement {
   id        String   @id @default(cuid())
   title     String
@@ -214,6 +239,24 @@ model Schedule {
   updatedAt DateTime @updatedAt
 
   @@unique([userId, dayOfWeek])
+}
+
+model ScheduleOverride {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation("ScheduleOverrideUser", fields: [userId], references: [id])
+  assignedById String
+  assignedBy   User     @relation("ScheduleOverrideAssigner", fields: [assignedById], references: [id])
+  date         DateTime
+  startTime    String
+  endTime      String
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([userId, date])
+  @@index([userId, date])
+  @@index([assignedById, date])
 }
 
 model AuditLog {
