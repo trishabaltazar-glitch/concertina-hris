@@ -7,7 +7,6 @@ import { auth } from "@/auth";
 import { updateLeaveRequestStatus } from "@/app/actions/admin";
 import prisma from "@/lib/prisma";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 
 export const dynamic = "force-dynamic";
@@ -180,12 +179,6 @@ export default async function AdminLeavesPage() {
 
   return (
     <div className="w-full space-y-4">
-      <div className="flex justify-end">
-        <Button asChild variant="outline" size="sm" className="w-fit">
-          <Link href="/leaves">Employee view</Link>
-        </Button>
-      </div>
-
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <Metric label="Requests in view" value={requestsWithMeta.length} helper="Latest 50 requests shown" icon={ListFilter} />
         <Metric label="Pending approvals" value={pendingCount} helper="Waiting for review" icon={Clock3} />

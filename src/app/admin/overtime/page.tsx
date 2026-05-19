@@ -1,5 +1,5 @@
 import { format } from "date-fns";
-import { CheckCircle2, Paperclip, XCircle } from "lucide-react";
+import { CheckCircle2, Clock3, ListFilter, Paperclip, Timer, XCircle } from "lucide-react";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
@@ -34,6 +34,37 @@ function StatusBadge({ status }: { status: string }) {
   return <span className={cn("inline-flex rounded-full border px-2 py-0.5 text-xs font-medium", styles)}>{status.charAt(0) + status.slice(1).toLowerCase()}</span>;
 }
 
+function Metric({
+  label,
+  value,
+  helper,
+  icon: Icon,
+}: {
+  label: string;
+  value: number | string;
+  helper: string;
+  icon: React.ComponentType<{ className?: string }>;
+}) {
+  return (
+    <div className="rounded-lg border border-border bg-background p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-medium text-muted-foreground">{label}</p>
+          <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">{value}</p>
+        </div>
+        <span className="inline-flex size-7 items-center justify-center rounded-md border border-border text-muted-foreground">
+          <Icon className="size-3.5" />
+        </span>
+      </div>
+      <p className="mt-3 border-t border-border pt-3 text-xs text-muted-foreground">{helper}</p>
+    </div>
+  );
+}
+
+function getOvertimeHours(request: OvertimeRequestRow) {
+  return Math.max(0, (request.endAt.getTime() - request.startAt.getTime()) / (1000 * 60 * 60));
+}
+
 export default async function AdminOvertimePage() {
   const session = await auth();
   const user = session?.user as { id?: string; role?: string } | undefined;
@@ -59,9 +90,19 @@ export default async function AdminOvertimePage() {
         LIMIT 100
       `;
   const pendingRequests = requests.filter((request) => request.status === "PENDING").length;
+  const approvedRequests = requests.filter((request) => request.status === "APPROVED").length;
+  const rejectedRequests = requests.filter((request) => request.status === "REJECTED").length;
+  const requestedHours = requests.reduce((sum, request) => sum + getOvertimeHours(request), 0);
 
   return (
     <div className="w-full space-y-4">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <Metric label="Requests in view" value={requests.length} helper="Latest 100 requests shown" icon={ListFilter} />
+        <Metric label="Pending approvals" value={pendingRequests} helper="Waiting for review" icon={Clock3} />
+        <Metric label="Approved requests" value={approvedRequests} helper={`${rejectedRequests} rejected or declined`} icon={CheckCircle2} />
+        <Metric label="Hours requested" value={requestedHours.toFixed(1).replace(".0", "")} helper="Total OT hours represented" icon={Timer} />
+      </div>
+
       <section className="rounded-lg border border-border bg-background">
         <div className="flex justify-end border-b border-border px-4 py-3">
           <span className="rounded-full border border-border px-2 py-0.5 text-xs font-medium text-muted-foreground">
