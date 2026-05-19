@@ -47,8 +47,10 @@ function getDurationLabel(clockIn: Date, clockOut: Date) {
 
 export default async function TimeCorrectionsPage({
   searchParams,
+  basePath = "/time-corrections",
 }: {
   searchParams?: Promise<{ status?: string }>;
+  basePath?: string;
 }) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
@@ -76,6 +78,10 @@ export default async function TimeCorrectionsPage({
     { label: "Pending", value: pendingCount, helper: "waiting for review", icon: Clock3, className: "text-amber-700", iconClassName: "bg-amber-100 text-amber-700" },
     { label: "Approved", value: approvedCount, helper: `${correctedHours.toFixed(1).replace(".0", "")} corrected hours filed`, icon: CheckCircle2, className: "text-emerald-700", iconClassName: "bg-emerald-100 text-emerald-700" },
   ];
+  const getStatusHref = (status: (typeof STATUS_FILTERS)[number]) => {
+    if (status === "ALL") return basePath;
+    return `${basePath}${basePath.includes("?") ? "&" : "?"}status=${status}`;
+  };
 
   return (
     <div className="w-full space-y-5">
@@ -155,7 +161,7 @@ export default async function TimeCorrectionsPage({
               <div className="flex flex-wrap gap-1.5">
                 {STATUS_FILTERS.map((status) => (
                   <Button key={status} asChild variant={statusFilter === status ? "secondary" : "outline"} size="xs" className="shadow-none">
-                    <a href={status === "ALL" ? "/time-corrections" : `/time-corrections?status=${status}`}>
+                    <a href={getStatusHref(status)}>
                       {status === "ALL" ? "All" : status.charAt(0) + status.slice(1).toLowerCase()}
                     </a>
                   </Button>

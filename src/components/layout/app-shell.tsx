@@ -22,6 +22,8 @@ function getPageLabel(pathname: string) {
       return "Overview"
     case "/timesheets":
       return "Timesheets"
+    case "/requests":
+      return "Requests"
     case "/time-corrections":
       return "Time Corrections"
     case "/schedule":

@@ -9,6 +9,7 @@ type AuthUser = {
 const protectedRoutes = [
     "/",
     "/timesheets",
+    "/requests",
     "/time-corrections",
     "/leaves",
     "/overtime",

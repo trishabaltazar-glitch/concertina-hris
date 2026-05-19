@@ -51,10 +51,8 @@ import {
 const EMP_ROUTES = [
   { name: "Overview", href: "/", icon: DashboardSquare02Icon },
   { name: "Timesheets", href: "/timesheets", icon: TimeQuarterPassIcon },
-  { name: "Time Corrections", href: "/time-corrections", icon: CalendarCheckIn01Icon },
   { name: "Schedules", href: "/schedule", icon: CalendarUserIcon },
-  { name: "PFFD Requests", href: "/leaves", icon: TaskDaily02Icon },
-  { name: "OT Requests", href: "/overtime", icon: CalendarCheckIn01Icon },
+  { name: "Requests", href: "/requests", icon: TaskDaily02Icon },
 ]
 
 const ADMIN_ROUTES = [
@@ -115,7 +113,7 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
           <SidebarGroupContent>
             <SidebarMenu>
               {EMP_ROUTES.map((route) => {
-                const isActive = pathname === route.href
+                const isActive = pathname === route.href || (route.href === "/requests" && ["/leaves", "/overtime", "/time-corrections"].includes(pathname))
 
                 return (
                   <SidebarMenuItem key={route.name}>
@@ -132,7 +130,7 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
                     >
                       <Link
                         href={route.href}
-                        prefetch
+                        prefetch={route.href !== "/requests"}
                         className="flex w-full items-center gap-2.5 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0"
                       >
                         <HugeiconsIcon
@@ -147,6 +145,7 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
                   </SidebarMenuItem>
                 )
               })}
+
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

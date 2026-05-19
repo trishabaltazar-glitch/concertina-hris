@@ -46,8 +46,10 @@ function getDurationLabel(startAt: Date, endAt: Date) {
 
 export default async function OvertimePage({
   searchParams,
+  basePath = "/overtime",
 }: {
   searchParams?: Promise<{ status?: string }>;
+  basePath?: string;
 }) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
@@ -78,6 +80,10 @@ export default async function OvertimePage({
     { label: "Pending", value: pendingCount, helper: "waiting for review", icon: Clock3, className: "text-amber-700", iconClassName: "bg-amber-100 text-amber-700" },
     { label: "Approved OT", value: approvedHours.toFixed(1).replace(".0", ""), helper: `of ${totalHours.toFixed(1).replace(".0", "")} filed hours`, icon: CheckCircle2, className: "text-emerald-700", iconClassName: "bg-emerald-100 text-emerald-700" },
   ];
+  const getStatusHref = (status: (typeof STATUS_FILTERS)[number]) => {
+    if (status === "ALL") return basePath;
+    return `${basePath}${basePath.includes("?") ? "&" : "?"}status=${status}`;
+  };
 
   return (
     <div className="w-full space-y-5">
@@ -167,7 +173,7 @@ export default async function OvertimePage({
               <div className="flex flex-wrap gap-1.5">
                 {STATUS_FILTERS.map((status) => (
                   <Button key={status} asChild variant={statusFilter === status ? "secondary" : "outline"} size="xs" className="shadow-none">
-                    <a href={status === "ALL" ? "/overtime" : `/overtime?status=${status}`}>
+                    <a href={getStatusHref(status)}>
                       {status === "ALL" ? "All" : status.charAt(0) + status.slice(1).toLowerCase()}
                     </a>
                   </Button>

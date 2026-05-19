@@ -9,10 +9,8 @@ import { handleSignOut } from "@/app/actions/auth";
 const EMP_ROUTES = [
     { name: "Overview", href: "/", icon: LayoutDashboard },
     { name: "Timesheets", href: "/timesheets", icon: Clock },
-    { name: "Time Corrections", href: "/time-corrections", icon: Clock },
     { name: "Schedules", href: "/schedule", icon: CalendarDays },
-    { name: "PFFD Requests", href: "/leaves", icon: CalendarHeart },
-    { name: "OT Requests", href: "/overtime", icon: Clock },
+    { name: "Requests", href: "/requests", icon: CalendarHeart },
     { name: "My Profile", href: "/profile", icon: UserCircle },
 ];
 
@@ -44,11 +42,12 @@ export function Sidebar({ user }: { user?: { name?: string | null; email?: strin
                     Main Menu
                 </div>
                 {EMP_ROUTES.map((route) => {
-                    const isActive = pathname === route.href;
+                    const isActive = pathname === route.href || (route.href === "/requests" && ["/leaves", "/overtime", "/time-corrections"].includes(pathname));
                     return (
                         <Link
                             key={route.name}
                             href={route.href}
+                            prefetch={route.href !== "/requests"}
                             className={cn(
                                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
                                 isActive
