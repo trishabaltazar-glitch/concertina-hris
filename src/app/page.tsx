@@ -482,7 +482,7 @@ export default async function DashboardPage() {
                   </p>
                   <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-foreground">
                     <span
-                      className={`inline-flex min-w-12 justify-center rounded-md border px-2.5 py-1 text-sm font-bold leading-none tracking-[0.08em] shadow-sm ring-1 ${getActivityClass(event.type)}`}
+                      className={`inline-flex min-w-10 justify-center rounded-md border px-2 py-0.5 text-xs font-semibold leading-5 tracking-[0.06em] shadow-sm ring-1 ${getActivityClass(event.type)}`}
                     >
                       {event.label}
                     </span>
