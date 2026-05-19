@@ -2,61 +2,57 @@
 
 import type { ReactNode } from "react";
 import { useState } from "react";
-import { CalendarCheck, Clock3, FileText } from "lucide-react";
+import { Clock3, FileCheck2, FileText } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
-const REQUEST_TABS = [
+const APPROVAL_TABS = [
   {
     id: "pffd",
     label: "PFFD",
-    title: "Pre-funded flex days",
-    description: "Paid flex day filings",
+    title: "PFFD Approvals",
+    description: "Review pre-funded flex day filings",
     icon: FileText,
   },
   {
     id: "ot",
     label: "OT",
-    title: "Overtime",
-    description: "Extra hours with attachment",
+    title: "OT Approvals",
+    description: "Review overtime filings and attachments",
     icon: Clock3,
   },
   {
-    id: "time-corrections",
+    id: "manual-entry",
     label: "Manual Entry",
-    title: "Manual entry",
-    description: "Missed or adjusted logs",
-    icon: CalendarCheck,
+    title: "Manual Entry Approvals",
+    description: "Approve missed or corrected time logs",
+    icon: FileCheck2,
   },
 ] as const;
 
-export type RequestTab = (typeof REQUEST_TABS)[number]["id"];
+export type ApprovalTab = (typeof APPROVAL_TABS)[number]["id"];
 
-type RequestsTabsProps = {
-  activeTab: RequestTab;
-  panels: Record<RequestTab, ReactNode>;
+type ApprovalsTabsProps = {
+  activeTab: ApprovalTab;
+  panels: Record<ApprovalTab, ReactNode>;
 };
 
-export function RequestsTabs({ activeTab, panels }: RequestsTabsProps) {
+export function ApprovalsTabs({ activeTab, panels }: ApprovalsTabsProps) {
   const [selectedTab, setSelectedTab] = useState(activeTab);
-  const selectedRequest = REQUEST_TABS.find((tab) => tab.id === selectedTab) ?? REQUEST_TABS[0];
+  const selectedApproval = APPROVAL_TABS.find((tab) => tab.id === selectedTab) ?? APPROVAL_TABS[0];
 
   return (
     <div className="w-full space-y-4">
       <section className="border-b border-border pb-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-steel">Requests</p>
-            <h1 className="mt-1 text-2xl font-semibold tracking-tight text-foreground">{selectedRequest.title}</h1>
-            <p className="mt-1 text-sm text-muted-foreground">{selectedRequest.description}</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-steel">Approvals</p>
+            <h1 className="mt-1 text-2xl font-semibold tracking-tight text-foreground">{selectedApproval.title}</h1>
+            <p className="mt-1 text-sm text-muted-foreground">{selectedApproval.description}</p>
           </div>
 
-          <div
-            role="tablist"
-            aria-label="Request type"
-            className="grid gap-2 sm:grid-cols-3 lg:w-[620px]"
-          >
-            {REQUEST_TABS.map((tab) => {
+          <div role="tablist" aria-label="Approval type" className="grid gap-2 sm:grid-cols-3 lg:w-[680px]">
+            {APPROVAL_TABS.map((tab) => {
               const Icon = tab.icon;
               const isActive = selectedTab === tab.id;
 
@@ -66,8 +62,8 @@ export function RequestsTabs({ activeTab, panels }: RequestsTabsProps) {
                   type="button"
                   role="tab"
                   aria-selected={isActive}
-                  aria-controls={`request-panel-${tab.id}`}
-                  id={`request-tab-${tab.id}`}
+                  aria-controls={`approval-panel-${tab.id}`}
+                  id={`approval-tab-${tab.id}`}
                   onClick={() => setSelectedTab(tab.id)}
                   className={cn(
                     "group relative flex h-11 items-center gap-2.5 rounded-lg border px-3 text-left transition-colors",
@@ -94,12 +90,12 @@ export function RequestsTabs({ activeTab, panels }: RequestsTabsProps) {
         </div>
       </section>
 
-      {REQUEST_TABS.map((tab) => (
+      {APPROVAL_TABS.map((tab) => (
         <section
           key={tab.id}
-          id={`request-panel-${tab.id}`}
+          id={`approval-panel-${tab.id}`}
           role="tabpanel"
-          aria-labelledby={`request-tab-${tab.id}`}
+          aria-labelledby={`approval-tab-${tab.id}`}
           hidden={selectedTab !== tab.id}
         >
           {panels[tab.id]}

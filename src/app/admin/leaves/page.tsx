@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 const ADMIN_VISIBLE_ROLES = ["EMPLOYEE", "MANAGER"];
 
 async function ensureLeaveDayBreakdownColumn() {
-  await prisma.$executeRawUnsafe(`ALTER TABLE "LeaveRequest" ADD COLUMN IF NOT EXISTS "dayBreakdown" JSONB`);
+  // Managed by Prisma migration 20260519010000_add_leave_day_breakdown.
 }
 
 type LeaveRequestWithMeta = {
@@ -161,26 +161,13 @@ export default async function AdminLeavesPage() {
     take: 50,
   });
 
-  const requestsWithMeta = await Promise.all(
-    requests.map(async (request) => {
-      const meta = await prisma.$queryRaw<
-        { requestedDays: number; dayType: string; dayBreakdown: unknown; attachmentName: string | null }[]
-      >`
-        SELECT "requestedDays", "dayType", "dayBreakdown", "attachmentName"
-        FROM "LeaveRequest"
-        WHERE "id" = ${request.id}
-        LIMIT 1
-      `;
-
-      return {
-        ...request,
-        requestedDays: meta[0]?.requestedDays || 1,
-        dayType: meta[0]?.dayType || "FULL_DAY",
-        dayBreakdown: normalizeLeaveBreakdown(meta[0]?.dayBreakdown),
-        attachmentName: meta[0]?.attachmentName || null,
-      };
-    })
-  );
+  const requestsWithMeta = requests.map((request) => ({
+    ...request,
+    requestedDays: request.requestedDays || 1,
+    dayType: request.dayType || "FULL_DAY",
+    dayBreakdown: normalizeLeaveBreakdown(request.dayBreakdown),
+    attachmentName: request.attachmentName || null,
+  }));
   const statusRank: Record<string, number> = { PENDING: 0, APPROVED: 1, REJECTED: 2 };
   requestsWithMeta.sort((a, b) => {
     return (statusRank[a.status] ?? 3) - (statusRank[b.status] ?? 3);

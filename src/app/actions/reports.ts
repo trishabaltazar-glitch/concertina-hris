@@ -282,35 +282,36 @@ export async function getReportPreview(startDate: string, endDate: string, filte
   const users = await getReportUsers(user, filters);
   const userIds = users.map((employee) => employee.id);
 
-  const [logs, leaveRequests, auditLogs, filterUsers] = await Promise.all([
-    prisma.timeLog.findMany({
-      where: {
-        userId: { in: userIds },
-        clockIn: { gte: start, lte: end },
-      },
-      include: { breaks: true },
-      orderBy: [{ userId: "asc" }, { clockIn: "asc" }],
-    }),
-    prisma.leaveRequest.findMany({
-      where: {
-        userId: { in: userIds },
-        status: "APPROVED",
-        leaveType: "LEAVE_CREDITS",
-        startDate: { lte: end },
-        endDate: { gte: start },
-      },
-    }),
-    prisma.auditLog.findMany({
-      where: {
-        createdAt: { gte: start, lte: end },
-        action: { in: ["PFFD_APPROVED", "PFFD_REJECTED", "EMPLOYEE_CREATED", "EMPLOYEE_UPDATED", "SCHEDULE_UPDATED"] },
-      },
-      include: { user: { select: { name: true, email: true } } },
-      orderBy: { createdAt: "desc" },
-      take: 8,
-    }),
-    getReportUsers(user),
-  ]);
+  const logs = await prisma.timeLog.findMany({
+    where: {
+      userId: { in: userIds },
+      clockIn: { gte: start, lte: end },
+    },
+    include: { breaks: true },
+    orderBy: [{ userId: "asc" }, { clockIn: "asc" }],
+  });
+
+  const leaveRequests = await prisma.leaveRequest.findMany({
+    where: {
+      userId: { in: userIds },
+      status: "APPROVED",
+      leaveType: "LEAVE_CREDITS",
+      startDate: { lte: end },
+      endDate: { gte: start },
+    },
+  });
+
+  const auditLogs = await prisma.auditLog.findMany({
+    where: {
+      createdAt: { gte: start, lte: end },
+      action: { in: ["PFFD_APPROVED", "PFFD_REJECTED", "EMPLOYEE_CREATED", "EMPLOYEE_UPDATED", "SCHEDULE_UPDATED"] },
+    },
+    include: { user: { select: { name: true, email: true } } },
+    orderBy: { createdAt: "desc" },
+    take: 8,
+  });
+
+  const filterUsers = await getReportUsers(user);
 
   const report = buildReportRows(users, logs, leaveRequests, startDate, endDate);
   const departments = Array.from(new Set(filterUsers.map((employee) => employee.department).filter(Boolean) as string[])).sort();

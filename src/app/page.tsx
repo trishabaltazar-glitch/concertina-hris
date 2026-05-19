@@ -5,6 +5,7 @@ import Link from "next/link";
 import prisma from "@/lib/prisma";
 import { endOfDay, format, startOfDay } from "date-fns";
 import { ensureScheduleOverrideTable } from "@/lib/schedule-overrides";
+import { CalendarDays } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -137,7 +138,23 @@ function formatScheduleTime(time?: string) {
   if (!time) return "";
   const [hours, minutes] = time.split(":").map(Number);
   if (Number.isNaN(hours) || Number.isNaN(minutes)) return time;
-  return format(new Date(2025, 0, 1, hours, minutes), "h:mm a");
+  return format(new Date(2025, 0, 1, hours, minutes), minutes === 0 ? "h a" : "h:mm a");
+}
+
+function getScheduleHoursLabel(schedule?: { startTime: string; endTime: string } | null) {
+  if (!schedule) return "";
+
+  const [startHours, startMinutes] = schedule.startTime.split(":").map(Number);
+  const [endHours, endMinutes] = schedule.endTime.split(":").map(Number);
+
+  if ([startHours, startMinutes, endHours, endMinutes].some(Number.isNaN)) return "";
+
+  const startTotalMinutes = startHours * 60 + startMinutes;
+  let endTotalMinutes = endHours * 60 + endMinutes;
+  if (endTotalMinutes <= startTotalMinutes) endTotalMinutes += 24 * 60;
+
+  const hours = (endTotalMinutes - startTotalMinutes) / 60;
+  return Number.isInteger(hours) ? `${hours} hours` : `${hours.toFixed(1).replace(".0", "")} hours`;
 }
 
 function getStatusLabel(status: string) {
@@ -194,71 +211,73 @@ export default async function DashboardPage() {
   const roleLabel = formatRoleLabel((session.user as { role?: string | null }).role);
   await ensureScheduleOverrideTable();
 
-  const [recentLogs, todayLogs, schedules, scheduleOverrides, assignedHolidays] = await Promise.all([
-    prisma.timeLog.findMany({
-      where: { userId: session.user.id },
-      orderBy: { clockIn: "desc" },
-      take: 5,
-      select: {
-        id: true,
-        clockIn: true,
-        clockOut: true,
-        status: true,
-        breaks: {
-          select: {
-            startedAt: true,
-            endedAt: true,
-          },
+  const recentLogs = await prisma.timeLog.findMany({
+    where: { userId: session.user.id },
+    orderBy: { clockIn: "desc" },
+    take: 5,
+    select: {
+      id: true,
+      clockIn: true,
+      clockOut: true,
+      status: true,
+      breaks: {
+        select: {
+          startedAt: true,
+          endedAt: true,
         },
       },
-    }),
-    prisma.timeLog.findMany({
-      where: {
-        userId: session.user.id,
-        clockIn: {
-          gte: todayStart,
-          lte: todayEnd,
+    },
+  });
+
+  const todayLogs = await prisma.timeLog.findMany({
+    where: {
+      userId: session.user.id,
+      clockIn: {
+        gte: todayStart,
+        lte: todayEnd,
+      },
+    },
+    orderBy: { clockIn: "desc" },
+    select: {
+      id: true,
+      clockIn: true,
+      clockOut: true,
+      status: true,
+      breaks: {
+        select: {
+          startedAt: true,
+          endedAt: true,
         },
       },
-      orderBy: { clockIn: "desc" },
-      select: {
-        id: true,
-        clockIn: true,
-        clockOut: true,
-        status: true,
-        breaks: {
-          select: {
-            startedAt: true,
-            endedAt: true,
-          },
-        },
-      },
-    }),
-    prisma.schedule.findMany({
-      where: { userId: session.user.id },
-      select: {
-        dayOfWeek: true,
-        startTime: true,
-        endTime: true,
-      },
-    }),
-    prisma.$queryRaw<ScheduleOverrideWindow[]>`
-      SELECT "date", "startTime", "endTime", "notes"
-      FROM "ScheduleOverride"
-      WHERE "userId" = ${session.user.id}
-        AND "date" >= ${todayStart}
-        AND "date" <= ${todayEnd}
-      ORDER BY "date" ASC
-    `,
-    prisma.$queryRaw<AssignedHoliday[]>`
-      SELECT "id", "name", "date", "notes"
-      FROM "HolidayAssignment"
-      WHERE "userId" = ${session.user.id}
-        AND "date" >= ${todayStart}
-        AND "date" <= ${todayEnd}
-      ORDER BY "date" ASC
-    `,
-  ]);
+    },
+  });
+
+  const schedules = await prisma.schedule.findMany({
+    where: { userId: session.user.id },
+    select: {
+      dayOfWeek: true,
+      startTime: true,
+      endTime: true,
+    },
+  });
+
+  const scheduleOverrides = await prisma.$queryRaw<ScheduleOverrideWindow[]>`
+    SELECT "date", "startTime", "endTime", "notes"
+    FROM "ScheduleOverride"
+    WHERE "userId" = ${session.user.id}
+      AND "date" >= ${todayStart}
+      AND "date" <= ${todayEnd}
+    ORDER BY "date" ASC
+  `;
+
+  const assignedHolidays = await prisma.$queryRaw<AssignedHoliday[]>`
+    SELECT "id", "name", "date", "notes"
+    FROM "HolidayAssignment"
+    WHERE "userId" = ${session.user.id}
+      AND "date" >= ${todayStart}
+      AND "date" <= ${todayEnd}
+    ORDER BY "date" ASC
+  `;
 
   const todayWorkedHours = todayLogs.reduce((sum, log) => {
     return sum + getDurationInHours(log.clockIn, log.clockOut, log.breaks);
@@ -269,6 +288,7 @@ export default async function DashboardPage() {
   const todayOverride = scheduleOverrides[0];
   const todayWeeklySchedule = schedules.find((schedule) => schedule.dayOfWeek === now.getDay());
   const todaySchedule = todayOverride || todayWeeklySchedule || null;
+  const todayScheduleHours = getScheduleHoursLabel(todaySchedule);
   const recentActivity = recentLogs
     .flatMap((log) => {
       const events: AttendanceActivity[] = [
@@ -357,35 +377,38 @@ export default async function DashboardPage() {
             </p>
           </div>
 
-          <div className="flex h-full flex-col rounded-lg border border-border/70 bg-background/70 p-4">
-            <div>
-              <p className="text-sm font-semibold text-foreground">Today&apos;s schedule</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                PH Timezone (GMT +8)
-              </p>
-            </div>
-
-            <div className="mt-4 flex min-h-36 flex-col justify-center rounded-lg bg-card px-4 py-5 text-center ring-1 ring-border/70">
-              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                {todayOverride ? "Special shift" : todayHoliday ? "Assigned holiday" : "Shift"}
-              </p>
-              <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
-                {todayHoliday
-                  ? todayHoliday.name
-                  : todaySchedule
-                    ? `${formatScheduleTime(todaySchedule.startTime)} - ${formatScheduleTime(todaySchedule.endTime)}`
-                    : "Off today"}
-              </p>
-              {todayOverride?.notes && (
-                <p className="mt-2 text-xs text-muted-foreground">{todayOverride.notes}</p>
-              )}
-            </div>
-
+          <div className="flex h-full flex-col">
             <Link
               href="/schedule"
-              className="mt-4 inline-flex h-10 items-center justify-center rounded-md border border-border/70 bg-card px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              className="flex min-h-[138px] flex-1 flex-col rounded-[18px] border border-brand-red bg-rose-50/80 px-4 py-4 text-left transition-colors hover:bg-rose-50 dark:bg-rose-950/20 dark:hover:bg-rose-950/30"
             >
-              View schedule
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-base font-semibold text-brand-red">{format(now, "EEEE")}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Today
+                  </p>
+                </div>
+                <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-2xl bg-brand-red text-white">
+                  <CalendarDays className="size-4" />
+                </span>
+              </div>
+
+              <div className="flex flex-1 flex-col justify-center pt-5 text-center">
+                <p className="text-base font-semibold text-slate-950 dark:text-foreground">
+                  {todayHoliday
+                    ? todayHoliday.name
+                    : todaySchedule
+                      ? `${formatScheduleTime(todaySchedule.startTime)} - ${formatScheduleTime(todaySchedule.endTime)}`
+                      : "Off today"}
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {todayHoliday ? "Assigned holiday" : todayScheduleHours || "No scheduled hours"}
+                </p>
+                {todayOverride?.notes && (
+                  <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{todayOverride.notes}</p>
+                )}
+              </div>
             </Link>
           </div>
         </div>

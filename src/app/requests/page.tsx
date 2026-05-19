@@ -53,11 +53,12 @@ export default async function RequestsPage({
     params?.status ? { status: params.status } : {}
   );
 
-  const [pffdPanel, overtimePanel, timeCorrectionsPanel] = await Promise.all([
-    safePanel("PFFD", () => LeavesPage()),
-    safePanel("OT", () => OvertimePage({ searchParams: statusSearchParams, basePath: "/requests?tab=ot" })),
-    safePanel("Time corrections", () => TimeCorrectionsPage({ searchParams: statusSearchParams, basePath: "/requests?tab=time-corrections" })),
-  ]);
+  const pffdPanel = await safePanel("PFFD", () => LeavesPage());
+  const overtimePanel = await safePanel("OT", () => OvertimePage({ searchParams: statusSearchParams, basePath: "/requests?tab=ot" }));
+  const timeCorrectionsPanel = await safePanel(
+    "Time corrections",
+    () => TimeCorrectionsPage({ searchParams: statusSearchParams, basePath: "/requests?tab=time-corrections" })
+  );
 
   return (
     <RequestsTabs

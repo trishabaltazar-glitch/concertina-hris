@@ -2,61 +2,57 @@
 
 import type { ReactNode } from "react";
 import { useState } from "react";
-import { CalendarCheck, Clock3, FileText } from "lucide-react";
+import { CalendarDays, CalendarPlus, Users } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
-const REQUEST_TABS = [
+const MANAGEMENT_TABS = [
   {
-    id: "pffd",
-    label: "PFFD",
-    title: "Pre-funded flex days",
-    description: "Paid flex day filings",
-    icon: FileText,
+    id: "team",
+    label: "Team",
+    title: "Team Management",
+    description: "Profiles, roles, reporting lines, and balances",
+    icon: Users,
   },
   {
-    id: "ot",
-    label: "OT",
-    title: "Overtime",
-    description: "Extra hours with attachment",
-    icon: Clock3,
+    id: "schedules",
+    label: "Schedules",
+    title: "Schedules Manager",
+    description: "Weekly schedules and special shifts",
+    icon: CalendarDays,
   },
   {
-    id: "time-corrections",
-    label: "Manual Entry",
-    title: "Manual entry",
-    description: "Missed or adjusted logs",
-    icon: CalendarCheck,
+    id: "holidays",
+    label: "Holidays",
+    title: "Holiday Assignments",
+    description: "Employee-specific holiday coverage",
+    icon: CalendarPlus,
   },
 ] as const;
 
-export type RequestTab = (typeof REQUEST_TABS)[number]["id"];
+export type ManagementTab = (typeof MANAGEMENT_TABS)[number]["id"];
 
-type RequestsTabsProps = {
-  activeTab: RequestTab;
-  panels: Record<RequestTab, ReactNode>;
+type ManagementTabsProps = {
+  activeTab: ManagementTab;
+  panels: Record<ManagementTab, ReactNode>;
 };
 
-export function RequestsTabs({ activeTab, panels }: RequestsTabsProps) {
+export function ManagementTabs({ activeTab, panels }: ManagementTabsProps) {
   const [selectedTab, setSelectedTab] = useState(activeTab);
-  const selectedRequest = REQUEST_TABS.find((tab) => tab.id === selectedTab) ?? REQUEST_TABS[0];
+  const selectedTool = MANAGEMENT_TABS.find((tab) => tab.id === selectedTab) ?? MANAGEMENT_TABS[0];
 
   return (
     <div className="w-full space-y-4">
       <section className="border-b border-border pb-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-steel">Requests</p>
-            <h1 className="mt-1 text-2xl font-semibold tracking-tight text-foreground">{selectedRequest.title}</h1>
-            <p className="mt-1 text-sm text-muted-foreground">{selectedRequest.description}</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-steel">Management</p>
+            <h1 className="mt-1 text-2xl font-semibold tracking-tight text-foreground">{selectedTool.title}</h1>
+            <p className="mt-1 text-sm text-muted-foreground">{selectedTool.description}</p>
           </div>
 
-          <div
-            role="tablist"
-            aria-label="Request type"
-            className="grid gap-2 sm:grid-cols-3 lg:w-[620px]"
-          >
-            {REQUEST_TABS.map((tab) => {
+          <div role="tablist" aria-label="Management tool" className="grid gap-2 sm:grid-cols-3 lg:w-[680px]">
+            {MANAGEMENT_TABS.map((tab) => {
               const Icon = tab.icon;
               const isActive = selectedTab === tab.id;
 
@@ -66,8 +62,8 @@ export function RequestsTabs({ activeTab, panels }: RequestsTabsProps) {
                   type="button"
                   role="tab"
                   aria-selected={isActive}
-                  aria-controls={`request-panel-${tab.id}`}
-                  id={`request-tab-${tab.id}`}
+                  aria-controls={`management-panel-${tab.id}`}
+                  id={`management-tab-${tab.id}`}
                   onClick={() => setSelectedTab(tab.id)}
                   className={cn(
                     "group relative flex h-11 items-center gap-2.5 rounded-lg border px-3 text-left transition-colors",
@@ -94,12 +90,12 @@ export function RequestsTabs({ activeTab, panels }: RequestsTabsProps) {
         </div>
       </section>
 
-      {REQUEST_TABS.map((tab) => (
+      {MANAGEMENT_TABS.map((tab) => (
         <section
           key={tab.id}
-          id={`request-panel-${tab.id}`}
+          id={`management-panel-${tab.id}`}
           role="tabpanel"
-          aria-labelledby={`request-tab-${tab.id}`}
+          aria-labelledby={`management-tab-${tab.id}`}
           hidden={selectedTab !== tab.id}
         >
           {panels[tab.id]}

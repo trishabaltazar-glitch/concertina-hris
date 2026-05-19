@@ -25,30 +25,29 @@ export default async function AdminSchedulesPage() {
   }
   await ensureScheduleOverrideTable();
 
-  const [users, scheduleOverrides] = await Promise.all([
-    prisma.user.findMany({
-      where: sessionUser.role === "ADMIN" ? undefined : { managerId: sessionUser.id, role: "EMPLOYEE" },
-      orderBy: { name: 'asc' },
-      include: {
-        schedules: true,
-      }
-    }),
-    sessionUser.role === "ADMIN"
-      ? prisma.$queryRaw<ScheduleOverrideRow[]>`
-          SELECT so."id", so."userId", so."date", so."startTime", so."endTime", so."notes"
-          FROM "ScheduleOverride" so
-          INNER JOIN "User" u ON u."id" = so."userId"
-          ORDER BY so."date" ASC
-        `
-      : prisma.$queryRaw<ScheduleOverrideRow[]>`
-          SELECT so."id", so."userId", so."date", so."startTime", so."endTime", so."notes"
-          FROM "ScheduleOverride" so
-          INNER JOIN "User" u ON u."id" = so."userId"
-          WHERE u."managerId" = ${sessionUser.id}
-            AND u."role" = 'EMPLOYEE'
-          ORDER BY so."date" ASC
-        `,
-  ]);
+  const users = await prisma.user.findMany({
+    where: sessionUser.role === "ADMIN" ? undefined : { managerId: sessionUser.id, role: "EMPLOYEE" },
+    orderBy: { name: 'asc' },
+    include: {
+      schedules: true,
+    }
+  });
+
+  const scheduleOverrides = sessionUser.role === "ADMIN"
+    ? await prisma.$queryRaw<ScheduleOverrideRow[]>`
+        SELECT so."id", so."userId", so."date", so."startTime", so."endTime", so."notes"
+        FROM "ScheduleOverride" so
+        INNER JOIN "User" u ON u."id" = so."userId"
+        ORDER BY so."date" ASC
+      `
+    : await prisma.$queryRaw<ScheduleOverrideRow[]>`
+        SELECT so."id", so."userId", so."date", so."startTime", so."endTime", so."notes"
+        FROM "ScheduleOverride" so
+        INNER JOIN "User" u ON u."id" = so."userId"
+        WHERE u."managerId" = ${sessionUser.id}
+          AND u."role" = 'EMPLOYEE'
+        ORDER BY so."date" ASC
+      `;
 
   const formattedUsers = users.map((user) => ({
     ...user,

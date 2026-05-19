@@ -10,13 +10,12 @@ import {
 } from "@hugeicons/react"
 import {
   ArrowDown01Icon,
-  Calendar03Icon,
-  CalendarCheckIn01Icon,
   CalendarUserIcon,
+  Clock03Icon,
   DashboardSquare02Icon,
-  FileUserIcon,
+  FileValidationIcon,
   Logout02Icon,
-  TaskDaily02Icon,
+  NoteDoneIcon,
   TimeQuarterPassIcon,
   UserGroupIcon,
   Analytics02Icon,
@@ -52,17 +51,14 @@ const EMP_ROUTES = [
   { name: "Overview", href: "/", icon: DashboardSquare02Icon },
   { name: "Timesheets", href: "/timesheets", icon: TimeQuarterPassIcon },
   { name: "Schedules", href: "/schedule", icon: CalendarUserIcon },
-  { name: "Requests", href: "/requests", icon: TaskDaily02Icon },
+  { name: "Requests", href: "/requests", icon: NoteDoneIcon },
 ]
 
 const ADMIN_ROUTES = [
   { name: "Admin Dashboard", href: "/admin/dashboard", icon: DashboardSquare02Icon },
-  { name: "Team Management", href: "/admin/employees", icon: UserGroupIcon },
-  { name: "Time Logs", href: "/admin/timesheets", icon: CalendarCheckIn01Icon },
-  { name: "Leave Approvals", href: "/admin/leaves", icon: FileUserIcon },
-  { name: "OT Approvals", href: "/admin/overtime", icon: TimeQuarterPassIcon },
-  { name: "Schedules Manager", href: "/admin/schedules", icon: CalendarUserIcon },
-  { name: "Holiday Assignments", href: "/admin/holidays", icon: Calendar03Icon },
+  { name: "Time Logs", href: "/admin/timesheets", icon: Clock03Icon },
+  { name: "Management", href: "/admin/management", icon: UserGroupIcon },
+  { name: "Approvals", href: "/admin/approvals", icon: FileValidationIcon },
   { name: "Reports Dashboard", href: "/admin/reports", icon: Analytics02Icon },
 ]
 
@@ -158,7 +154,10 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
             <SidebarGroupContent>
               <SidebarMenu>
                 {ADMIN_ROUTES.map((route) => {
-                  const isActive = pathname === route.href
+                  const isActive =
+                    pathname === route.href ||
+                    (route.href === "/admin/management" && ["/admin/employees", "/admin/schedules", "/admin/holidays"].includes(pathname)) ||
+                    (route.href === "/admin/approvals" && ["/admin/leaves", "/admin/overtime"].includes(pathname))
 
                   return (
                     <SidebarMenuItem key={route.name}>
@@ -175,7 +174,7 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
                       >
                         <Link
                           href={route.href}
-                          prefetch
+                          prefetch={route.href !== "/admin/management" && route.href !== "/admin/approvals"}
                           className="flex w-full items-center gap-2.5 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0"
                         >
                           <HugeiconsIcon

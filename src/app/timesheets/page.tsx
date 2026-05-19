@@ -1,5 +1,4 @@
 import prisma from "@/lib/prisma";
-import type { Prisma } from "@prisma/client";
 import {
     addDays,
     differenceInCalendarDays,
@@ -34,16 +33,13 @@ type BreakWindow = {
     endedAt: Date | null;
 };
 
-type TimeLogWithBreaks = Prisma.TimeLogGetPayload<{
-    include: {
-        breaks: {
-            select: {
-                startedAt: true;
-                endedAt: true;
-            };
-        };
-    };
-}>;
+type TimeLogWithBreaks = {
+    id: string;
+    clockIn: Date;
+    clockOut: Date | null;
+    status: string;
+    breaks: BreakWindow[];
+};
 
 type TimelineSegment = {
     id: string;
@@ -208,7 +204,11 @@ export default async function TimesheetsPage({ searchParams }: TimesheetsPagePro
                 },
             },
             orderBy: { clockIn: "asc" },
-            include: {
+            select: {
+                id: true,
+                clockIn: true,
+                clockOut: true,
+                status: true,
                 breaks: {
                     orderBy: { startedAt: "asc" },
                     select: {
@@ -218,8 +218,8 @@ export default async function TimesheetsPage({ searchParams }: TimesheetsPagePro
                 },
             },
         });
-    } catch (error) {
-        console.error("Failed to load timesheet logs:", error);
+    } catch {
+        console.warn("Failed to load timesheet logs.");
         databaseError = "Timesheet data could not be loaded right now. Please refresh or try again in a moment.";
     }
 
@@ -276,7 +276,7 @@ export default async function TimesheetsPage({ searchParams }: TimesheetsPagePro
                     <Button asChild variant="outline" size="sm">
                         <a href="/time-corrections">
                             <Plus className="size-4" />
-                            Request correction
+                            Manual entry
                         </a>
                     </Button>
                 </div>
@@ -335,12 +335,12 @@ export default async function TimesheetsPage({ searchParams }: TimesheetsPagePro
                             <CalendarX2 className="size-8 text-muted-foreground" />
                             <h2 className="mt-3 text-sm font-semibold text-foreground">No entries in this range</h2>
                             <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-                                Try another date range or file a correction if a time entry is missing.
+                                Try another date range or file a manual entry request if a time log is missing.
                             </p>
                             <Button asChild variant="outline" size="sm" className="mt-4">
                                 <a href="/time-corrections">
                                     <Plus className="size-4" />
-                                    Request correction
+                                    Manual entry
                                 </a>
                             </Button>
                         </div>

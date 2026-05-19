@@ -76,7 +76,7 @@ export default async function TimeCorrectionsPage({
   const summaryItems = [
     { label: "Total filed", value: requests.length, helper: "requests", icon: FileText, className: "text-foreground", iconClassName: "bg-muted text-muted-foreground" },
     { label: "Pending", value: pendingCount, helper: "waiting for review", icon: Clock3, className: "text-amber-700", iconClassName: "bg-amber-100 text-amber-700" },
-    { label: "Approved", value: approvedCount, helper: `${correctedHours.toFixed(1).replace(".0", "")} corrected hours filed`, icon: CheckCircle2, className: "text-emerald-700", iconClassName: "bg-emerald-100 text-emerald-700" },
+    { label: "Approved", value: approvedCount, helper: `${correctedHours.toFixed(1).replace(".0", "")} manual entry hours filed`, icon: CheckCircle2, className: "text-emerald-700", iconClassName: "bg-emerald-100 text-emerald-700" },
   ];
   const getStatusHref = (status: (typeof STATUS_FILTERS)[number]) => {
     if (status === "ALL") return basePath;
@@ -175,9 +175,9 @@ export default async function TimeCorrectionsPage({
               <div className="flex size-10 items-center justify-center rounded-lg bg-muted text-muted-foreground">
                 <CalendarDays className="size-5" />
               </div>
-              <h3 className="mt-3 font-semibold">{statusFilter === "ALL" ? "No time correction requests yet" : `No ${statusFilter.toLowerCase()} requests`}</h3>
+              <h3 className="mt-3 font-semibold">{statusFilter === "ALL" ? "No manual entry requests yet" : `No ${statusFilter.toLowerCase()} requests`}</h3>
               <p className="mt-1.5 max-w-sm text-sm text-muted-foreground">
-                {statusFilter === "ALL" ? "Submitted time corrections will appear here with their approval status." : "Try another status filter to view more history."}
+                {statusFilter === "ALL" ? "Submitted manual entry requests will appear here with their approval status." : "Try another status filter to view more history."}
               </p>
             </div>
           ) : (
@@ -228,7 +228,7 @@ export default async function TimeCorrectionsPage({
                   <article key={request.id} className="rounded-lg border border-border bg-background p-3">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <h3 className="font-semibold">Time Correction</h3>
+                        <h3 className="font-semibold">Manual Entry</h3>
                         <p className="mt-0.5 text-sm text-muted-foreground">{format(request.clockIn, "MMM d, h:mm a")} - {format(request.clockOut, "h:mm a")}</p>
                       </div>
                       <StatusBadge status={request.status} />

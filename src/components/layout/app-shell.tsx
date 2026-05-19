@@ -25,7 +25,7 @@ function getPageLabel(pathname: string) {
     case "/requests":
       return "Requests"
     case "/time-corrections":
-      return "Time Corrections"
+      return "Manual Entry"
     case "/schedule":
       return "My Weekly Schedule"
     case "/leaves":
@@ -34,6 +34,10 @@ function getPageLabel(pathname: string) {
       return "Overtime Requests"
     case "/profile":
       return "My Profile"
+    case "/admin/management":
+      return "Management"
+    case "/admin/approvals":
+      return "Approvals"
     case "/admin/employees":
       return "Team Management"
     case "/admin/dashboard":
