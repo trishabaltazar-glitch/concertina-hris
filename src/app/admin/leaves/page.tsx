@@ -179,17 +179,8 @@ export default async function AdminLeavesPage() {
   const requestedDays = requestsWithMeta.reduce((sum, request) => sum + request.requestedDays, 0);
 
   return (
-    <div className="w-full space-y-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <span className="inline-flex rounded-full border border-border bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground">
-            Leave
-          </span>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">Leave requests</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Review filed requests and move pending items into approvals.
-          </p>
-        </div>
+    <div className="w-full space-y-4">
+      <div className="flex justify-end">
         <Button asChild variant="outline" size="sm" className="w-fit">
           <Link href="/leaves">Employee view</Link>
         </Button>
@@ -203,13 +194,7 @@ export default async function AdminLeavesPage() {
       </div>
 
       <div className="rounded-lg border border-border bg-background">
-        <div className="flex flex-col gap-2 border-b border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-sm font-semibold text-foreground">Request queue</h2>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Pending requests stay actionable; processed requests remain visible for context.
-            </p>
-          </div>
+        <div className="flex justify-end border-b border-border px-4 py-3">
           <span className="rounded-full border border-border px-2 py-0.5 text-xs font-medium text-muted-foreground">
             {requestsWithMeta.length} shown
           </span>

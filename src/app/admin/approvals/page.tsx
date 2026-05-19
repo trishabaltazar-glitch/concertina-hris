@@ -116,13 +116,7 @@ async function ManualEntryApprovalsPanel({ user }: { user: AdminUser }) {
 
   return (
     <section className="rounded-lg border border-border bg-background">
-      <div className="flex flex-col gap-2 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-sm font-semibold text-foreground">Manual time entry approvals</h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Review submitted manual entry requests before they become time logs.
-          </p>
-        </div>
+      <div className="flex justify-end border-b border-border px-4 py-3">
         <span className="w-fit rounded-full border border-border px-2 py-0.5 text-xs font-medium text-muted-foreground">
           {pendingRequests} pending
         </span>
@@ -130,7 +124,7 @@ async function ManualEntryApprovalsPanel({ user }: { user: AdminUser }) {
 
       <div className="overflow-x-auto">
         <table className="w-full min-w-[860px] text-left text-sm">
-          <thead className="border-b bg-muted/40 text-xs text-muted-foreground">
+          <thead className="border-b border-border bg-muted/30 text-xs text-muted-foreground">
             <tr>
               <th className="px-4 py-3 font-semibold">Employee</th>
               <th className="px-4 py-3 font-semibold">Requested time</th>

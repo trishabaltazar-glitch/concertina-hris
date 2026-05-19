@@ -65,6 +65,32 @@ export function ThemeToggle() {
 
 export function ThemeIconToggle() {
   const { resolvedTheme, setTheme } = useTheme()
+  const [mounted, setMounted] = React.useState(false)
+
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) {
+    return (
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="h-9 w-9 rounded-lg border border-border/70 bg-card/80 hover:bg-accent"
+        aria-label="Toggle theme"
+        title="Toggle theme"
+        disabled
+      >
+        <HugeiconsIcon
+          icon={Sun01Icon}
+          size={18}
+          strokeWidth={1.9}
+        />
+      </Button>
+    )
+  }
+
   const isLight = resolvedTheme !== "dark"
 
   return (

@@ -43,6 +43,14 @@ type AttendanceActivity = {
   duration: string | null;
 };
 
+type DashboardTimeLog = {
+  id: string;
+  clockIn: Date;
+  clockOut: Date | null;
+  status: string;
+  breaks: BreakWindow[];
+};
+
 function getBreakDurationInHours(breaks: BreakWindow[], fallbackEnd: Date | null) {
   return breaks.reduce((sum, item) => {
     const end = item.endedAt || fallbackEnd;
@@ -211,73 +219,87 @@ export default async function DashboardPage() {
   const roleLabel = formatRoleLabel((session.user as { role?: string | null }).role);
   await ensureScheduleOverrideTable();
 
-  const recentLogs = await prisma.timeLog.findMany({
-    where: { userId: session.user.id },
-    orderBy: { clockIn: "desc" },
-    take: 5,
-    select: {
-      id: true,
-      clockIn: true,
-      clockOut: true,
-      status: true,
-      breaks: {
-        select: {
-          startedAt: true,
-          endedAt: true,
+  let recentLogs: DashboardTimeLog[] = [];
+  let todayLogs: DashboardTimeLog[] = [];
+  let schedules: ScheduleWindow[] = [];
+  let scheduleOverrides: ScheduleOverrideWindow[] = [];
+  let assignedHolidays: AssignedHoliday[] = [];
+
+  try {
+    recentLogs = await prisma.timeLog.findMany({
+      where: { userId: session.user.id },
+      orderBy: { clockIn: "desc" },
+      take: 5,
+      select: {
+        id: true,
+        clockIn: true,
+        clockOut: true,
+        status: true,
+        breaks: {
+          select: {
+            startedAt: true,
+            endedAt: true,
+          },
         },
       },
-    },
-  });
+    });
 
-  const todayLogs = await prisma.timeLog.findMany({
-    where: {
-      userId: session.user.id,
-      clockIn: {
-        gte: todayStart,
-        lte: todayEnd,
-      },
-    },
-    orderBy: { clockIn: "desc" },
-    select: {
-      id: true,
-      clockIn: true,
-      clockOut: true,
-      status: true,
-      breaks: {
-        select: {
-          startedAt: true,
-          endedAt: true,
+    todayLogs = await prisma.timeLog.findMany({
+      where: {
+        userId: session.user.id,
+        clockIn: {
+          gte: todayStart,
+          lte: todayEnd,
         },
       },
-    },
-  });
+      orderBy: { clockIn: "desc" },
+      select: {
+        id: true,
+        clockIn: true,
+        clockOut: true,
+        status: true,
+        breaks: {
+          select: {
+            startedAt: true,
+            endedAt: true,
+          },
+        },
+      },
+    });
 
-  const schedules = await prisma.schedule.findMany({
-    where: { userId: session.user.id },
-    select: {
-      dayOfWeek: true,
-      startTime: true,
-      endTime: true,
-    },
-  });
+    schedules = await prisma.schedule.findMany({
+      where: { userId: session.user.id },
+      select: {
+        dayOfWeek: true,
+        startTime: true,
+        endTime: true,
+      },
+    });
 
-  const scheduleOverrides = await prisma.$queryRaw<ScheduleOverrideWindow[]>`
-    SELECT "date", "startTime", "endTime", "notes"
-    FROM "ScheduleOverride"
-    WHERE "userId" = ${session.user.id}
-      AND "date" >= ${todayStart}
-      AND "date" <= ${todayEnd}
-    ORDER BY "date" ASC
-  `;
+    scheduleOverrides = await prisma.$queryRaw<ScheduleOverrideWindow[]>`
+      SELECT "date", "startTime", "endTime", "notes"
+      FROM "ScheduleOverride"
+      WHERE "userId" = ${session.user.id}
+        AND "date" >= ${todayStart}
+        AND "date" <= ${todayEnd}
+      ORDER BY "date" ASC
+    `;
 
-  const assignedHolidays = await prisma.$queryRaw<AssignedHoliday[]>`
-    SELECT "id", "name", "date", "notes"
-    FROM "HolidayAssignment"
-    WHERE "userId" = ${session.user.id}
-      AND "date" >= ${todayStart}
-      AND "date" <= ${todayEnd}
-    ORDER BY "date" ASC
-  `;
+    assignedHolidays = await prisma.$queryRaw<AssignedHoliday[]>`
+      SELECT "id", "name", "date", "notes"
+      FROM "HolidayAssignment"
+      WHERE "userId" = ${session.user.id}
+        AND "date" >= ${todayStart}
+        AND "date" <= ${todayEnd}
+      ORDER BY "date" ASC
+    `;
+  } catch {
+    recentLogs = [];
+    todayLogs = [];
+    schedules = [];
+    scheduleOverrides = [];
+    assignedHolidays = [];
+  }
 
   const todayWorkedHours = todayLogs.reduce((sum, log) => {
     return sum + getDurationInHours(log.clockIn, log.clockOut, log.breaks);

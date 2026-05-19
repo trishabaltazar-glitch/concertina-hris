@@ -35,11 +35,18 @@ export function NotificationsDropdownSection({
   const [isLoading, setIsLoading] = React.useState(true);
 
   const loadNotifications = React.useCallback(async () => {
-    const result = await getMyNotifications(5);
-    setNotifications(result.notifications);
-    setUnreadCount(result.unreadCount);
-    onUnreadCountChange?.(result.unreadCount);
-    setIsLoading(false);
+    try {
+      const result = await getMyNotifications(5);
+      setNotifications(result.notifications);
+      setUnreadCount(result.unreadCount);
+      onUnreadCountChange?.(result.unreadCount);
+    } catch {
+      setNotifications([]);
+      setUnreadCount(0);
+      onUnreadCountChange?.(0);
+    } finally {
+      setIsLoading(false);
+    }
   }, [onUnreadCountChange]);
 
   React.useEffect(() => {
@@ -190,11 +197,17 @@ export function NotificationsMenu() {
   React.useEffect(() => {
     let isMounted = true;
 
-    getMyNotifications(1).then((result) => {
-      if (isMounted) {
-        setUnreadCount(result.unreadCount);
-      }
-    });
+    getMyNotifications(1)
+      .then((result) => {
+        if (isMounted) {
+          setUnreadCount(result.unreadCount);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setUnreadCount(0);
+        }
+      });
 
     return () => {
       isMounted = false;

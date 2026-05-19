@@ -7,6 +7,7 @@ import { updateOvertimeRequestStatus } from "@/app/actions/overtime";
 import prisma from "@/lib/prisma";
 import { ensureOvertimeRequestTable } from "@/lib/overtime-requests";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,7 @@ function StatusBadge({ status }: { status: string }) {
         ? "border-red-200 bg-red-50 text-red-700"
         : "border-amber-200 bg-amber-50 text-amber-700";
 
-  return <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${styles}`}>{status.charAt(0) + status.slice(1).toLowerCase()}</span>;
+  return <span className={cn("inline-flex rounded-full border px-2 py-0.5 text-xs font-medium", styles)}>{status.charAt(0) + status.slice(1).toLowerCase()}</span>;
 }
 
 export default async function AdminOvertimePage() {
@@ -57,33 +58,35 @@ export default async function AdminOvertimePage() {
         ORDER BY CASE WHEN ot."status" = 'PENDING' THEN 0 ELSE 1 END, ot."createdAt" DESC
         LIMIT 100
       `;
+  const pendingRequests = requests.filter((request) => request.status === "PENDING").length;
 
   return (
-    <div className="w-full space-y-5">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">OT approvals</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Managers review direct reports. Admins can review all OT requests.</p>
-      </div>
+    <div className="w-full space-y-4">
       <section className="rounded-lg border border-border bg-background">
+        <div className="flex justify-end border-b border-border px-4 py-3">
+          <span className="rounded-full border border-border px-2 py-0.5 text-xs font-medium text-muted-foreground">
+            {pendingRequests} pending
+          </span>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[920px] text-left text-sm">
-            <thead className="border-b bg-muted/30 text-xs text-muted-foreground">
+            <thead className="border-b border-border bg-muted/30 text-xs text-muted-foreground">
               <tr>
-                <th className="px-4 py-3">Employee</th>
-                <th className="px-4 py-3">OT period</th>
-                <th className="px-4 py-3">Reason</th>
-                <th className="px-4 py-3">Attachment</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3 text-right">Action</th>
+                <th className="px-4 py-3 font-semibold">Employee</th>
+                <th className="px-4 py-3 font-semibold">OT period</th>
+                <th className="px-4 py-3 font-semibold">Reason</th>
+                <th className="px-4 py-3 font-semibold">Attachment</th>
+                <th className="px-4 py-3 font-semibold">Status</th>
+                <th className="px-4 py-3 text-right font-semibold">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {requests.length === 0 ? (
                 <tr><td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">No OT requests yet.</td></tr>
               ) : requests.map((request) => (
-                <tr key={request.id} className="align-top">
-                  <td className="px-4 py-3"><p className="font-medium">{request.userName}</p><p className="text-xs text-muted-foreground">{request.userEmail}</p></td>
-                  <td className="px-4 py-3">{format(request.startAt, "MMM d, yyyy h:mm a")} - {format(request.endAt, "MMM d, yyyy h:mm a")}</td>
+                <tr key={request.id} className="align-top transition-colors hover:bg-muted/30">
+                  <td className="px-4 py-3"><p className="font-medium text-foreground">{request.userName}</p><p className="mt-0.5 text-xs text-muted-foreground">{request.userEmail}</p></td>
+                  <td className="px-4 py-3 text-muted-foreground">{format(request.startAt, "MMM d, yyyy h:mm a")} - {format(request.endAt, "MMM d, yyyy h:mm a")}</td>
                   <td className="px-4 py-3 text-muted-foreground">{request.reason}</td>
                   <td className="px-4 py-3"><a href={`/overtime/attachments/${request.id}`} className="inline-flex items-center gap-1 text-xs font-medium text-brand-steel hover:text-brand-red"><Paperclip className="size-3.5" />{request.attachmentName}</a></td>
                   <td className="px-4 py-3"><StatusBadge status={request.status} /></td>
