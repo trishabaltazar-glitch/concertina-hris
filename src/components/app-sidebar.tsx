@@ -16,6 +16,7 @@ import {
   FileValidationIcon,
   Logout02Icon,
   NoteDoneIcon,
+  Rocket01Icon,
   TimeQuarterPassIcon,
   UserGroupIcon,
   Analytics02Icon,
@@ -48,18 +49,18 @@ import {
 } from "@/components/ui/sidebar"
 
 const EMP_ROUTES = [
-  { name: "Overview", href: "/", icon: DashboardSquare02Icon },
+  { name: "Launchpad", href: "/", icon: Rocket01Icon },
   { name: "Timesheets", href: "/timesheets", icon: TimeQuarterPassIcon },
   { name: "Schedules", href: "/schedule", icon: CalendarUserIcon },
   { name: "Requests", href: "/requests", icon: NoteDoneIcon },
 ]
 
 const ADMIN_ROUTES = [
-  { name: "Admin Dashboard", href: "/admin/dashboard", icon: DashboardSquare02Icon },
+  { name: "Dashboard", href: "/admin/dashboard", icon: DashboardSquare02Icon },
   { name: "Time Logs", href: "/admin/timesheets", icon: Clock03Icon },
   { name: "Management", href: "/admin/management", icon: UserGroupIcon },
   { name: "Approvals", href: "/admin/approvals", icon: FileValidationIcon },
-  { name: "Reports Dashboard", href: "/admin/reports", icon: Analytics02Icon },
+  { name: "Reports", href: "/admin/reports", icon: Analytics02Icon },
 ]
 
 type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {

@@ -174,8 +174,8 @@ function getStatusLabel(status: string) {
 
 function getActivityClass(type: "CLOCK_IN" | "CLOCK_OUT") {
   return type === "CLOCK_IN"
-    ? "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
-    : "bg-brand-steel/12 text-brand-steel dark:text-sky-300";
+    ? "border-sky-500/25 bg-sky-500/12 text-sky-700 ring-sky-500/15 dark:text-sky-300"
+    : "border-rose-500/25 bg-rose-500/12 text-rose-700 ring-rose-500/15 dark:text-rose-300";
 }
 
 function getClockOutDetail(
@@ -318,7 +318,7 @@ export default async function DashboardPage() {
           id: `${log.id}-clock-in`,
           type: "CLOCK_IN",
           happenedAt: log.clockIn,
-          label: "Clocked in",
+          label: "IN",
           detail: getStatusLabel(log.status),
           duration: null as string | null,
         },
@@ -329,7 +329,7 @@ export default async function DashboardPage() {
           id: `${log.id}-clock-out`,
           type: "CLOCK_OUT",
           happenedAt: log.clockOut,
-          label: "Clocked out",
+          label: "OUT",
           detail: getClockOutDetail(
             { clockIn: log.clockIn, clockOut: log.clockOut, breaks: log.breaks },
             recentLogs,
@@ -482,11 +482,11 @@ export default async function DashboardPage() {
                   </p>
                   <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-foreground">
                     <span
-                      className={`inline-flex rounded-md px-2 py-0.5 text-[11px] font-semibold ${getActivityClass(event.type)}`}
+                      className={`inline-flex min-w-12 justify-center rounded-md border px-2.5 py-1 text-sm font-bold leading-none tracking-[0.08em] shadow-sm ring-1 ${getActivityClass(event.type)}`}
                     >
                       {event.label}
                     </span>
-                    <span className="text-xs text-muted-foreground">{event.detail}</span>
+                    <span className="text-sm text-muted-foreground">{event.detail}</span>
                   </p>
                 </div>
 

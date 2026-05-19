@@ -300,12 +300,12 @@ export function ClockWidget() {
           ) : isClockedIn ? (
             <>
               <Square className="size-4 fill-current" />
-              Clock-out
+              Clock out
             </>
           ) : (
             <>
               <Play className="size-5 fill-current" />
-              Clock-in
+              Clock in
             </>
           )}
         </Button>

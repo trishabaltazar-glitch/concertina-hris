@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Clock, ClipboardCheck, FileCheck2, Settings, UserCircle, CalendarDays, ClipboardList, Users, History } from "lucide-react";
+import { Rocket, LayoutDashboard, Clock, ClipboardCheck, FileCheck2, Settings, UserCircle, CalendarDays, ClipboardList, Users, History } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { handleSignOut } from "@/app/actions/auth";
 
 const EMP_ROUTES = [
-    { name: "Overview", href: "/", icon: LayoutDashboard },
+    { name: "Launchpad", href: "/", icon: Rocket },
     { name: "Timesheets", href: "/timesheets", icon: Clock },
     { name: "Schedules", href: "/schedule", icon: CalendarDays },
     { name: "Requests", href: "/requests", icon: ClipboardCheck },
@@ -15,11 +15,11 @@ const EMP_ROUTES = [
 ];
 
 const ADMIN_ROUTES = [
-    { name: "Admin Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
+    { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
     { name: "Time Logs", href: "/admin/timesheets", icon: History },
     { name: "Management", href: "/admin/management", icon: Users },
     { name: "Approvals", href: "/admin/approvals", icon: FileCheck2 },
-    { name: "Reports Dashboard", href: "/admin/reports", icon: ClipboardList },
+    { name: "Reports", href: "/admin/reports", icon: ClipboardList },
     { name: "Settings", href: "/admin/settings", icon: Settings },
 ];
 

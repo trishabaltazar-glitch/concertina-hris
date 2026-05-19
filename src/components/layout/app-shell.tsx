@@ -19,7 +19,7 @@ import {
 function getPageLabel(pathname: string) {
   switch (pathname) {
     case "/":
-      return "Overview"
+      return "Launchpad"
     case "/timesheets":
       return "Timesheets"
     case "/requests":
@@ -41,7 +41,7 @@ function getPageLabel(pathname: string) {
     case "/admin/employees":
       return "Team Management"
     case "/admin/dashboard":
-      return "Admin Dashboard"
+      return "Dashboard"
     case "/admin/timesheets":
       return "Company Time Logs"
     case "/admin/leaves":
@@ -53,7 +53,7 @@ function getPageLabel(pathname: string) {
     case "/admin/holidays":
       return "Holiday Assignments"
     case "/admin/reports":
-      return "Reports Dashboard"
+      return "Reports"
     case "/notifications":
       return "Notifications"
     default:
@@ -65,34 +65,31 @@ function AppBreadcrumbs({ pathname }: { pathname: string }) {
   const currentLabel = getPageLabel(pathname)
   const isHome = pathname === "/"
   const isAdmin = pathname.startsWith("/admin")
+  const sectionLabel = isAdmin ? "Admin" : "Workspace"
 
   return (
     <Breadcrumb>
       <BreadcrumbList>
+        <BreadcrumbItem>
+          {isHome ? (
+            <span className="text-muted-foreground">Workspace</span>
+          ) : isAdmin ? (
+            <span className="text-muted-foreground">Admin</span>
+          ) : (
+            <BreadcrumbLink asChild>
+              <Link href="/">Workspace</Link>
+            </BreadcrumbLink>
+          )}
+        </BreadcrumbItem>
+        <BreadcrumbSeparator />
         {isHome ? (
-            <BreadcrumbItem>
-            <BreadcrumbPage>Overview</BreadcrumbPage>
+          <BreadcrumbItem>
+            <BreadcrumbPage>Launchpad</BreadcrumbPage>
           </BreadcrumbItem>
         ) : (
-          <>
-            <BreadcrumbItem>
-              <BreadcrumbLink asChild>
-                <Link href="/">Overview</Link>
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            {isAdmin && (
-              <>
-                <BreadcrumbItem className="hidden sm:inline-flex">
-                  <span className="text-muted-foreground">Administration</span>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator className="hidden sm:inline-flex" />
-              </>
-            )}
-            <BreadcrumbItem>
-              <BreadcrumbPage>{currentLabel}</BreadcrumbPage>
-            </BreadcrumbItem>
-          </>
+          <BreadcrumbItem>
+            <BreadcrumbPage>{currentLabel === "Concertina HR" ? sectionLabel : currentLabel}</BreadcrumbPage>
+          </BreadcrumbItem>
         )}
       </BreadcrumbList>
     </Breadcrumb>
