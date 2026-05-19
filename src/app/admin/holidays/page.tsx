@@ -30,7 +30,9 @@ export default async function AdminHolidaysPage() {
 
   const [teamMembers, assignments] = await Promise.all([
     prisma.user.findMany({
-      where: sessionUser.role === "ADMIN" ? { isActive: true } : { managerId: sessionUser.id, isActive: true },
+      where: sessionUser.role === "ADMIN"
+        ? { isActive: true }
+        : { managerId: sessionUser.id, role: "EMPLOYEE", isActive: true },
       orderBy: { name: "asc" },
       select: {
         id: true,
@@ -70,6 +72,7 @@ export default async function AdminHolidaysPage() {
           INNER JOIN "User" u ON u."id" = ha."userId"
           INNER JOIN "User" assigner ON assigner."id" = ha."assignedById"
           WHERE u."managerId" = ${sessionUser.id}
+            AND u."role" = 'EMPLOYEE'
           ORDER BY ha."date" DESC, ha."createdAt" DESC
           LIMIT 100
         `,
@@ -109,7 +112,7 @@ export default async function AdminHolidaysPage() {
               <h2 className="text-sm font-semibold text-foreground">Assign holiday</h2>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
-              Choose a date and the team members covered by the client holiday advisory.
+              Choose a date and the employees covered by the client holiday advisory.
             </p>
           </div>
 
@@ -149,7 +152,7 @@ export default async function AdminHolidaysPage() {
 
             <div>
               <div className="mb-2 flex items-center justify-between gap-2">
-                <p className="text-sm font-medium text-foreground">Team members</p>
+                <p className="text-sm font-medium text-foreground">Employees</p>
                 <span className="text-xs text-muted-foreground">{teamMembers.length} available</span>
               </div>
               <div className="max-h-72 space-y-2 overflow-y-auto rounded-lg border border-border bg-card p-2">
