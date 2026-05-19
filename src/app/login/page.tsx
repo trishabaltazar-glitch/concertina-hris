@@ -35,7 +35,7 @@ export default async function LoginPage({
               await signIn("credentials", formData)
             } catch (error) {
               if (error instanceof AuthError) {
-                if (error.type === "CredentialsSignin") {
+                if (error.type === "CredentialsSignin" || error.type === "CallbackRouteError") {
                   redirect("/login?error=InvalidCredentials")
                 }
 
