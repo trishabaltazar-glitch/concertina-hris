@@ -10,6 +10,8 @@ import { SubmitButton } from "@/components/ui/submit-button";
 
 export const dynamic = "force-dynamic";
 
+const ADMIN_VISIBLE_ROLES = ["EMPLOYEE", "MANAGER"];
+
 type ManualTimeEntryRequest = {
     id: string;
     clockIn: Date;
@@ -45,7 +47,9 @@ export default async function AdminTimesheetsPage() {
 
     const [timeLogs, manualRequests] = await Promise.all([
         prisma.timeLog.findMany({
-            where: user.role === "ADMIN" ? undefined : { user: { managerId: user.id } },
+            where: user.role === "ADMIN"
+                ? { user: { role: { in: ADMIN_VISIBLE_ROLES } } }
+                : { user: { managerId: user.id, role: "EMPLOYEE" } },
             include: {
                 user: {
                     select: {
@@ -71,6 +75,7 @@ export default async function AdminTimesheetsPage() {
                     u."email" as "userEmail"
                 FROM "TimeEntryRequest" ter
                 INNER JOIN "User" u ON u."id" = ter."userId"
+                WHERE u."role" IN ('EMPLOYEE', 'MANAGER')
                 ORDER BY
                     CASE WHEN ter."status" = 'PENDING' THEN 0 ELSE 1 END,
                     ter."createdAt" DESC
@@ -89,6 +94,7 @@ export default async function AdminTimesheetsPage() {
                 FROM "TimeEntryRequest" ter
                 INNER JOIN "User" u ON u."id" = ter."userId"
                 WHERE u."managerId" = ${user.id}
+                    AND u."role" = 'EMPLOYEE'
                 ORDER BY
                     CASE WHEN ter."status" = 'PENDING' THEN 0 ELSE 1 END,
                     ter."createdAt" DESC

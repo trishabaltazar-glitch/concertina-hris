@@ -6,6 +6,8 @@ import { auth } from "@/auth";
 import { createNotification } from "@/lib/notifications";
 import { sendLeaveNotificationEmail } from "@/lib/leave-notification-email";
 
+const ADMIN_REVIEWABLE_ROLES = ["EMPLOYEE", "MANAGER"];
+
 async function ensureLeaveDayBreakdownColumn() {
     await prisma.$executeRawUnsafe(`ALTER TABLE "LeaveRequest" ADD COLUMN IF NOT EXISTS "dayBreakdown" JSONB`);
 }
@@ -77,7 +79,11 @@ export async function updateLeaveRequestStatus(requestId: string, status: "APPRO
             return { success: false, error: "Request not found" };
         }
 
-        if (role === "MANAGER" && request.user.managerId !== session.user.id) {
+        if (role === "ADMIN" && !ADMIN_REVIEWABLE_ROLES.includes(request.user.role)) {
+            return { success: false, error: "Admins can only review employee and manager requests." };
+        }
+
+        if (role === "MANAGER" && (request.user.role !== "EMPLOYEE" || request.user.managerId !== session.user.id)) {
             return { success: false, error: "You can only review requests from your direct reports." };
         }
 
@@ -160,6 +166,8 @@ type ManualTimeEntryRequestRow = {
     reason: string | null;
     status: string;
     userName: string;
+    userRole: string;
+    managerId: string | null;
 };
 
 export async function updateManualTimeEntryRequestStatus(
@@ -183,7 +191,9 @@ export async function updateManualTimeEntryRequestStatus(
                 ter."clockOut",
                 ter."reason",
                 ter."status",
-                u."name" as "userName"
+                u."name" as "userName",
+                u."role" as "userRole",
+                u."managerId" as "managerId"
             FROM "TimeEntryRequest" ter
             INNER JOIN "User" u ON u."id" = ter."userId"
             WHERE ter."id" = ${requestId}
@@ -199,15 +209,12 @@ export async function updateManualTimeEntryRequestStatus(
             return { success: false, error: "This request has already been reviewed." };
         }
 
-        if (role === "MANAGER") {
-            const directReport = await prisma.user.findFirst({
-                where: { id: request.userId, managerId: reviewerId },
-                select: { id: true },
-            });
+        if (role === "ADMIN" && !ADMIN_REVIEWABLE_ROLES.includes(request.userRole)) {
+            return { success: false, error: "Admins can only review employee and manager requests." };
+        }
 
-            if (!directReport) {
-                return { success: false, error: "You can only review requests from your direct reports." };
-            }
+        if (role === "MANAGER" && (request.userRole !== "EMPLOYEE" || request.managerId !== reviewerId)) {
+            return { success: false, error: "You can only review requests from your direct reports." };
         }
 
         if (status === "APPROVED") {

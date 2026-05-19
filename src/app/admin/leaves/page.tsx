@@ -12,6 +12,8 @@ import { SubmitButton } from "@/components/ui/submit-button";
 
 export const dynamic = "force-dynamic";
 
+const ADMIN_VISIBLE_ROLES = ["EMPLOYEE", "MANAGER"];
+
 async function ensureLeaveDayBreakdownColumn() {
   await prisma.$executeRawUnsafe(`ALTER TABLE "LeaveRequest" ADD COLUMN IF NOT EXISTS "dayBreakdown" JSONB`);
 }
@@ -144,7 +146,9 @@ export default async function AdminLeavesPage() {
   await ensureLeaveDayBreakdownColumn();
 
   const requests = await prisma.leaveRequest.findMany({
-    where: userRole === "ADMIN" ? undefined : { user: { managerId: session.user.id } },
+    where: userRole === "ADMIN"
+      ? { user: { role: { in: ADMIN_VISIBLE_ROLES } } }
+      : { user: { managerId: session.user.id, role: "EMPLOYEE" } },
     include: {
       user: {
         select: {

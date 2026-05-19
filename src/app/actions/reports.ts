@@ -17,6 +17,7 @@ type ReportSessionUser = {
 type ReportUser = Awaited<ReturnType<typeof getReportUsers>>[number];
 
 const STANDARD_DAY_MINUTES = 8 * 60;
+const ADMIN_VISIBLE_ROLES = ["EMPLOYEE", "MANAGER"];
 
 function csvEscape(value: string | number | null | undefined) {
   const stringValue = value === null || value === undefined ? "" : String(value);
@@ -52,7 +53,7 @@ async function requireReportUser() {
 async function getReportUsers(currentUser: ReportSessionUser, filters: ReportFilters = {}) {
   return prisma.user.findMany({
     where: {
-      role: { in: ["EMPLOYEE", "MANAGER"] },
+      role: currentUser.role === "ADMIN" ? { in: ADMIN_VISIBLE_ROLES } : "EMPLOYEE",
       ...(currentUser.role === "ADMIN" ? {} : { managerId: currentUser.id }),
       ...(filters.department && filters.department !== "ALL" ? { department: filters.department } : {}),
       ...(filters.managerId && filters.managerId !== "ALL" ? { managerId: filters.managerId } : {}),
@@ -379,6 +380,7 @@ export async function generateTimesheetReport(startDate: string, endDate: string
   const logs = await prisma.timeLog.findMany({
     where: {
       user: {
+        role: user.role === "ADMIN" ? { in: ADMIN_VISIBLE_ROLES } : "EMPLOYEE",
         ...(user.role === "ADMIN" ? {} : { managerId: user.id }),
         ...(filters.department && filters.department !== "ALL" ? { department: filters.department } : {}),
         ...(filters.managerId && filters.managerId !== "ALL" ? { managerId: filters.managerId } : {}),
@@ -416,6 +418,7 @@ export async function generateLeaveReport(startDate: string, endDate: string, fi
   const requests = await prisma.leaveRequest.findMany({
     where: {
       user: {
+        role: user.role === "ADMIN" ? { in: ADMIN_VISIBLE_ROLES } : "EMPLOYEE",
         ...(user.role === "ADMIN" ? {} : { managerId: user.id }),
         ...(filters.department && filters.department !== "ALL" ? { department: filters.department } : {}),
         ...(filters.managerId && filters.managerId !== "ALL" ? { managerId: filters.managerId } : {}),

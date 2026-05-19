@@ -20,6 +20,8 @@ import { Button } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
 
+const ADMIN_VISIBLE_ROLES = ["EMPLOYEE", "MANAGER"];
+
 type Tone = "default" | "success" | "warn" | "danger";
 
 function MetricCard({
@@ -110,7 +112,9 @@ export default async function AdminDashboardPage() {
   const tomorrowStart = new Date(todayStart);
   tomorrowStart.setDate(todayStart.getDate() + 1);
   const staleOpenLogCutoff = new Date(now.getTime() - 12 * 60 * 60 * 1000);
-  const scopedUserWhere = isAdmin ? {} : { managerId: currentUser.id };
+  const scopedUserWhere = isAdmin
+    ? { role: { in: ADMIN_VISIBLE_ROLES } }
+    : { managerId: currentUser.id, role: "EMPLOYEE" };
 
   const [users, todayLogs, openLogs, pendingRequests, scheduledToday, recentAuditLogs] = await Promise.all([
     prisma.user.findMany({

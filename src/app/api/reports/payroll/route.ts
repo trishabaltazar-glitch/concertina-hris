@@ -7,6 +7,8 @@ type ReportSessionUser = {
     role: string;
 };
 
+const ADMIN_VISIBLE_ROLES = ["EMPLOYEE", "MANAGER"];
+
 export async function GET(request: Request) {
     try {
         const session = await auth();
@@ -26,7 +28,7 @@ export async function GET(request: Request) {
 
         const users = await prisma.user.findMany({
             where: {
-                role: { in: ['EMPLOYEE', 'MANAGER'] },
+                role: user.role === "ADMIN" ? { in: ADMIN_VISIBLE_ROLES } : "EMPLOYEE",
                 ...(user.role === "ADMIN" ? {} : { managerId: user.id }),
                 ...(department && department !== "ALL" ? { department } : {}),
                 ...(managerId && managerId !== "ALL" ? { managerId } : {}),
