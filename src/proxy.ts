@@ -10,6 +10,7 @@ const protectedRoutes = [
     "/",
     "/timesheets",
     "/requests",
+    "/announcements",
     "/time-corrections",
     "/leaves",
     "/overtime",

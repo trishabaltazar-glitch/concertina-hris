@@ -9,7 +9,8 @@ export type NotificationType =
   | "LEAVE_REJECTED"
   | "TIME_ENTRY_REQUEST"
   | "TIME_ENTRY_APPROVED"
-  | "TIME_ENTRY_REJECTED";
+  | "TIME_ENTRY_REJECTED"
+  | "ANNOUNCEMENT";
 
 type CreateNotificationInput = {
   userId: string;

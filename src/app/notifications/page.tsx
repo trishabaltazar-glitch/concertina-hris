@@ -16,6 +16,8 @@ function getTypeLabel(type: string) {
       return "Approved";
     case "LEAVE_REJECTED":
       return "Rejected";
+    case "ANNOUNCEMENT":
+      return "Announcement";
     default:
       return "Notice";
   }

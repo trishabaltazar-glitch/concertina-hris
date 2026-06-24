@@ -15,6 +15,7 @@ import {
   DashboardSquare02Icon,
   FileValidationIcon,
   Logout02Icon,
+  Megaphone01Icon,
   NoteDoneIcon,
   Rocket01Icon,
   TimeQuarterPassIcon,
@@ -53,6 +54,7 @@ const EMP_ROUTES = [
   { name: "Timesheets", href: "/timesheets", icon: TimeQuarterPassIcon },
   { name: "Schedules", href: "/schedule", icon: CalendarUserIcon },
   { name: "Requests", href: "/requests", icon: NoteDoneIcon },
+  { name: "Announcements", href: "/announcements", icon: Megaphone01Icon },
 ]
 
 const ADMIN_ROUTES = [
@@ -61,6 +63,7 @@ const ADMIN_ROUTES = [
   { name: "Management", href: "/admin/management", icon: UserGroupIcon },
   { name: "Approvals", href: "/admin/approvals", icon: FileValidationIcon },
   { name: "Reports", href: "/admin/reports", icon: Analytics02Icon },
+  { name: "Announcements", href: "/admin/announcements", icon: Megaphone01Icon, requiresAdmin: true },
 ]
 
 type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
@@ -155,6 +158,8 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
             <SidebarGroupContent>
               <SidebarMenu>
                 {ADMIN_ROUTES.map((route) => {
+                  if (route.requiresAdmin && user?.role !== "ADMIN") return null
+
                   const isActive =
                     pathname === route.href ||
                     (route.href === "/admin/management" && ["/admin/employees", "/admin/schedules", "/admin/holidays"].includes(pathname)) ||
@@ -175,7 +180,7 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
                       >
                         <Link
                           href={route.href}
-                          prefetch={route.href !== "/admin/management" && route.href !== "/admin/approvals"}
+                                    prefetch={route.href !== "/admin/management" && route.href !== "/admin/approvals" && route.href !== "/admin/announcements"}
                           className="flex w-full items-center gap-2.5 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0"
                         >
                           <HugeiconsIcon
