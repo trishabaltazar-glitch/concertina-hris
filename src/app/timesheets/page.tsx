@@ -12,10 +12,11 @@ import {
 } from "date-fns";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import { AlertCircle, CalendarX2, CheckCircle2, Clock3, Plus, Timer } from "lucide-react";
+import { AlertCircle, CalendarX2, Clock3, Plus, ShieldCheck, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TimesheetFilterBar } from "@/app/timesheets/components/timesheet-filter-bar";
 import { DeleteTimeLogButton } from "@/app/timesheets/components/delete-time-log-button";
+import { closeStaleOpenTimeLogs } from "@/lib/time-log-maintenance";
 
 export const dynamic = "force-dynamic";
 
@@ -155,6 +156,8 @@ export default async function TimesheetsPage({ searchParams }: TimesheetsPagePro
     let databaseError: string | null = null;
 
     try {
+        await closeStaleOpenTimeLogs(session.user.id);
+
         timeLogs = await prisma.timeLog.findMany({
             where: {
                 userId: session.user.id,
@@ -209,17 +212,22 @@ export default async function TimesheetsPage({ searchParams }: TimesheetsPagePro
             />
 
             <section className="rounded-2xl border bg-card shadow-sm">
-                <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
-                    <div className="flex items-center gap-2">
-                        <span className="flex size-6 items-center justify-center rounded-full border text-muted-foreground">
-                            <CheckCircle2 className="size-3.5" />
+                <div className="flex flex-col gap-3 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex min-w-0 items-start gap-2.5">
+                        <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md border text-muted-foreground">
+                            <ShieldCheck className="size-3.5" />
                         </span>
-                        <h1 className="text-sm font-semibold text-foreground">My timesheets</h1>
+                        <div className="min-w-0">
+                            <h1 className="text-sm font-semibold text-foreground">My timesheets</h1>
+                            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                                Employees can record and correct their own time but cannot view others&apos; data.
+                            </p>
+                        </div>
                     </div>
                     <Button asChild variant="outline" size="sm">
                         <a href="/time-corrections">
                             <Plus className="size-4" />
-                            Manual entry
+                            Record / correct time
                         </a>
                     </Button>
                 </div>

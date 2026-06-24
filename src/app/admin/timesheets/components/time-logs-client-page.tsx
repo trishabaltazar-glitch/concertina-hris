@@ -1,12 +1,28 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { differenceInCalendarDays, format, isSameDay, parseISO, startOfDay } from "date-fns";
+import {
+    addDays,
+    addMonths,
+    eachDayOfInterval,
+    endOfMonth,
+    endOfWeek,
+    format,
+    isAfter,
+    isBefore,
+    isSameDay,
+    isSameMonth,
+    startOfDay,
+    startOfMonth,
+    startOfWeek,
+} from "date-fns";
 import {
     AlertCircle,
     Calendar as CalendarIcon,
+    CalendarDays,
     ChevronDown,
-    ChevronsUpDown,
+    ChevronLeft,
+    ChevronRight,
     Clock3,
     Filter,
     Search,
@@ -15,6 +31,11 @@ import {
     X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import {
+    ManualEntryApprovalsPopup,
+    type ManualEntryApprovalsPopupProps,
+} from "./manual-entry-approvals-popup";
 
 type TimeLogData = {
     id: string;
@@ -27,8 +48,6 @@ type TimeLogData = {
         role: string;
     };
 };
-
-const RANGE_PRESETS = [7, 14, 30, 60, 90];
 
 function getDurationMinutes(log: TimeLogData) {
     if (!log.clockOut) return 0;
@@ -54,6 +73,18 @@ function getStatusLabel(status: string) {
     return status.replaceAll("_", " ");
 }
 
+function getStatusPillClassName(status: string) {
+    if (status === "ON_TIME") {
+        return "border-emerald-500/20 bg-emerald-500/10 text-emerald-500";
+    }
+
+    if (status === "FORCED_CHECKOUT") {
+        return "border-amber-500/20 bg-amber-500/10 text-amber-600";
+    }
+
+    return "border-rose-500/20 bg-rose-500/10 text-rose-500";
+}
+
 function formatRole(role: string) {
     return role
         .toLowerCase()
@@ -64,10 +95,7 @@ function formatRole(role: string) {
 
 function StatusPill({ status }: { status: string }) {
     return (
-        <span className={`inline-flex items-center rounded-md border px-2 py-1 text-xs font-semibold ${status === "ON_TIME"
-            ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-500"
-            : "border-rose-500/20 bg-rose-500/10 text-rose-500"
-            }`}>
+        <span className={`inline-flex items-center rounded-md border px-2 py-1 text-xs font-semibold ${getStatusPillClassName(status)}`}>
             {getStatusLabel(status)}
         </span>
     );
@@ -81,16 +109,32 @@ function RolePill({ role }: { role: string }) {
     );
 }
 
-export function TimeLogsClientPage({ initialLogs }: { initialLogs: TimeLogData[] }) {
+function getCalendarDays(month: Date) {
+    return eachDayOfInterval({
+        start: startOfWeek(startOfMonth(month)),
+        end: endOfWeek(endOfMonth(month)),
+    });
+}
+
+type TimeLogsClientPageProps = {
+    initialLogs: TimeLogData[];
+    availableRoles: string[];
+    manualEntryApprovals: ManualEntryApprovalsPopupProps;
+};
+
+export function TimeLogsClientPage({ initialLogs, availableRoles, manualEntryApprovals }: TimeLogsClientPageProps) {
+    const defaultToDate = startOfDay(new Date());
+    const defaultFromDate = startOfDay(addDays(defaultToDate, -29));
     const [searchQuery, setSearchQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState("ALL");
     const [roleFilter, setRoleFilter] = useState("ALL");
-    const [dateFilter, setDateFilter] = useState("");
-    const [rangeFilter, setRangeFilter] = useState("30");
-    const [customRange, setCustomRange] = useState("30");
-    const isCustomRange = rangeFilter === "CUSTOM";
+    const [selectedFrom, setSelectedFrom] = useState(defaultFromDate);
+    const [selectedTo, setSelectedTo] = useState(defaultToDate);
+    const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+    const [viewMonth, setViewMonth] = useState(startOfMonth(defaultFromDate));
+    const [draftFrom, setDraftFrom] = useState<Date | null>(defaultFromDate);
+    const [draftTo, setDraftTo] = useState<Date | null>(defaultToDate);
 
-    const rangeDays = Math.min(90, Math.max(1, Number.parseInt(isCustomRange ? customRange : rangeFilter, 10) || 30));
     const filteredLogs = initialLogs.filter(log => {
         // 1. Search Query Filter
         const matchesSearch = 
@@ -103,24 +147,16 @@ export function TimeLogsClientPage({ initialLogs }: { initialLogs: TimeLogData[]
         // 3. Role Filter
         const matchesRole = roleFilter === "ALL" || log.user.role === roleFilter;
 
-        // 4. Date Filter
-        let matchesDate = true;
-        if (dateFilter) {
-            const selectedDate = parseISO(dateFilter);
-            matchesDate = isSameDay(new Date(log.clockIn), selectedDate);
-        }
+        // 4. Date Range Filter
+        const logDate = startOfDay(new Date(log.clockIn));
+        const matchesDateRange = logDate >= startOfDay(selectedFrom) && logDate <= startOfDay(selectedTo);
 
-        // 5. Range Filter
-        const matchesRange = dateFilter
-            ? true
-            : differenceInCalendarDays(startOfDay(new Date()), startOfDay(new Date(log.clockIn))) < rangeDays;
-
-        return matchesSearch && matchesStatus && matchesRole && matchesDate && matchesRange;
+        return matchesSearch && matchesStatus && matchesRole && matchesDateRange;
     });
 
     const roleOptions = useMemo(() => {
-        return Array.from(new Set(initialLogs.map((log) => log.user.role))).sort();
-    }, [initialLogs]);
+        return Array.from(new Set(availableRoles)).sort();
+    }, [availableRoles]);
 
     const summary = useMemo(() => {
         const activeLogs = filteredLogs.filter((log) => !log.clockOut).length;
@@ -140,47 +176,82 @@ export function TimeLogsClientPage({ initialLogs }: { initialLogs: TimeLogData[]
         setSearchQuery("");
         setStatusFilter("ALL");
         setRoleFilter("ALL");
-        setDateFilter("");
-        setRangeFilter("30");
-        setCustomRange("30");
+        setSelectedFrom(defaultFromDate);
+        setSelectedTo(defaultToDate);
+        setDraftFrom(defaultFromDate);
+        setDraftTo(defaultToDate);
+        setViewMonth(startOfMonth(defaultFromDate));
     };
 
-    const hasActiveFilters = searchQuery !== "" || statusFilter !== "ALL" || roleFilter !== "ALL" || dateFilter !== "" || rangeFilter !== "30" || (isCustomRange && customRange !== "30");
+    const isDefaultDateRange =
+        format(selectedFrom, "yyyy-MM-dd") === format(defaultFromDate, "yyyy-MM-dd") &&
+        format(selectedTo, "yyyy-MM-dd") === format(defaultToDate, "yyyy-MM-dd");
+    const hasActiveFilters = searchQuery !== "" || statusFilter !== "ALL" || roleFilter !== "ALL" || !isDefaultDateRange;
+    const calendarDays = getCalendarDays(viewMonth);
+    const canApplyRange = Boolean(draftFrom && draftTo);
+
+    const openCalendar = () => {
+        setDraftFrom(selectedFrom);
+        setDraftTo(selectedTo);
+        setViewMonth(startOfMonth(selectedFrom));
+        setIsCalendarOpen((value) => !value);
+    };
+
+    const handleDateSelect = (day: Date) => {
+        if (!draftFrom || draftTo || isBefore(day, draftFrom)) {
+            setDraftFrom(day);
+            setDraftTo(null);
+            return;
+        }
+
+        setDraftTo(day);
+    };
+
+    const handleApplyRange = () => {
+        if (!draftFrom || !draftTo) return;
+
+        const [safeFrom, safeTo] = isBefore(draftTo, draftFrom) ? [draftTo, draftFrom] : [draftFrom, draftTo];
+        setSelectedFrom(startOfDay(safeFrom));
+        setSelectedTo(startOfDay(safeTo));
+        setIsCalendarOpen(false);
+    };
 
     return (
         <div className="space-y-6">
-            <section className="rounded-2xl border bg-card shadow-sm">
-                <div className="flex flex-col gap-3 border-b px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <span className="flex size-6 items-center justify-center rounded-full border text-muted-foreground">
-                                <Clock3 className="size-3.5" />
-                            </span>
-                            <h1 className="text-sm font-semibold text-foreground">Company time logs</h1>
-                        </div>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                            Showing {filteredLogs.length} matching logs
-                            {dateFilter ? ` on ${format(parseISO(dateFilter), "MMM d, yyyy")}` : ` from the last ${rangeDays} days`}
-                        </p>
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                    <div className="flex items-center gap-2">
+                        <span className="flex size-6 items-center justify-center rounded-full border text-muted-foreground">
+                            <Clock3 className="size-3.5" />
+                        </span>
+                        <h1 className="text-xl font-semibold tracking-tight text-foreground">Company time logs</h1>
                     </div>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                        Showing {filteredLogs.length} matching logs from {format(selectedFrom, "MMM d, yyyy")} to {format(selectedTo, "MMM d, yyyy")}
+                    </p>
+                </div>
 
+                <div className="flex flex-wrap items-center gap-2 self-start lg:self-auto">
+                    <ManualEntryApprovalsPopup {...manualEntryApprovals} />
                     {hasActiveFilters && (
                         <Button
                             type="button"
                             variant="outline"
                             size="sm"
                             onClick={clearFilters}
-                            className="shrink-0 self-start lg:self-auto"
+                            className="shrink-0"
                         >
                             <X className="size-4" />
                             Clear filters
                         </Button>
                     )}
                 </div>
+            </div>
 
+            <section className="rounded-2xl border bg-card shadow-sm">
                 <div className="border-b px-4 py-3">
-                    <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
-                    <div className="relative w-full xl:max-w-xs">
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(14rem,1fr)_minmax(11rem,0.7fr)_minmax(11rem,0.7fr)_minmax(19rem,1.2fr)]">
+                    <div className="relative w-full min-w-0">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <Search className="size-4 text-muted-foreground" />
                         </div>
@@ -193,8 +264,7 @@ export function TimeLogsClientPage({ initialLogs }: { initialLogs: TimeLogData[]
                         />
                     </div>
 
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:flex xl:items-center">
-                    <div className="relative w-full sm:min-w-44">
+                    <div className="relative w-full min-w-0">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <Filter className="size-4 text-muted-foreground" />
                         </div>
@@ -206,11 +276,12 @@ export function TimeLogsClientPage({ initialLogs }: { initialLogs: TimeLogData[]
                             <option value="ALL">All Statuses</option>
                             <option value="ON_TIME">On Time</option>
                             <option value="LATE">Late</option>
+                            <option value="FORCED_CHECKOUT">Auto clock-out</option>
                         </select>
                         <ChevronDown className="pointer-events-none absolute inset-y-0 right-3 my-auto size-4 text-muted-foreground" />
                     </div>
 
-                    <div className="relative w-full sm:min-w-44">
+                    <div className="relative w-full min-w-0">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <ShieldCheck className="size-4 text-muted-foreground" />
                         </div>
@@ -229,58 +300,119 @@ export function TimeLogsClientPage({ initialLogs }: { initialLogs: TimeLogData[]
                         <ChevronDown className="pointer-events-none absolute inset-y-0 right-3 my-auto size-4 text-muted-foreground" />
                     </div>
 
-                    <div className="flex min-h-10 w-full items-center gap-2 rounded-lg border border-input bg-background px-3 text-sm sm:min-w-52">
-                        <span className="shrink-0 text-muted-foreground">Last</span>
-                        <select
-                            value={rangeFilter}
-                            onChange={(event) => {
-                                setRangeFilter(event.target.value);
-                                if (event.target.value !== "CUSTOM") {
-                                    setCustomRange(event.target.value);
-                                }
-                                setDateFilter("");
-                            }}
-                            className="h-7 cursor-pointer appearance-none bg-background text-foreground outline-none"
-                            aria-label="Choose a common time log range"
-                        >
-                            {RANGE_PRESETS.map((days) => (
-                                <option key={days} value={days}>
-                                    {days} days
-                                </option>
-                            ))}
-                            <option value="CUSTOM">Custom</option>
-                        </select>
-                        {isCustomRange && (
-                            <>
-                                <span className="relative inline-flex items-center">
-                                    <input
-                                        type="number"
-                                        min={1}
-                                        max={90}
-                                        value={customRange}
-                                        onChange={(event) => setCustomRange(event.target.value)}
-                                        className="h-7 w-14 rounded-md border border-input bg-background pl-2 pr-5 text-center text-xs font-semibold text-foreground outline-none [appearance:textfield] focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                                        aria-label="Custom number of days"
-                                    />
-                                    <ChevronsUpDown className="pointer-events-none absolute right-1.5 size-3 text-muted-foreground" />
+                    <div className="relative w-full min-w-0 md:col-span-2 xl:col-span-1">
+                        <div className="flex max-w-full flex-wrap items-center gap-0 rounded-lg border border-input bg-background text-sm shadow-sm">
+                            <button
+                                type="button"
+                                onClick={openCalendar}
+                                className="group flex h-10 shrink-0 items-center gap-2 border-r border-border bg-muted/45 px-3 text-xs font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                                aria-expanded={isCalendarOpen}
+                                aria-label="Open calendar date range picker"
+                            >
+                                <CalendarDays className="size-3.5 text-brand-red" />
+                                <span className="whitespace-nowrap">Date range</span>
+                                <span className="hidden rounded-md bg-background px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground ring-1 ring-border sm:inline-flex">
+                                    Open calendar
                                 </span>
-                                <span className="text-muted-foreground">days</span>
-                            </>
-                        )}
-                        <ChevronDown className="size-4 text-muted-foreground" />
-                    </div>
+                                <ChevronDown
+                                    className={cn(
+                                        "size-3.5 text-muted-foreground transition-transform group-hover:text-foreground",
+                                        isCalendarOpen && "rotate-180"
+                                    )}
+                                />
+                            </button>
 
-                    <div className="relative w-full sm:min-w-44">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <CalendarIcon className="size-4 text-muted-foreground" />
+                            <button
+                                type="button"
+                                onClick={openCalendar}
+                                className="flex h-10 min-w-0 flex-1 items-center gap-2 overflow-hidden px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                            >
+                                <span className="truncate text-muted-foreground">
+                                    {format(selectedFrom, "MMM d, yyyy")}
+                                </span>
+                                <span className="shrink-0 text-muted-foreground">to</span>
+                                <span className="truncate text-muted-foreground">
+                                    {format(selectedTo, "MMM d, yyyy")}
+                                </span>
+                            </button>
                         </div>
-                        <input
-                            type="date"
-                            value={dateFilter}
-                            onChange={(e) => setDateFilter(e.target.value)}
-                            className="w-full bg-background border border-input text-foreground rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/50"
-                        />
-                    </div>
+
+                        {isCalendarOpen && (
+                            <div className="absolute left-0 top-12 z-30 w-[min(22rem,calc(100vw-2rem))] rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-xl">
+                                <div className="flex items-center justify-between gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setViewMonth((month) => addMonths(month, -1))}
+                                        className="inline-flex size-8 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                                        aria-label="Previous month"
+                                    >
+                                        <ChevronLeft className="size-4" />
+                                    </button>
+                                    <p className="text-sm font-semibold text-foreground">
+                                        {format(viewMonth, "MMMM yyyy")}
+                                    </p>
+                                    <button
+                                        type="button"
+                                        onClick={() => setViewMonth((month) => addMonths(month, 1))}
+                                        className="inline-flex size-8 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                                        aria-label="Next month"
+                                    >
+                                        <ChevronRight className="size-4" />
+                                    </button>
+                                </div>
+
+                                <div className="mt-3 grid grid-cols-7 gap-1 text-center text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                                    {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+                                        <span key={day} className="py-1">
+                                            {day}
+                                        </span>
+                                    ))}
+                                </div>
+
+                                <div className="mt-1 grid grid-cols-7 gap-1">
+                                    {calendarDays.map((day) => {
+                                        const isRangeStart = draftFrom ? isSameDay(day, draftFrom) : false;
+                                        const isRangeEnd = draftTo ? isSameDay(day, draftTo) : false;
+                                        const isInsideRange =
+                                            draftFrom && draftTo && isAfter(day, draftFrom) && isBefore(day, draftTo);
+
+                                        return (
+                                            <button
+                                                key={day.toISOString()}
+                                                type="button"
+                                                onClick={() => handleDateSelect(day)}
+                                                className={cn(
+                                                    "h-9 rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/45",
+                                                    !isSameMonth(day, viewMonth) && "text-muted-foreground/45",
+                                                    isInsideRange && "bg-muted text-foreground",
+                                                    (isRangeStart || isRangeEnd) && "bg-foreground text-background hover:bg-foreground/90",
+                                                    !isRangeStart && !isRangeEnd && !isInsideRange && "hover:bg-muted"
+                                                )}
+                                                aria-pressed={isRangeStart || isRangeEnd}
+                                            >
+                                                {format(day, "d")}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+
+                                <div className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-3">
+                                    <p className="min-w-0 text-xs text-muted-foreground">
+                                        {draftFrom && draftTo
+                                            ? `${format(draftFrom, "MMM d")} - ${format(draftTo, "MMM d, yyyy")}`
+                                            : "Select a start and end date"}
+                                    </p>
+                                    <button
+                                        type="button"
+                                        onClick={handleApplyRange}
+                                        disabled={!canApplyRange}
+                                        className="inline-flex h-8 items-center justify-center rounded-md bg-foreground px-3 text-xs font-semibold text-background transition-colors hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-45"
+                                    >
+                                        Apply
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
                 </div>

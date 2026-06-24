@@ -5,6 +5,7 @@ import { randomUUID } from "crypto";
 import prisma from "@/lib/prisma";
 import { auth } from "@/auth"; // import the auth module
 import { createNotifications } from "@/lib/notifications";
+import { closeStaleOpenTimeLogs } from "@/lib/time-log-maintenance";
 
 
 function cleanOptionalText(value?: string) {
@@ -69,7 +70,7 @@ export async function toggleClockStatus(projectName?: string, notes?: string) {
         const employeeId = session.user.id;
 
         const now = new Date();
-        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+        await closeStaleOpenTimeLogs(employeeId);
 
         // 1. Check if the user has an active (open) time log
         const activeLog = await prisma.timeLog.findFirst({
@@ -83,34 +84,19 @@ export async function toggleClockStatus(projectName?: string, notes?: string) {
         });
 
         if (activeLog) {
-            // Did they forget to clock out yesterday?
-            if (activeLog.clockIn < startOfToday) {
-                // Force close yesterday's log at 23:59:59
-                const endOfYesterday = new Date(startOfToday.getTime() - 1);
-                await prisma.timeLog.update({
-                    where: { id: activeLog.id },
-                    data: { clockOut: endOfYesterday, status: "FORCED_CHECKOUT" },
-                });
-                
-                await prisma.auditLog.create({
-                    data: { action: "FORCED_CLOCK_OUT", userId: employeeId, details: "System forcefully closed stale time log from previous day." }
-                });
-                // We let it continue below to create their new clock-in for today!
-            } else {
-                // Normal clock out for today
-                const clockOutTime = new Date();
-                await prisma.timeLog.update({
-                    where: { id: activeLog.id },
-                    data: { clockOut: clockOutTime },
-                });
+            // Normal clock out for today
+            const clockOutTime = new Date();
+            await prisma.timeLog.update({
+                where: { id: activeLog.id },
+                data: { clockOut: clockOutTime },
+            });
 
-                await prisma.auditLog.create({
-                    data: { action: "CLOCK_OUT", userId: employeeId, details: "User clocked out." }
-                });
+            await prisma.auditLog.create({
+                data: { action: "CLOCK_OUT", userId: employeeId, details: "User clocked out." }
+            });
 
-                revalidatePath("/");
-                return { success: true, status: emptyClockStatus() };
-            }
+            revalidatePath("/");
+            return { success: true, status: emptyClockStatus() };
         }
 
         // 2. User is clocking in (either standard, or after an auto-checkout)
@@ -474,6 +460,7 @@ export async function getClockStatus() {
         }
 
         const employeeId = session.user.id;
+        await closeStaleOpenTimeLogs(employeeId);
 
         const activeLog = await prisma.timeLog.findFirst({
             where: {

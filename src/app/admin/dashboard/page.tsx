@@ -13,6 +13,7 @@ import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { closeStaleOpenTimeLogs } from "@/lib/time-log-maintenance";
 
 export const dynamic = "force-dynamic";
 
@@ -102,6 +103,8 @@ export default async function AdminDashboardPage() {
       isActive: true,
     },
   });
+
+  await closeStaleOpenTimeLogs(isAdmin ? undefined : users.map((user) => user.id));
 
   const todayLogs = await prisma.timeLog.findMany({
     where: {
