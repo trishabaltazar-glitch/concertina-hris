@@ -4,6 +4,12 @@ import { Bell, CheckCheck } from "lucide-react";
 
 import { getMyNotifications, markAllNotificationsRead, markNotificationRead } from "@/app/actions/notifications";
 import { SubmitButton } from "@/components/ui/submit-button";
+import {
+  getNotificationFilterCount,
+  getValidNotificationFilter,
+  matchesNotificationFilter,
+  NOTIFICATION_FILTERS,
+} from "@/lib/notification-filters";
 import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -18,13 +24,32 @@ function getTypeLabel(type: string) {
       return "Rejected";
     case "ANNOUNCEMENT":
       return "Announcement";
+    case "TIME_ENTRY_REQUEST":
+      return "Time entry request";
+    case "TIME_ENTRY_APPROVED":
+      return "Time entry approved";
+    case "TIME_ENTRY_REJECTED":
+      return "Time entry rejected";
+    case "INFO":
+      return "Notice";
     default:
       return "Notice";
   }
 }
 
-export default async function NotificationsPage() {
+type NotificationsPageProps = {
+  searchParams?: Promise<{
+    filter?: string;
+  }>;
+};
+
+export default async function NotificationsPage({ searchParams }: NotificationsPageProps) {
+  const params = await searchParams;
+  const activeFilter = getValidNotificationFilter(params?.filter);
   const { notifications, unreadCount } = await getMyNotifications(50);
+  const filteredNotifications = notifications.filter((notification) =>
+    matchesNotificationFilter(notification, activeFilter)
+  );
 
   return (
     <div className="w-full space-y-6">
@@ -58,6 +83,35 @@ export default async function NotificationsPage() {
         )}
       </div>
 
+      <div className="flex gap-2 overflow-x-auto border-b border-border/70 pb-2">
+        {NOTIFICATION_FILTERS.map((filter) => {
+          const count = getNotificationFilterCount(notifications, filter.id);
+
+          return (
+            <Link
+              key={filter.id}
+              href={filter.id === "all" ? "/notifications" : `/notifications?filter=${filter.id}`}
+              className={cn(
+                "inline-flex h-9 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-semibold transition-colors",
+                activeFilter === filter.id
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-muted/50 text-muted-foreground hover:bg-accent hover:text-foreground"
+              )}
+            >
+              {filter.label}
+              <span
+                className={cn(
+                  "rounded-full px-1.5 text-xs leading-5",
+                  activeFilter === filter.id ? "bg-white/20" : "bg-background"
+                )}
+              >
+                {count}
+              </span>
+            </Link>
+          );
+        })}
+      </div>
+
       {notifications.length === 0 ? (
         <div className="rounded-lg border border-dashed bg-card px-6 py-14 text-center">
           <div className="mx-auto grid size-12 place-items-center rounded-lg bg-muted text-muted-foreground">
@@ -68,10 +122,20 @@ export default async function NotificationsPage() {
             Leave request and approval updates will appear here.
           </p>
         </div>
+      ) : filteredNotifications.length === 0 ? (
+        <div className="rounded-lg border border-dashed bg-card px-6 py-14 text-center">
+          <div className="mx-auto grid size-12 place-items-center rounded-lg bg-muted text-muted-foreground">
+            <Bell className="size-5" />
+          </div>
+          <h2 className="mt-4 font-semibold">No notifications in this filter</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Try another tab to see the rest of your notifications.
+          </p>
+        </div>
       ) : (
         <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
           <div className="divide-y">
-            {notifications.map((notification) => {
+            {filteredNotifications.map((notification) => {
               const content = (
                 <div
                   className={cn(

@@ -17,6 +17,12 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  getNotificationFilterCount,
+  matchesNotificationFilter,
+  NOTIFICATION_FILTERS,
+  type NotificationFilterId,
+} from "@/lib/notification-filters";
 import { cn } from "@/lib/utils";
 
 type NotificationsDropdownSectionProps = {
@@ -33,10 +39,11 @@ export function NotificationsDropdownSection({
   const [notifications, setNotifications] = React.useState<UserNotification[]>([]);
   const [unreadCount, setUnreadCount] = React.useState(0);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [activeFilter, setActiveFilter] = React.useState<NotificationFilterId>("all");
 
   const loadNotifications = React.useCallback(async () => {
     try {
-      const result = await getMyNotifications(5);
+      const result = await getMyNotifications(12);
       setNotifications(result.notifications);
       setUnreadCount(result.unreadCount);
       onUnreadCountChange?.(result.unreadCount);
@@ -64,6 +71,10 @@ export function NotificationsDropdownSection({
       await loadNotifications();
     }
   };
+
+  const filteredNotifications = notifications.filter((notification) =>
+    matchesNotificationFilter(notification, activeFilter)
+  );
 
   return (
     <div className="px-1 py-1">
@@ -111,6 +122,38 @@ export function NotificationsDropdownSection({
         </div>
       </div>
 
+      <div className="mb-2 flex gap-1 overflow-x-auto px-1 pb-1">
+        {NOTIFICATION_FILTERS.map((filter) => {
+          const count = getNotificationFilterCount(notifications, filter.id);
+
+          return (
+            <button
+              key={filter.id}
+              type="button"
+              onClick={() => setActiveFilter(filter.id)}
+              className={cn(
+                "inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-2.5 text-xs font-semibold transition-colors",
+                activeFilter === filter.id
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-muted/50 text-muted-foreground hover:bg-accent hover:text-foreground"
+              )}
+            >
+              {filter.label}
+              {filter.id !== "all" && count > 0 ? (
+                <span
+                  className={cn(
+                    "rounded-full px-1.5 text-[10px] leading-4",
+                    activeFilter === filter.id ? "bg-white/20" : "bg-background"
+                  )}
+                >
+                  {count > 9 ? "9+" : count}
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+
       <div className="max-h-64 space-y-1 overflow-y-auto pr-1">
         {isLoading ? (
           <div className="space-y-2 px-1 py-2">
@@ -121,8 +164,12 @@ export function NotificationsDropdownSection({
           <div className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-xs text-muted-foreground">
             No notifications yet.
           </div>
+        ) : filteredNotifications.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-xs text-muted-foreground">
+            No notifications in this filter.
+          </div>
         ) : (
-          notifications.map((notification) => {
+          filteredNotifications.map((notification) => {
             const content = (
               <div
                 className={cn(
