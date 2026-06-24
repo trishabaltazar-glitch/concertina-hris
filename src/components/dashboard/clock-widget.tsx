@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { format } from "date-fns";
-import { CheckCircle2, Play, Square, TimerReset } from "lucide-react";
+import { CheckCircle2, Clock3, Play, Square, TimerReset } from "lucide-react";
 
 import { toggleClockStatus, getClockStatus } from "@/app/actions/time";
 import { cn } from "@/lib/utils";
@@ -11,9 +11,16 @@ import { Button } from "@/components/ui/button";
 type ClockStatus = Awaited<ReturnType<typeof getClockStatus>>;
 type PendingAction = "clock-in" | "clock-out" | null;
 
+function getCurrentTimeParts(date: Date) {
+  return {
+    time: format(date, "h:mm:ss"),
+    meridiem: format(date, "a"),
+  };
+}
+
 function formatElapsedTime(now: Date, clockInTime: Date | null) {
   if (!clockInTime) {
-    return format(now, "HH:mm:ss");
+    return getCurrentTimeParts(now).time;
   }
 
   const totalSeconds = Math.max(
@@ -106,7 +113,6 @@ export function ClockWidget() {
       : pendingAction === "clock-out"
         ? "Clock-out noted. Syncing securely..."
         : null;
-
   if (!time) {
     return (
       <div className="rounded-lg border border-border/70 bg-background/70 p-4">
@@ -122,14 +128,21 @@ export function ClockWidget() {
     );
   }
 
+  const currentTime = getCurrentTimeParts(time);
+
   return (
-    <div className="flex h-full flex-col rounded-lg border border-border/70 bg-background/70 p-4">
+    <div className="flex flex-col rounded-lg border border-border/70 bg-card p-3 shadow-sm">
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-semibold text-foreground">Clock-in</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Live attendance tracker
-          </p>
+        <div className="flex items-start gap-3">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border/70 bg-background text-brand-red">
+            <Clock3 className="size-4" />
+          </span>
+          <div>
+            <p className="text-sm font-semibold text-foreground">Clock-in / out</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Live attendance tracker
+            </p>
+          </div>
         </div>
         <span
           className={cn(
@@ -149,7 +162,7 @@ export function ClockWidget() {
 
       <div
         className={cn(
-          "relative mt-4 flex min-h-36 flex-col justify-center overflow-hidden rounded-lg bg-card px-4 py-5 text-center ring-1 ring-border/70",
+          "relative mt-3 overflow-hidden rounded-lg border border-border/70 bg-background/70 p-3",
           isSyncing && "ring-brand-steel/35"
         )}
       >
@@ -158,19 +171,69 @@ export function ClockWidget() {
             <div className="h-full w-1/3 loading-sweep brand-gradient" />
           </div>
         )}
-        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-          {isSyncing ? "Syncing attendance" : isClockedIn ? "Time since clock-in" : "Current time"}
-        </p>
-        <h2 className="mt-2 text-4xl font-semibold tracking-tight text-foreground">
-          {isClockedIn
-            ? formatElapsedTime(time, clockInTime)
-            : format(time, "HH:mm:ss")}
-        </h2>
-        <p className="mt-1.5 text-xs text-muted-foreground">
-          {isClockedIn && clockInTime
-            ? `Clocked in at ${format(clockInTime, "h:mm a")} | ${format(clockInTime, "EEEE, MMM d")}`
-            : format(time, "EEEE, MMM d")}
-        </p>
+        <div className="flex flex-col items-center text-center">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+              {isSyncing ? "Syncing attendance" : isClockedIn ? "Time since clock-in" : "Current time"}
+            </p>
+            {isClockedIn ? (
+              <h2 className="mt-1 text-5xl font-semibold tracking-tight text-foreground sm:text-6xl">
+                {formatElapsedTime(time, clockInTime)}
+              </h2>
+            ) : (
+              <div className="mt-1 flex items-start justify-center gap-2 text-foreground">
+                <span className="text-5xl font-semibold tracking-tight sm:text-6xl">
+                  {currentTime.time}
+                </span>
+                <span className="mt-1 flex flex-col items-start leading-none sm:mt-2">
+                  <span className="text-base font-semibold uppercase text-foreground sm:text-lg">
+                    {currentTime.meridiem}
+                  </span>
+                  <span className="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                    PHT
+                  </span>
+                </span>
+              </div>
+            )}
+            <p className="mt-1 text-xs text-muted-foreground">
+              {isClockedIn && clockInTime
+                ? `Clocked in at ${format(clockInTime, "h:mm a")} | ${format(clockInTime, "EEEE, MMM d")}`
+                : format(time, "EEEE, MMM d")}
+            </p>
+          </div>
+
+          <Button
+            type="button"
+            onClick={handleToggleClock}
+            disabled={isPending || !hasLoadedStatus}
+            variant={isClockedIn ? "destructive" : "default"}
+            size="default"
+            className={cn(
+              "mt-4 h-12 w-full rounded-md px-5 text-base font-semibold shadow-sm ring-2 ring-transparent transition-all",
+              !isClockedIn &&
+                "bg-emerald-600 text-white shadow-emerald-600/20 hover:bg-emerald-700 hover:shadow-md focus-visible:ring-emerald-500/35",
+              isClockedIn && "focus-visible:ring-destructive/35",
+              (isPending || !hasLoadedStatus) && "opacity-70"
+            )}
+          >
+            {isPending ? (
+              <>
+                <CheckCircle2 className="size-4" />
+                Syncing
+              </>
+            ) : isClockedIn ? (
+              <>
+                <Square className="size-4 fill-current" />
+                Clock out
+              </>
+            ) : (
+              <>
+                <Play className="size-5 fill-current" />
+                Clock in
+              </>
+            )}
+          </Button>
+        </div>
       </div>
 
       {(isSyncing || errorMessage) && (
@@ -206,41 +269,7 @@ export function ClockWidget() {
         </div>
       )}
 
-      <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-        <Button
-          type="button"
-          onClick={handleToggleClock}
-          disabled={isPending || !hasLoadedStatus}
-          variant={isClockedIn ? "destructive" : "default"}
-          size="lg"
-          className={cn(
-            "h-12 min-w-36 rounded-md px-6 text-sm font-semibold shadow-sm ring-2 ring-transparent transition-all",
-            !isClockedIn &&
-              "bg-brand-red text-brand-red-foreground shadow-brand-red/20 hover:bg-brand-red/90 hover:shadow-md focus-visible:ring-brand-red/35",
-            isClockedIn && "focus-visible:ring-destructive/35",
-            (isPending || !hasLoadedStatus) && "opacity-70"
-          )}
-        >
-          {isPending ? (
-            <>
-              <CheckCircle2 className="size-4" />
-              Syncing
-            </>
-          ) : isClockedIn ? (
-            <>
-              <Square className="size-4 fill-current" />
-              Clock out
-            </>
-          ) : (
-            <>
-              <Play className="size-5 fill-current" />
-              Clock in
-            </>
-          )}
-        </Button>
-      </div>
-
-      <p className="mt-3 text-center text-xs leading-5 text-muted-foreground">
+      <p className="mt-2 rounded-md bg-muted/35 px-3 py-2 text-center text-xs leading-5 text-muted-foreground">
         {!hasLoadedStatus
           ? "Checking your current attendance status."
           : isClockedIn

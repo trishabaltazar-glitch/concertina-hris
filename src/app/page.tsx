@@ -5,7 +5,10 @@ import Link from "next/link";
 import prisma from "@/lib/prisma";
 import { endOfDay, format, startOfDay } from "date-fns";
 import { ensureScheduleOverrideTable } from "@/lib/schedule-overrides";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, Timer } from "lucide-react";
+import { getAnnouncementContentHtml } from "@/lib/announcement-content";
+import { LaunchpadAnnouncements } from "./launchpad-announcements";
+import { Button } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +46,22 @@ type DashboardTimeLog = {
   clockIn: Date;
   clockOut: Date | null;
   status: string;
+};
+
+type AnnouncementPreview = {
+  id: string;
+  title: string;
+  html: string;
+  previewText: string;
+  createdAtLabel: string;
+};
+
+type AnnouncementRow = {
+  id: string;
+  title: string;
+  content: string;
+  createdAt: Date;
+  authorName: string;
 };
 
 function getDurationInHours(clockIn: Date, clockOut: Date | null) {
@@ -191,6 +210,19 @@ function formatRoleLabel(role?: string | null) {
     .join(" ");
 }
 
+function getAnnouncementPreviewText(html: string) {
+  return html
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, "\"")
+    .replace(/&#039;/gi, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export default async function DashboardPage() {
   const session = await auth();
   if (!session || !session.user) {
@@ -209,6 +241,8 @@ export default async function DashboardPage() {
   let schedules: ScheduleWindow[] = [];
   let scheduleOverrides: ScheduleOverrideWindow[] = [];
   let assignedHolidays: AssignedHoliday[] = [];
+  let announcements: AnnouncementPreview[] = [];
+  let announcementsUnavailable = false;
 
   try {
     recentLogs = await prisma.timeLog.findMany({
@@ -274,6 +308,36 @@ export default async function DashboardPage() {
     assignedHolidays = [];
   }
 
+  try {
+    const announcementRows = await prisma.$queryRaw<AnnouncementRow[]>`
+      SELECT
+        a."id",
+        a."title",
+        a."content",
+        a."createdAt",
+        u."name" as "authorName"
+      FROM "Announcement" a
+      INNER JOIN "User" u ON u."id" = a."authorId"
+      ORDER BY a."createdAt" DESC
+      LIMIT 4
+    `;
+
+    announcements = announcementRows.map((announcement) => {
+      const html = getAnnouncementContentHtml(announcement.content);
+
+      return {
+        id: announcement.id,
+        title: announcement.title,
+        html,
+        previewText: getAnnouncementPreviewText(html) || "Open announcement",
+        createdAtLabel: `${format(announcement.createdAt, "MMM d, yyyy h:mm a")} by ${announcement.authorName}`,
+      };
+    });
+  } catch {
+    announcements = [];
+    announcementsUnavailable = true;
+  }
+
   const todayWorkedHours = todayLogs.reduce((sum, log) => {
     return sum + getDurationInHours(log.clockIn, log.clockOut);
   }, 0);
@@ -318,12 +382,12 @@ export default async function DashboardPage() {
     .slice(0, 6);
 
   return (
-    <div className="w-full space-y-4">
-      <section className="rounded-lg border border-border/70 bg-card shadow-sm">
-        <div className="flex flex-col gap-3 border-b border-border/70 px-4 py-3 lg:flex-row lg:items-start lg:justify-between">
+    <div className="w-full space-y-5">
+      <section className="space-y-4">
+        <div className="flex flex-col gap-1">
           <div className="min-w-0 flex-1 space-y-1">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-brand-steel">
-              Welcome
+              Launchpad
             </p>
             <h1 className="max-w-3xl text-balance text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
               {firstName}, here&apos;s your workday snapshot.
@@ -332,84 +396,108 @@ export default async function DashboardPage() {
               {roleLabel} | {format(now, "MMMM d, yyyy | h:mm a")}
             </p>
           </div>
-
-          <Link
-            href="/schedule"
-            className="flex w-full items-start justify-between gap-4 rounded-lg border border-brand-red bg-rose-50/80 px-4 py-3 text-left transition-colors hover:bg-rose-50 dark:bg-rose-950/20 dark:hover:bg-rose-950/30 lg:w-auto lg:min-w-72"
-          >
-            <div>
-              <p className="text-sm font-semibold text-brand-red">{format(now, "EEEE")}</p>
-              <p className="mt-0.5 text-xs font-medium text-muted-foreground">Today</p>
-            </div>
-            <div className="min-w-0 text-right">
-              <div className="flex items-center justify-end gap-1.5 text-sm font-semibold text-slate-950 dark:text-foreground">
-                <CalendarDays className="size-3.5 shrink-0 text-brand-red" />
-                <span className="truncate">
-                  {todayHoliday
-                    ? todayHoliday.name
-                    : todaySchedule
-                      ? `${formatScheduleTime(todaySchedule.startTime)} - ${formatScheduleTime(todaySchedule.endTime)}`
-                      : "Off today"}
-                </span>
-              </div>
-              <p className="mt-1 text-xs font-medium text-muted-foreground">
-                {todayHoliday ? "Assigned holiday" : todayScheduleHours || "No scheduled hours"}
-              </p>
-              <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                {todayOverride?.notes || "PH Timezone (GMT +8)"}
-              </p>
-            </div>
-          </Link>
         </div>
 
-        <div className="grid gap-3 p-3 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
-          <ClockWidget />
-
-          <div className="flex h-full flex-col rounded-lg border border-border/70 bg-background/70 p-4">
-            <div>
+        <div className="grid items-stretch gap-4 xl:grid-cols-[minmax(0,1.04fr)_minmax(360px,0.96fr)]">
+          <div className="space-y-4">
+            <Link
+              href="/schedule"
+              className="flex w-full items-start justify-between gap-4 rounded-lg border border-brand-red/70 bg-rose-50/80 px-4 py-3 text-left shadow-sm transition-colors hover:bg-rose-50 dark:bg-rose-950/20 dark:hover:bg-rose-950/30"
+            >
               <div>
-                <p className="text-sm font-semibold text-foreground">Logged hours today</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Total time recorded today
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-brand-steel">
+                  Today&apos;s Schedule
+                </p>
+                <p className="mt-1 text-sm font-semibold text-brand-red">{format(now, "EEEE")}</p>
+              </div>
+              <div className="min-w-0 text-right">
+                <div className="flex items-center justify-end gap-1.5 text-sm font-semibold text-slate-950 dark:text-foreground">
+                  <CalendarDays className="size-3.5 shrink-0 text-brand-red" />
+                  <span className="truncate">
+                    {todayHoliday
+                      ? todayHoliday.name
+                      : todaySchedule
+                        ? `${formatScheduleTime(todaySchedule.startTime)} - ${formatScheduleTime(todaySchedule.endTime)}`
+                        : "Off today"}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs font-medium text-muted-foreground">
+                  {todayHoliday ? "Assigned holiday" : todayScheduleHours || "No scheduled hours"}
+                </p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  {todayOverride?.notes || "PH Timezone (GMT +8)"}
                 </p>
               </div>
-            </div>
+            </Link>
 
-            <div className="mt-4 flex min-h-36 flex-col justify-center rounded-lg bg-card px-4 py-5 text-center ring-1 ring-border/70">
-              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                Total hours
-              </p>
-              <div className="mt-2 flex items-end justify-center gap-1 text-foreground">
-                <span className="text-3xl font-semibold tracking-tight">
-                  {todayDuration.hours}
+            <ClockWidget />
+
+            <div className="flex flex-col rounded-lg border border-border/70 bg-card p-3 shadow-sm">
+              <div className="flex items-start gap-3">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border/70 bg-background text-brand-steel">
+                  <Timer className="size-4" />
                 </span>
-                <span className="pb-1 text-sm font-medium text-muted-foreground">
-                  hrs
-                </span>
-                <span className="text-xl font-semibold tracking-tight">
-                  {todayDuration.minutes}
-                </span>
-                <span className="pb-1 text-sm font-medium text-muted-foreground">
-                  mins
-                </span>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Logged hours today</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Completed entries recorded today
+                  </p>
+                </div>
               </div>
-            </div>
 
-            <p className="mt-3 text-xs leading-5 text-muted-foreground">
-              Includes completed entries recorded today.
-            </p>
+              <div className="mt-3 rounded-lg border border-border/70 bg-background/70 p-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                      Total hours
+                    </p>
+                    <div className="mt-1 flex items-end gap-1 text-foreground">
+                      <span className="text-3xl font-semibold tracking-tight">
+                        {todayDuration.hours}
+                      </span>
+                      <span className="pb-1 text-sm font-medium text-muted-foreground">
+                        hrs
+                      </span>
+                      <span className="text-xl font-semibold tracking-tight">
+                        {todayDuration.minutes}
+                      </span>
+                      <span className="pb-1 text-sm font-medium text-muted-foreground">
+                        mins
+                      </span>
+                    </div>
+                  </div>
+                  <div className="inline-flex h-8 w-fit items-center self-start rounded-md border border-border/70 bg-card px-3 text-sm text-muted-foreground sm:self-auto">
+                    <span className="font-semibold text-foreground">{todayLogs.length}</span>
+                    <span className="ml-1.5">
+                      {todayLogs.length === 1 ? "entry" : "entries"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <p className="mt-2 rounded-md bg-muted/35 px-3 py-2 text-xs leading-5 text-muted-foreground">
+                Active clock-ins are added after clock-out.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex min-h-0 self-stretch">
+            <LaunchpadAnnouncements
+              className="flex-1"
+              announcements={announcements}
+              unavailable={announcementsUnavailable}
+            />
           </div>
         </div>
+
         {todayHoliday && (
-          <div className="border-t border-border/70 px-3 py-3">
-            <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm">
-              <p className="font-semibold text-emerald-700 dark:text-emerald-300">
-                {todayHoliday.name} is assigned for today.
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                You do not need to clock in or out for this assigned holiday.
-              </p>
-            </div>
+          <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm">
+            <p className="font-semibold text-emerald-700 dark:text-emerald-300">
+              {todayHoliday.name} is assigned for today.
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              You do not need to clock in or out for this assigned holiday.
+            </p>
           </div>
         )}
       </section>
@@ -424,12 +512,12 @@ export default async function DashboardPage() {
               Your latest attendance events
             </h2>
           </div>
-          <Link
-            href="/timesheets"
-            className="inline-flex h-9 items-center justify-center rounded-md border border-border/70 bg-background px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-          >
-            View timesheets
-          </Link>
+          <Button asChild variant="outline" size="sm" className="h-9 w-fit shadow-sm">
+            <Link href="/timesheets">
+              <CalendarDays className="size-4" />
+              View timesheets
+            </Link>
+          </Button>
         </div>
 
         {recentActivity.length === 0 ? (

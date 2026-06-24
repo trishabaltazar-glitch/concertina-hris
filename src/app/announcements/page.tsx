@@ -1,4 +1,4 @@
-import { formatDistanceToNow } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 import { Megaphone, Plus } from "lucide-react";
 import { redirect } from "next/navigation";
@@ -7,6 +7,7 @@ import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { Button } from "@/components/ui/button";
 import { getAnnouncementContentHtml } from "@/lib/announcement-content";
+import { AnnouncementsBoard, type AnnouncementBoardItem } from "./announcements-board";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,19 @@ type AnnouncementRow = {
   createdAt: Date;
   authorName: string;
 };
+
+function getPreviewText(html: string) {
+  return html
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, "\"")
+    .replace(/&#039;/gi, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 export default async function AnnouncementsPage() {
   const session = await auth();
@@ -48,71 +62,91 @@ export default async function AnnouncementsPage() {
   }
 
   const canManageAnnouncements = user.role === "ADMIN";
+  const boardAnnouncements: AnnouncementBoardItem[] = announcements.map((announcement) => {
+    const html = getAnnouncementContentHtml(announcement.content);
+
+    return {
+      id: announcement.id,
+      title: announcement.title,
+      html,
+      previewText: getPreviewText(html) || "Open announcement",
+      authorName: announcement.authorName,
+      dateLabel: format(announcement.createdAt, "MMM d, yyyy h:mm a"),
+      relativeDateLabel: formatDistanceToNow(announcement.createdAt, { addSuffix: true }),
+    };
+  });
 
   return (
     <div className="w-full space-y-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <span className="inline-flex rounded-full border border-border bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground">
-            Workspace
-          </span>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">Announcements</h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Company updates and HR notices published by administrators.
-          </p>
+      <section>
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border/70 bg-background text-brand-red">
+                <Megaphone className="size-4" />
+              </span>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-brand-steel">
+                  Workspace
+                </p>
+                <h1 className="text-2xl font-semibold tracking-tight text-foreground">Announcements</h1>
+              </div>
+            </div>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
+              Company updates, HR notices, and operational reminders from the admin team.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex h-8 items-center rounded-md border border-border/70 bg-background px-2.5 text-xs font-medium text-muted-foreground">
+              {announcements.length} published
+            </span>
+            {canManageAnnouncements && (
+              <Button
+                asChild
+                size="sm"
+                className="h-9 border-brand-red bg-brand-red px-3 text-brand-red-foreground shadow-md shadow-brand-red/20 hover:bg-brand-red/90 hover:text-brand-red-foreground hover:shadow-lg hover:shadow-brand-red/25 focus-visible:ring-brand-red/35"
+              >
+                <Link href="/admin/announcements">
+                  <Plus className="size-4" />
+                  New announcement
+                </Link>
+              </Button>
+            )}
+          </div>
         </div>
-        {canManageAnnouncements && (
-          <Button asChild size="sm">
-            <Link href="/admin/announcements">
-              <Plus className="size-4" />
-              New announcement
-            </Link>
-          </Button>
-        )}
-      </div>
+      </section>
 
       {databaseError ? (
-        <div className="rounded-lg border border-border bg-card px-6 py-12 text-center">
-          <div className="mx-auto grid size-10 place-items-center rounded-lg bg-destructive/10 text-destructive">
+        <section className="rounded-lg border border-border/70 bg-card px-6 py-14 text-center shadow-sm">
+          <div className="mx-auto grid size-12 place-items-center rounded-lg bg-destructive/10 text-destructive">
             <Megaphone className="size-5" />
           </div>
-          <h2 className="mt-3 font-semibold text-foreground">Announcements unavailable</h2>
-          <p className="mx-auto mt-1.5 max-w-md text-sm text-muted-foreground">
+          <h2 className="mt-4 font-semibold text-foreground">Announcements unavailable</h2>
+          <p className="mx-auto mt-1.5 max-w-md text-sm leading-6 text-muted-foreground">
             The announcement table is not available yet. Apply the latest database migrations and refresh this page.
           </p>
-        </div>
-      ) : announcements.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border bg-card px-6 py-14 text-center">
+        </section>
+      ) : boardAnnouncements.length === 0 ? (
+        <section className="rounded-lg border border-dashed border-border/80 bg-card px-6 py-16 text-center shadow-sm">
           <div className="mx-auto grid size-12 place-items-center rounded-lg bg-muted text-muted-foreground">
             <Megaphone className="size-5" />
           </div>
           <h2 className="mt-4 font-semibold text-foreground">No announcements yet</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            New company updates will appear here.
+          <p className="mx-auto mt-1.5 max-w-sm text-sm leading-6 text-muted-foreground">
+            New company updates will appear here once an administrator publishes them.
           </p>
-        </div>
+          {canManageAnnouncements && (
+            <Button asChild size="sm" className="mt-5">
+              <Link href="/admin/announcements">
+                <Plus className="size-4" />
+                Publish first announcement
+              </Link>
+            </Button>
+          )}
+        </section>
       ) : (
-        <div className="space-y-3">
-          {announcements.map((announcement) => (
-            <article key={announcement.id} className="rounded-lg border border-border bg-card p-4 shadow-sm">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0">
-                  <h2 className="text-base font-semibold text-foreground">{announcement.title}</h2>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Posted by {announcement.authorName} {formatDistanceToNow(announcement.createdAt, { addSuffix: true })}
-                  </p>
-                </div>
-                <span className="w-fit rounded-md border border-border bg-background px-2 py-1 text-[11px] font-semibold text-muted-foreground">
-                  Notice
-                </span>
-              </div>
-              <div
-                className="mt-3 text-sm leading-6 text-muted-foreground [&_a]:font-medium [&_a]:text-primary [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_h1]:text-lg [&_h1]:font-semibold [&_h1]:text-foreground [&_h2]:text-base [&_h2]:font-semibold [&_h2]:text-foreground [&_h3]:font-semibold [&_h3]:text-foreground [&_h4]:font-semibold [&_h4]:text-foreground [&_hr]:my-4 [&_hr]:border-border [&_img]:my-3 [&_img]:max-h-96 [&_img]:max-w-full [&_img]:rounded-md [&_img]:border [&_img]:border-border [&_li]:my-1 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3 [&_strong]:font-semibold [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5"
-                dangerouslySetInnerHTML={{ __html: getAnnouncementContentHtml(announcement.content) }}
-              />
-            </article>
-          ))}
-        </div>
+        <AnnouncementsBoard announcements={boardAnnouncements} />
       )}
     </div>
   );

@@ -3,11 +3,11 @@ import { Megaphone, Trash2 } from "lucide-react";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
-import { createAnnouncement, deleteAnnouncement } from "@/app/actions/announcements";
+import { deleteAnnouncement } from "@/app/actions/announcements";
 import prisma from "@/lib/prisma";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { getAnnouncementContentHtml } from "@/lib/announcement-content";
-import { AnnouncementEditor } from "./announcement-editor";
+import { AnnouncementPublishForm } from "./announcement-publish-form";
 import { PublishAnnouncementPanel } from "./publish-announcement-panel";
 
 export const dynamic = "force-dynamic";
@@ -61,42 +61,15 @@ export default async function AdminAnnouncementsPage() {
             Publish company notices to the employee workspace and notification bell.
           </p>
         </div>
-        <div className="rounded-lg border border-border bg-background px-3 py-2 text-sm">
-          <p className="text-xs text-muted-foreground">Published</p>
-          <p className="mt-1 font-semibold text-foreground">{announcements.length}</p>
+        <div className="inline-flex h-9 w-fit items-center rounded-md border border-border bg-background px-3 text-sm font-medium text-muted-foreground">
+          <span className="font-semibold text-foreground">{announcements.length}</span>
+          <span className="ml-1.5">published</span>
         </div>
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(320px,0.85fr)_minmax(0,1.15fr)]">
         <PublishAnnouncementPanel>
-          <form
-            action={async (formData) => {
-              "use server";
-              await createAnnouncement(formData);
-            }}
-            className="space-y-4 px-4 py-4"
-          >
-            <label className="block space-y-1.5 text-sm font-medium text-foreground">
-              Title
-              <input
-                type="text"
-                name="title"
-                required
-                maxLength={140}
-                placeholder="Example: Payroll cutoff reminder"
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-              />
-            </label>
-
-            <label className="block space-y-1.5 text-sm font-medium text-foreground">
-              Message
-              <AnnouncementEditor />
-            </label>
-
-            <SubmitButton size="sm" className="w-full">
-              Publish announcement
-            </SubmitButton>
-          </form>
+          <AnnouncementPublishForm />
         </PublishAnnouncementPanel>
 
         <section className="rounded-lg border border-border bg-background">
