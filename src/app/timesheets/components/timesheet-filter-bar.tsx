@@ -1,18 +1,31 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { CalendarDays, ChevronDown, ChevronsUpDown } from "lucide-react";
+import {
+  addMonths,
+  eachDayOfInterval,
+  endOfMonth,
+  endOfWeek,
+  format,
+  isAfter,
+  isBefore,
+  isSameDay,
+  isSameMonth,
+  isValid,
+  parseISO,
+  startOfMonth,
+  startOfWeek,
+} from "date-fns";
+import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+
+import { cn } from "@/lib/utils";
 
 type TimesheetFilterBarProps = {
-  selectedRange: string;
   fromValue: string;
   toValue: string;
-  displayRange: string;
   showEmptyDays: boolean;
 };
-
-const RANGE_PRESETS = [7, 14, 30, 60, 90];
 
 function updateParam(params: URLSearchParams, key: string, value: string) {
   if (value) {
@@ -22,18 +35,31 @@ function updateParam(params: URLSearchParams, key: string, value: string) {
   }
 }
 
+function parseDateValue(value: string) {
+  const parsed = parseISO(value);
+  return isValid(parsed) ? parsed : null;
+}
+
+function getCalendarDays(month: Date) {
+  return eachDayOfInterval({
+    start: startOfWeek(startOfMonth(month)),
+    end: endOfWeek(endOfMonth(month)),
+  });
+}
+
 export function TimesheetFilterBar({
-  selectedRange,
   fromValue,
   toValue,
-  displayRange,
   showEmptyDays,
 }: TimesheetFilterBarProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const isSelectedPreset = RANGE_PRESETS.includes(Number.parseInt(selectedRange, 10));
-  const [rangeValue, setRangeValue] = useState(selectedRange);
-  const [isCustomRange, setIsCustomRange] = useState(!isSelectedPreset);
+  const currentFrom = parseDateValue(fromValue) ?? new Date();
+  const currentTo = parseDateValue(toValue) ?? currentFrom;
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [viewMonth, setViewMonth] = useState(startOfMonth(currentFrom));
+  const [draftFrom, setDraftFrom] = useState<Date | null>(currentFrom);
+  const [draftTo, setDraftTo] = useState<Date | null>(currentTo);
 
   const applyParams = useCallback((params: URLSearchParams) => {
     const query = params.toString();
@@ -48,105 +74,89 @@ export function TimesheetFilterBar({
     }
   }, [showEmptyDays]);
 
-  const applyRange = useCallback((value: string) => {
-    const days = Math.min(90, Math.max(1, Number.parseInt(value, 10) || 7));
+  const applyCustomRange = useCallback((from: Date | null, to: Date | null) => {
+    if (!from || !to) return;
+
+    const [safeFrom, safeTo] = isBefore(to, from) ? [to, from] : [from, to];
     const params = new URLSearchParams();
-    params.set("range", String(days));
     setShowEmptyParam(params);
+    updateParam(params, "from", format(safeFrom, "yyyy-MM-dd"));
+    updateParam(params, "to", format(safeTo, "yyyy-MM-dd"));
     applyParams(params);
   }, [applyParams, setShowEmptyParam]);
 
-  const handleDateChange = (key: "from" | "to", value: string) => {
-    const params = new URLSearchParams();
-    params.set("range", selectedRange);
-    setShowEmptyParam(params);
-    updateParam(params, "from", key === "from" ? value : fromValue);
-    updateParam(params, "to", key === "to" ? value : toValue);
-    applyParams(params);
+  const openCalendar = () => {
+    const nextFrom = parseDateValue(fromValue) ?? new Date();
+    const nextTo = parseDateValue(toValue) ?? nextFrom;
+    setDraftFrom(nextFrom);
+    setDraftTo(nextTo);
+    setViewMonth(startOfMonth(nextFrom));
+    setIsCalendarOpen((value) => !value);
   };
 
-  const handlePresetChange = (value: string) => {
-    if (!value) {
-      setIsCustomRange(true);
+  const handleDateSelect = (day: Date) => {
+    if (!draftFrom || draftTo || isBefore(day, draftFrom)) {
+      setDraftFrom(day);
+      setDraftTo(null);
       return;
     }
 
-    setIsCustomRange(false);
-    setRangeValue(value);
-    applyRange(value);
+    setDraftTo(day);
+  };
+
+  const handleApplyRange = () => {
+    applyCustomRange(draftFrom, draftTo);
+    setIsCalendarOpen(false);
   };
 
   const handleShowEmptyChange = (value: boolean) => {
     const params = new URLSearchParams();
-    params.set("range", selectedRange);
-    setShowEmptyParam(params, value);
     updateParam(params, "from", fromValue);
     updateParam(params, "to", toValue);
+    setShowEmptyParam(params, value);
     applyParams(params);
   };
 
-  useEffect(() => {
-    setRangeValue(selectedRange);
-    setIsCustomRange(!isSelectedPreset);
-  }, [isSelectedPreset, selectedRange]);
-
-  useEffect(() => {
-    if (rangeValue === selectedRange) return;
-
-    const timer = window.setTimeout(() => {
-      applyRange(rangeValue);
-    }, 500);
-
-    return () => window.clearTimeout(timer);
-  }, [applyRange, rangeValue, selectedRange]);
+  const calendarDays = getCalendarDays(viewMonth);
+  const canApplyRange = Boolean(draftFrom && draftTo);
 
   return (
-    <div className="flex max-w-full flex-wrap items-center overflow-hidden rounded-lg border border-border bg-background text-sm shadow-sm">
-      <div className="flex h-9 items-center gap-1.5 border-r border-border bg-background px-3 text-xs font-medium text-foreground">
-        <span>Last</span>
-        <select
-          value={isCustomRange ? "" : selectedRange}
-          onChange={(event) => handlePresetChange(event.target.value)}
-          className="h-7 cursor-pointer rounded-md border border-input bg-background px-2 text-xs font-medium text-foreground outline-none transition-colors hover:border-ring/60 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-          aria-label="Choose a common date range"
-        >
-          <option value="">Custom</option>
-          {RANGE_PRESETS.map((days) => (
-            <option key={days} value={days}>
-              {days} days
-            </option>
-          ))}
-        </select>
-        {isCustomRange && (
-          <>
-            <span className="group/range relative inline-flex items-center">
-              <input
-                type="number"
-                min={1}
-                max={90}
-                value={rangeValue}
-                onChange={(event) => setRangeValue(event.target.value)}
-                onBlur={(event) => applyRange(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.currentTarget.blur();
-                  }
-                }}
-                className="h-7 w-14 cursor-text rounded-md border border-input bg-background pl-2 pr-5 text-center text-xs font-semibold text-foreground shadow-xs outline-none transition-colors [appearance:textfield] hover:border-ring/60 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                aria-label="Number of days to show"
-                title="Edit number of days"
-              />
-              <ChevronsUpDown
-                aria-hidden="true"
-                className="pointer-events-none absolute right-1.5 size-3 text-muted-foreground transition-colors group-focus-within/range:text-ring group-hover/range:text-foreground"
-              />
-            </span>
-            <span>days</span>
-          </>
-        )}
-      </div>
+    <div className="relative flex max-w-full flex-wrap items-center gap-0 rounded-lg border border-border bg-background text-sm shadow-sm">
+      <button
+        type="button"
+        onClick={openCalendar}
+        className="group flex h-10 items-center gap-2 border-r border-border bg-muted/45 px-3 text-xs font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        aria-expanded={isCalendarOpen}
+        aria-label="Open calendar date range picker"
+      >
+        <CalendarDays className="size-3.5 text-brand-red" />
+        <span className="whitespace-nowrap">Date range</span>
+        <span className="hidden rounded-md bg-background px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground ring-1 ring-border sm:inline-flex">
+          Open calendar
+        </span>
+        <ChevronDown
+          className={cn(
+            "size-3.5 text-muted-foreground transition-transform group-hover:text-foreground",
+            isCalendarOpen && "rotate-180"
+          )}
+        />
+      </button>
 
-      <label className="flex h-9 cursor-pointer items-center gap-2 border-r border-border bg-background px-3 text-xs font-medium text-foreground">
+      <button
+        type="button"
+        onClick={openCalendar}
+        className="flex h-10 items-center gap-2 border-r border-border bg-background px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        <span className="whitespace-nowrap text-muted-foreground">
+          {draftFrom ? format(draftFrom, "MMM d, yyyy") : "Start date"}
+        </span>
+        <span className="text-muted-foreground">to</span>
+        <span className="whitespace-nowrap text-muted-foreground">
+          {draftTo ? format(draftTo, "MMM d, yyyy") : "End date"}
+        </span>
+      </button>
+
+      <label className="flex h-10 cursor-pointer items-center gap-2 border-r border-border bg-background px-3 text-xs font-medium text-foreground">
         <input
           type="checkbox"
           checked={showEmptyDays}
@@ -156,33 +166,82 @@ export function TimesheetFilterBar({
         <span className="whitespace-nowrap">Show empty days</span>
       </label>
 
-      <details className="group relative">
-        <summary className="flex h-9 cursor-pointer list-none items-center gap-2 px-3 text-xs font-medium text-foreground marker:hidden">
-          <CalendarDays className="size-3.5 text-muted-foreground" />
-          <span className="whitespace-nowrap">{displayRange}</span>
-          <ChevronDown className="size-3.5 text-muted-foreground transition-transform group-open:rotate-180" />
-        </summary>
-        <div className="absolute left-0 top-10 z-20 grid w-64 gap-3 rounded-lg border border-border bg-popover p-3 shadow-lg">
-          <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-            From
-            <input
-              type="date"
-              value={fromValue}
-              onChange={(event) => handleDateChange("from", event.target.value)}
-              className="h-8 rounded-md border border-input bg-background px-2 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-            />
-          </label>
-          <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-            To
-            <input
-              type="date"
-              value={toValue}
-              onChange={(event) => handleDateChange("to", event.target.value)}
-              className="h-8 rounded-md border border-input bg-background px-2 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-            />
-          </label>
+      {isCalendarOpen && (
+        <div className="absolute left-0 top-12 z-30 w-[min(22rem,calc(100vw-2rem))] rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-xl">
+          <div className="flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={() => setViewMonth((month) => addMonths(month, -1))}
+              className="inline-flex size-8 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              aria-label="Previous month"
+            >
+              <ChevronLeft className="size-4" />
+            </button>
+            <p className="text-sm font-semibold text-foreground">
+              {format(viewMonth, "MMMM yyyy")}
+            </p>
+            <button
+              type="button"
+              onClick={() => setViewMonth((month) => addMonths(month, 1))}
+              className="inline-flex size-8 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              aria-label="Next month"
+            >
+              <ChevronRight className="size-4" />
+            </button>
+          </div>
+
+          <div className="mt-3 grid grid-cols-7 gap-1 text-center text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+              <span key={day} className="py-1">
+                {day}
+              </span>
+            ))}
+          </div>
+
+          <div className="mt-1 grid grid-cols-7 gap-1">
+            {calendarDays.map((day) => {
+              const isRangeStart = draftFrom ? isSameDay(day, draftFrom) : false;
+              const isRangeEnd = draftTo ? isSameDay(day, draftTo) : false;
+              const isInsideRange =
+                draftFrom && draftTo && isAfter(day, draftFrom) && isBefore(day, draftTo);
+
+              return (
+                <button
+                  key={day.toISOString()}
+                  type="button"
+                  onClick={() => handleDateSelect(day)}
+                  className={cn(
+                    "h-9 rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/45",
+                    !isSameMonth(day, viewMonth) && "text-muted-foreground/45",
+                    isInsideRange && "bg-muted text-foreground",
+                    (isRangeStart || isRangeEnd) && "bg-foreground text-background hover:bg-foreground/90",
+                    !isRangeStart && !isRangeEnd && !isInsideRange && "hover:bg-muted"
+                  )}
+                  aria-pressed={isRangeStart || isRangeEnd}
+                >
+                  {format(day, "d")}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-3">
+            <p className="min-w-0 text-xs text-muted-foreground">
+              {draftFrom && draftTo
+                ? `${format(draftFrom, "MMM d")} - ${format(draftTo, "MMM d, yyyy")}`
+                : "Select a start and end date"}
+            </p>
+            <button
+              type="button"
+              onClick={handleApplyRange}
+              disabled={!canApplyRange}
+              className="inline-flex h-8 items-center justify-center rounded-md bg-foreground px-3 text-xs font-semibold text-background transition-colors hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-45"
+            >
+              Apply
+            </button>
+          </div>
         </div>
-      </details>
+      )}
     </div>
   );
 }

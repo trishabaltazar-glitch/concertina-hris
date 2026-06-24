@@ -12,7 +12,7 @@ import {
 } from "date-fns";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import { AlertCircle, CalendarX2, CheckCircle2, Clock3, Coffee, Plus, Timer } from "lucide-react";
+import { AlertCircle, CalendarX2, CheckCircle2, Clock3, Plus, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TimesheetFilterBar } from "@/app/timesheets/components/timesheet-filter-bar";
 import { DeleteTimeLogButton } from "@/app/timesheets/components/delete-time-log-button";
@@ -21,29 +21,22 @@ export const dynamic = "force-dynamic";
 
 type TimesheetsPageProps = {
     searchParams?: Promise<{
-        range?: string;
         from?: string;
         to?: string;
         empty?: string;
     }>;
 };
 
-type BreakWindow = {
-    startedAt: Date;
-    endedAt: Date | null;
-};
-
-type TimeLogWithBreaks = {
+type TimeLogWithDuration = {
     id: string;
     clockIn: Date;
     clockOut: Date | null;
     status: string;
-    breaks: BreakWindow[];
 };
 
 type TimelineSegment = {
     id: string;
-    type: "work" | "break" | "overtime";
+    type: "work" | "overtime";
     startMinute: number;
     endMinute: number;
 };
@@ -84,22 +77,13 @@ function formatMinuteLabel(minute: number) {
 }
 
 function getSegmentLabel(segment: TimelineSegment) {
-    const typeLabel = segment.type === "break" ? "Break" : segment.type === "overtime" ? "Overtime" : "Working time";
+    const typeLabel = segment.type === "overtime" ? "Overtime" : "Working time";
     return `${typeLabel}: ${formatMinuteLabel(segment.startMinute)} - ${formatMinuteLabel(segment.endMinute)}`;
 }
 
-function getBreakMinutes(breaks: BreakWindow[], fallbackEnd: Date | null) {
-    return breaks.reduce((sum, item) => {
-        const end = item.endedAt || fallbackEnd;
-        if (!end) return sum;
-        return sum + Math.max(0, Math.round((end.getTime() - item.startedAt.getTime()) / 60000));
-    }, 0);
-}
-
-function getWorkedMinutes(clockIn: Date, clockOut: Date | null, breaks: BreakWindow[]) {
+function getWorkedMinutes(clockIn: Date, clockOut: Date | null) {
     if (!clockOut) return 0;
-    const grossMinutes = Math.max(0, Math.round((clockOut.getTime() - clockIn.getTime()) / 60000));
-    return Math.max(0, grossMinutes - getBreakMinutes(breaks, clockOut));
+    return Math.max(0, Math.round((clockOut.getTime() - clockIn.getTime()) / 60000));
 }
 
 function splitWorkSegment(id: string, startMinute: number, endMinute: number) {
@@ -121,36 +105,15 @@ function buildSegments(logs: {
     id: string;
     clockIn: Date;
     clockOut: Date | null;
-    breaks: BreakWindow[];
 }[]) {
     const segments: TimelineSegment[] = [];
 
     logs.forEach((log) => {
         const end = log.clockOut || new Date();
-        let cursor = log.clockIn;
-
-        log.breaks.forEach((item, index) => {
-            const breakEnd = item.endedAt || end;
-            segments.push(
-                ...splitWorkSegment(
-                    `${log.id}-work-${index}`,
-                    minutesFromMidnight(cursor),
-                    minutesFromMidnight(item.startedAt)
-                )
-            );
-            segments.push({
-                id: `${log.id}-break-${index}`,
-                type: "break",
-                startMinute: minutesFromMidnight(item.startedAt),
-                endMinute: minutesFromMidnight(breakEnd),
-            });
-            cursor = breakEnd;
-        });
-
         segments.push(
             ...splitWorkSegment(
-                `${log.id}-work-final`,
-                minutesFromMidnight(cursor),
+                `${log.id}-work`,
+                minutesFromMidnight(log.clockIn),
                 minutesFromMidnight(end)
             )
         );
@@ -159,9 +122,9 @@ function buildSegments(logs: {
     return segments.filter((segment) => segment.endMinute > segment.startMinute);
 }
 
-function getOvertimeMinutes(clockIn: Date, clockOut: Date | null, breaks: BreakWindow[]) {
+function getOvertimeMinutes(clockIn: Date, clockOut: Date | null) {
     const end = clockOut || new Date();
-    return buildSegments([{ id: "summary", clockIn, clockOut: end, breaks }])
+    return buildSegments([{ id: "summary", clockIn, clockOut: end }])
         .filter((segment) => segment.type === "overtime")
         .reduce((sum, segment) => sum + (segment.endMinute - segment.startMinute), 0);
 }
@@ -178,20 +141,17 @@ export default async function TimesheetsPage({ searchParams }: TimesheetsPagePro
     }
 
     const filters = await searchParams;
-    const requestedRange = Number.parseInt(filters?.range || "7", 10) || 7;
-    const rangeDays = Math.min(90, Math.max(1, requestedRange));
-    const selectedRange = String(rangeDays);
+    const defaultRangeDays = 7;
     const today = new Date();
     const customFrom = parseDateFilter(filters?.from, "start");
     const customTo = parseDateFilter(filters?.to, "end");
     const showEmptyDays = filters?.empty === "1";
     const toDate = customTo || endOfDay(today);
-    const fromDate = customFrom || startOfDay(addDays(toDate, -(rangeDays - 1)));
+    const fromDate = customFrom || startOfDay(addDays(toDate, -(defaultRangeDays - 1)));
     const fromValue = format(fromDate, "yyyy-MM-dd");
     const toValue = format(toDate, "yyyy-MM-dd");
-    const displayRange = `${format(fromDate, "MMM dd")} - ${format(toDate, "MMM dd yyyy")}`;
 
-    let timeLogs: TimeLogWithBreaks[] = [];
+    let timeLogs: TimeLogWithDuration[] = [];
     let databaseError: string | null = null;
 
     try {
@@ -209,13 +169,6 @@ export default async function TimesheetsPage({ searchParams }: TimesheetsPagePro
                 clockIn: true,
                 clockOut: true,
                 status: true,
-                breaks: {
-                    orderBy: { startedAt: "asc" },
-                    select: {
-                        startedAt: true,
-                        endedAt: true,
-                    },
-                },
             },
         });
     } catch {
@@ -225,15 +178,11 @@ export default async function TimesheetsPage({ searchParams }: TimesheetsPagePro
 
     const days = buildDays(startOfDay(fromDate), startOfDay(toDate));
     const totalWorkedMinutes = timeLogs.reduce(
-        (sum, log) => sum + getWorkedMinutes(log.clockIn, log.clockOut, log.breaks),
-        0
-    );
-    const totalBreakMinutes = timeLogs.reduce(
-        (sum, log) => sum + getBreakMinutes(log.breaks, log.clockOut || new Date()),
+        (sum, log) => sum + getWorkedMinutes(log.clockIn, log.clockOut),
         0
     );
     const totalOvertimeMinutes = timeLogs.reduce(
-        (sum, log) => sum + getOvertimeMinutes(log.clockIn, log.clockOut, log.breaks),
+        (sum, log) => sum + getOvertimeMinutes(log.clockIn, log.clockOut),
         0
     );
     const lateDays = new Set(
@@ -241,11 +190,7 @@ export default async function TimesheetsPage({ searchParams }: TimesheetsPagePro
     ).size;
     const latestMinute = timeLogs.reduce((latest, log) => {
         const logEnd = log.clockOut || new Date();
-        const breakEnd = log.breaks.reduce((max, item) => {
-            const end = item.endedAt || logEnd;
-            return Math.max(max, minutesFromMidnight(end));
-        }, 0);
-        return Math.max(latest, minutesFromMidnight(logEnd), breakEnd);
+        return Math.max(latest, minutesFromMidnight(logEnd));
     }, WORKDAY_END_MINUTE);
     const timelineEndMinute = Math.max(WORKDAY_END_MINUTE, Math.ceil(latestMinute / 60) * 60);
     const timelineStartMinute = WORKDAY_START_MINUTE;
@@ -258,10 +203,8 @@ export default async function TimesheetsPage({ searchParams }: TimesheetsPagePro
     return (
         <div className="w-full space-y-6">
             <TimesheetFilterBar
-                selectedRange={selectedRange}
                 fromValue={fromValue}
                 toValue={toValue}
-                displayRange={displayRange}
                 showEmptyDays={showEmptyDays}
             />
 
@@ -281,20 +224,13 @@ export default async function TimesheetsPage({ searchParams }: TimesheetsPagePro
                     </Button>
                 </div>
 
-                <div className="grid gap-2 border-b px-4 py-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="grid gap-2 border-b px-4 py-3 sm:grid-cols-3">
                     <div className="rounded-lg border border-border bg-background/60 px-3 py-2">
                         <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground">
                             <Clock3 className="size-3.5" />
                             Total worked
                         </div>
                         <p className="mt-1 text-sm font-semibold text-foreground">{formatDuration(totalWorkedMinutes)}</p>
-                    </div>
-                    <div className="rounded-lg border border-border bg-background/60 px-3 py-2">
-                        <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground">
-                            <Coffee className="size-3.5" />
-                            Break time
-                        </div>
-                        <p className="mt-1 text-sm font-semibold text-foreground">{formatDuration(totalBreakMinutes)}</p>
                     </div>
                     <div className="rounded-lg border border-border bg-background/60 px-3 py-2">
                         <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground">
@@ -315,7 +251,6 @@ export default async function TimesheetsPage({ searchParams }: TimesheetsPagePro
                 <div className="border-b px-4 py-3">
                     <div className="flex flex-wrap items-center justify-center gap-5 text-[11px] text-muted-foreground">
                         <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full bg-violet-500" />Working time</span>
-                        <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full bg-sky-400" />Break</span>
                         <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full bg-amber-400" />Overtime</span>
                         <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full bg-rose-500" />Late</span>
                     </div>
@@ -375,7 +310,7 @@ export default async function TimesheetsPage({ searchParams }: TimesheetsPagePro
                                     return latest;
                                 }, null);
                                 const totalMinutes = logsForDay.reduce(
-                                    (sum, log) => sum + getWorkedMinutes(log.clockIn, log.clockOut, log.breaks),
+                                    (sum, log) => sum + getWorkedMinutes(log.clockIn, log.clockOut),
                                     0
                                 );
                                 const segments = buildSegments(logsForDay);
@@ -443,9 +378,7 @@ export default async function TimesheetsPage({ searchParams }: TimesheetsPagePro
                                                             title={getSegmentLabel(segment)}
                                                             aria-label={getSegmentLabel(segment)}
                                                             className={
-                                                                segment.type === "break"
-                                                                    ? "absolute top-0 h-3 rounded-sm bg-sky-400"
-                                                                    : segment.type === "overtime"
+                                                                segment.type === "overtime"
                                                                       ? "absolute top-0 h-3 rounded-sm bg-amber-400"
                                                                       : "absolute top-0 h-3 rounded-sm bg-violet-500"
                                                             }
@@ -480,7 +413,7 @@ export default async function TimesheetsPage({ searchParams }: TimesheetsPagePro
                                         <div className="mt-4 space-y-2">
                                             {logsForDay.map((log) => {
                                                 const entryLabel = `${format(log.clockIn, "MMM d, h:mm a")} - ${log.clockOut ? format(log.clockOut, "h:mm a") : "Active"}`;
-                                                const workedMinutes = getWorkedMinutes(log.clockIn, log.clockOut, log.breaks);
+                                                const workedMinutes = getWorkedMinutes(log.clockIn, log.clockOut);
 
                                                 return (
                                                     <div

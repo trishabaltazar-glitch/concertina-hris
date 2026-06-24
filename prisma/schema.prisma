@@ -92,19 +92,8 @@ model TimeLog {
   status      String      @default("ON_TIME") // e.g., ON_TIME, LATE
   projectName String?
   notes       String?
-  breaks      TimeBreak[]
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
-}
-
-model TimeBreak {
-  id        String    @id @default(cuid())
-  timeLogId String
-  timeLog   TimeLog   @relation(fields: [timeLogId], references: [id], onDelete: Cascade)
-  startedAt DateTime  @default(now())
-  endedAt   DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
 }
 
 model TimeEntryRequest {

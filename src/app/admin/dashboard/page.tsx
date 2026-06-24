@@ -109,7 +109,6 @@ export default async function AdminDashboardPage() {
       user: scopedUserWhere,
     },
     include: {
-      breaks: { orderBy: { startedAt: "desc" }, take: 1 },
       user: { select: { id: true, name: true, email: true, department: true } },
     },
     orderBy: { clockIn: "desc" },
@@ -121,7 +120,6 @@ export default async function AdminDashboardPage() {
       user: scopedUserWhere,
     },
     include: {
-      breaks: { orderBy: { startedAt: "desc" }, take: 1 },
       user: { select: { id: true, name: true, email: true, department: true } },
     },
     orderBy: { clockIn: "asc" },
@@ -166,7 +164,6 @@ export default async function AdminDashboardPage() {
   const activeUserIds = new Set(activeUsers.map((user) => user.id));
   const clockedInUserIds = new Set(todayLogs.map((log) => log.userId));
   const activeOpenLogs = openLogs.filter((log) => activeUserIds.has(log.userId));
-  const onBreakLogs = activeOpenLogs.filter((log) => log.breaks.some((item) => !item.endedAt));
   const clockedOutToday = todayLogs.filter((log) => log.clockOut).length;
   const lateToday = todayLogs.filter((log) => log.status === "LATE").length;
   const notClockedIn = activeUsers.filter((user) => !clockedInUserIds.has(user.id)).length;
@@ -259,11 +256,10 @@ export default async function AdminDashboardPage() {
               <Link href="/admin/timesheets">View time logs</Link>
             </Button>
           </div>
-          <div className="grid gap-2 border-b border-border p-3 sm:grid-cols-4">
+          <div className="grid gap-2 border-b border-border p-3 sm:grid-cols-3">
             {[
               ["Clocked in", activeOpenLogs.length],
               ["Not clocked in", notClockedIn],
-              ["On break", onBreakLogs.length],
               ["Clocked out", clockedOutToday],
             ].map(([label, value]) => (
               <div key={label} className="rounded-lg border border-border bg-muted/20 px-3 py-2">
@@ -274,15 +270,14 @@ export default async function AdminDashboardPage() {
           </div>
           <div className="max-h-[300px] divide-y divide-border overflow-y-auto">
             {todayLogs.slice(0, 8).map((log) => {
-              const isOnBreak = !log.clockOut && log.breaks.some((item) => !item.endedAt);
               return (
                 <div key={log.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-foreground">{log.user.name}</p>
                     <p className="text-xs text-muted-foreground">{format(log.clockIn, "h:mm a")} - {log.clockOut ? format(log.clockOut, "h:mm a") : "active"}</p>
                   </div>
-                  <StatusBadge tone={log.status === "LATE" ? "warn" : isOnBreak ? "default" : "success"}>
-                    {isOnBreak ? "On break" : log.status === "LATE" ? "Late" : log.clockOut ? "Clocked out" : "Working"}
+                  <StatusBadge tone={log.status === "LATE" ? "warn" : "success"}>
+                    {log.status === "LATE" ? "Late" : log.clockOut ? "Clocked out" : "Working"}
                   </StatusBadge>
                 </div>
               );

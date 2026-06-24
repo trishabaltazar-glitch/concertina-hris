@@ -71,16 +71,9 @@ function getDatesInRange(startDate: string, endDate: string) {
   return Array.from({ length: days + 1 }, (_, index) => addDays(parseISO(startDate), index));
 }
 
-function getBreakMinutes(log: { breaks?: { startedAt: Date; endedAt: Date | null }[] }) {
-  return (log.breaks ?? []).reduce((total, timeBreak) => {
-    if (!timeBreak.endedAt) return total;
-    return total + Math.max(0, differenceInMinutes(timeBreak.endedAt, timeBreak.startedAt));
-  }, 0);
-}
-
-function getWorkedMinutes(log: { clockIn: Date; clockOut: Date | null; breaks?: { startedAt: Date; endedAt: Date | null }[] }) {
+function getWorkedMinutes(log: { clockIn: Date; clockOut: Date | null }) {
   if (!log.clockOut) return 0;
-  return Math.max(0, differenceInMinutes(log.clockOut, log.clockIn) - getBreakMinutes(log));
+  return Math.max(0, differenceInMinutes(log.clockOut, log.clockIn));
 }
 
 function getScheduledMinutes(schedule?: { startTime: string; endTime: string } | null) {
@@ -287,7 +280,6 @@ export async function getReportPreview(startDate: string, endDate: string, filte
       userId: { in: userIds },
       clockIn: { gte: start, lte: end },
     },
-    include: { breaks: true },
     orderBy: [{ userId: "asc" }, { clockIn: "asc" }],
   });
 

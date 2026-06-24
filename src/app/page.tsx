@@ -9,11 +9,6 @@ import { CalendarDays } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
-type BreakWindow = {
-  startedAt: Date;
-  endedAt: Date | null;
-};
-
 type ScheduleWindow = {
   dayOfWeek: number;
   startTime: string;
@@ -48,21 +43,11 @@ type DashboardTimeLog = {
   clockIn: Date;
   clockOut: Date | null;
   status: string;
-  breaks: BreakWindow[];
 };
 
-function getBreakDurationInHours(breaks: BreakWindow[], fallbackEnd: Date | null) {
-  return breaks.reduce((sum, item) => {
-    const end = item.endedAt || fallbackEnd;
-    if (!end) return sum;
-    return sum + Math.max(0, (end.getTime() - item.startedAt.getTime()) / (1000 * 60 * 60));
-  }, 0);
-}
-
-function getDurationInHours(clockIn: Date, clockOut: Date | null, breaks: BreakWindow[] = []) {
+function getDurationInHours(clockIn: Date, clockOut: Date | null) {
   if (!clockOut) return 0;
-  const grossHours = Math.max(0, (clockOut.getTime() - clockIn.getTime()) / (1000 * 60 * 60));
-  return Math.max(0, grossHours - getBreakDurationInHours(breaks, clockOut));
+  return Math.max(0, (clockOut.getTime() - clockIn.getTime()) / (1000 * 60 * 60));
 }
 
 function applyTimeToDate(date: Date, time: string) {
@@ -127,12 +112,12 @@ function formatDurationParts(totalHours: number) {
   return { hours: String(hours), minutes: String(minutes).padStart(2, "0") };
 }
 
-function getDurationLabel(clockIn: Date, clockOut: Date | null, breaks: BreakWindow[] = []) {
+function getDurationLabel(clockIn: Date, clockOut: Date | null) {
   if (!clockOut) return "-";
 
   const diffInMinutes = Math.max(
     0,
-    Math.round(getDurationInHours(clockIn, clockOut, breaks) * 60)
+    Math.round(getDurationInHours(clockIn, clockOut) * 60)
   );
   const hours = Math.floor(diffInMinutes / 60);
   const minutes = diffInMinutes % 60;
@@ -179,8 +164,8 @@ function getActivityClass(type: "CLOCK_IN" | "CLOCK_OUT") {
 }
 
 function getClockOutDetail(
-  log: { clockIn: Date; clockOut: Date; breaks: BreakWindow[] },
-  logs: { clockIn: Date; clockOut: Date | null; breaks: BreakWindow[] }[],
+  log: { clockIn: Date; clockOut: Date },
+  logs: { clockIn: Date; clockOut: Date | null }[],
   schedules: ScheduleWindow[]
 ) {
   const shiftWindow = getShiftWindowForLog(log.clockIn, log.clockOut, schedules);
@@ -188,7 +173,7 @@ function getClockOutDetail(
     if (!item.clockOut) return sum;
     if (item.clockIn >= shiftWindow.end || item.clockOut <= shiftWindow.start) return sum;
     if (item.clockOut > log.clockOut) return sum;
-    return sum + getDurationInHours(item.clockIn, item.clockOut, item.breaks);
+    return sum + getDurationInHours(item.clockIn, item.clockOut);
   }, 0);
 
   return completedHoursForShift >= 8
@@ -235,12 +220,6 @@ export default async function DashboardPage() {
         clockIn: true,
         clockOut: true,
         status: true,
-        breaks: {
-          select: {
-            startedAt: true,
-            endedAt: true,
-          },
-        },
       },
     });
 
@@ -258,12 +237,6 @@ export default async function DashboardPage() {
         clockIn: true,
         clockOut: true,
         status: true,
-        breaks: {
-          select: {
-            startedAt: true,
-            endedAt: true,
-          },
-        },
       },
     });
 
@@ -302,7 +275,7 @@ export default async function DashboardPage() {
   }
 
   const todayWorkedHours = todayLogs.reduce((sum, log) => {
-    return sum + getDurationInHours(log.clockIn, log.clockOut, log.breaks);
+    return sum + getDurationInHours(log.clockIn, log.clockOut);
   }, 0);
 
   const todayDuration = formatDurationParts(todayWorkedHours);
@@ -331,11 +304,11 @@ export default async function DashboardPage() {
           happenedAt: log.clockOut,
           label: "OUT",
           detail: getClockOutDetail(
-            { clockIn: log.clockIn, clockOut: log.clockOut, breaks: log.breaks },
+            { clockIn: log.clockIn, clockOut: log.clockOut },
             recentLogs,
             schedules
           ),
-          duration: getDurationLabel(log.clockIn, log.clockOut, log.breaks),
+          duration: getDurationLabel(log.clockIn, log.clockOut),
         });
       }
 
