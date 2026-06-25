@@ -55,6 +55,7 @@ const EMP_ROUTES = [
   { name: "Schedules", href: "/schedule", icon: CalendarUserIcon },
   { name: "Requests", href: "/requests", icon: NoteDoneIcon },
   { name: "Announcements", href: "/announcements", icon: Megaphone01Icon },
+  { name: "Knowledge Base", href: "/knowledge-base", icon: FileValidationIcon },
 ]
 
 const ADMIN_ROUTES = [
@@ -113,7 +114,10 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
           <SidebarGroupContent>
             <SidebarMenu>
               {EMP_ROUTES.map((route) => {
-                const isActive = pathname === route.href || (route.href === "/requests" && ["/leaves", "/overtime", "/time-corrections"].includes(pathname))
+                const isActive =
+                  pathname === route.href ||
+                  (route.href === "/requests" && ["/leaves", "/overtime", "/time-corrections"].includes(pathname)) ||
+                  (route.href === "/knowledge-base" && pathname.startsWith("/knowledge-base"))
 
                 return (
                   <SidebarMenuItem key={route.name}>

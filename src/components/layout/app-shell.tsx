@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation"
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/app-sidebar"
 import { ThemeIconToggle } from "@/components/theme-toggle"
-import { NotificationsMenu } from "@/components/notifications-dropdown-section"
+import { NotificationsMenu } from "@/components/notifications-menu"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -26,6 +26,8 @@ function getPageLabel(pathname: string) {
       return "Requests"
     case "/announcements":
       return "Announcements"
+    case "/knowledge-base":
+      return "Knowledge Base"
     case "/time-corrections":
       return "Manual Entry"
     case "/schedule":
@@ -69,6 +71,7 @@ function AppBreadcrumbs({ pathname }: { pathname: string }) {
   const currentLabel = getPageLabel(pathname)
   const isHome = pathname === "/"
   const isAdmin = pathname.startsWith("/admin")
+  const isKnowledgeBase = pathname.startsWith("/knowledge-base")
   const sectionLabel = isAdmin ? "Admin" : "Workspace"
 
   return (
@@ -92,7 +95,7 @@ function AppBreadcrumbs({ pathname }: { pathname: string }) {
           </BreadcrumbItem>
         ) : (
           <BreadcrumbItem>
-            <BreadcrumbPage>{currentLabel === "Concertina HR" ? sectionLabel : currentLabel}</BreadcrumbPage>
+            <BreadcrumbPage>{isKnowledgeBase ? "Knowledge Base" : currentLabel === "Concertina HR" ? sectionLabel : currentLabel}</BreadcrumbPage>
           </BreadcrumbItem>
         )}
       </BreadcrumbList>

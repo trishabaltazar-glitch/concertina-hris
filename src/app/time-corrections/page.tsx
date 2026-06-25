@@ -10,6 +10,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import {
   cancelPendingManualTimeEntryRequest,
   submitManualTimeEntryRequest,
+  updatePendingManualTimeEntryRequest,
 } from "@/app/actions/time";
 
 export const dynamic = "force-dynamic";
@@ -45,11 +46,29 @@ function getDurationLabel(clockIn: Date, clockOut: Date) {
   return `${hours}h ${remainingMinutes}m`;
 }
 
+function getManualEntryMeta(reason: string | null) {
+  const match = reason?.match(/^\[(Missing clock-in|Missing clock-out|Missing clock-in and clock-out)\]\s*(.*)$/);
+  if (!match) {
+    return {
+      type: "Manual entry",
+      typeValue: "BOTH",
+      reason: reason || "",
+    };
+  }
+
+  const type = match[1];
+  return {
+    type,
+    typeValue: type === "Missing clock-in" ? "CLOCK_IN" : type === "Missing clock-out" ? "CLOCK_OUT" : "BOTH",
+    reason: match[2] || "",
+  };
+}
+
 export default async function TimeCorrectionsPage({
   searchParams,
   basePath = "/time-corrections",
 }: {
-  searchParams?: Promise<{ status?: string }>;
+  searchParams?: Promise<{ status?: string; edit?: string }>;
   basePath?: string;
 }) {
   const session = await auth();
@@ -72,6 +91,8 @@ export default async function TimeCorrectionsPage({
   const pendingCount = requests.filter((request) => request.status === "PENDING").length;
   const approvedCount = requests.filter((request) => request.status === "APPROVED").length;
   const correctedHours = requests.reduce((sum, request) => sum + differenceInMinutes(request.clockOut, request.clockIn) / 60, 0);
+  const editingRequest = requests.find((request) => request.id === params?.edit && request.status === "PENDING") || null;
+  const editingMeta = editingRequest ? getManualEntryMeta(editingRequest.reason) : null;
 
   const summaryItems = [
     { label: "Total filed", value: requests.length, helper: "requests", icon: FileText, className: "text-foreground", iconClassName: "bg-muted text-muted-foreground" },
@@ -108,27 +129,54 @@ export default async function TimeCorrectionsPage({
       <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
         <section className="rounded-lg border border-border bg-background">
           <div className="border-b px-4 py-3">
-            <h2 className="font-semibold">New Request</h2>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="font-semibold">{editingRequest ? "Edit Request" : "New Request"}</h2>
+              {editingRequest && (
+                <Button asChild variant="ghost" size="xs">
+                  <a href={basePath}>Cancel edit</a>
+                </Button>
+              )}
+            </div>
           </div>
           <form
             action={async (formData) => {
               "use server";
-              await submitManualTimeEntryRequest(formData);
+              if (editingRequest) {
+                await updatePendingManualTimeEntryRequest(editingRequest.id, formData);
+              } else {
+                await submitManualTimeEntryRequest(formData);
+              }
             }}
             className="space-y-3 p-4"
           >
+            <label className="block space-y-1.5 text-xs font-medium text-muted-foreground">
+              Missing log type
+              <select
+                name="missingLogType"
+                defaultValue={editingMeta?.typeValue || ""}
+                required
+                className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground"
+              >
+                <option value="" disabled>Choose type</option>
+                <option value="CLOCK_IN">Missing clock-in</option>
+                <option value="CLOCK_OUT">Missing clock-out</option>
+                <option value="BOTH">Missing clock-in and clock-out</option>
+              </select>
+              <span className="text-xs text-muted-foreground">Tell approvers which part of the time log needs to be created or corrected.</span>
+            </label>
+
             <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
               <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
                 Date
-                <input type="date" name="date" defaultValue={format(today, "yyyy-MM-dd")} required className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm" />
+                <input type="date" name="date" defaultValue={editingRequest ? format(editingRequest.clockIn, "yyyy-MM-dd") : format(today, "yyyy-MM-dd")} required className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm" />
               </label>
               <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
                 Clock in
-                <input type="time" name="clockIn" required className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm" />
+                <input type="time" name="clockIn" defaultValue={editingRequest ? format(editingRequest.clockIn, "HH:mm") : undefined} required className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm" />
               </label>
               <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
                 Clock out
-                <input type="time" name="clockOut" required className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm" />
+                <input type="time" name="clockOut" defaultValue={editingRequest ? format(editingRequest.clockOut, "HH:mm") : undefined} required className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm" />
               </label>
             </div>
 
@@ -144,10 +192,10 @@ export default async function TimeCorrectionsPage({
 
             <label className="block space-y-1.5 text-xs font-medium text-muted-foreground">
               Reason
-              <textarea name="reason" required rows={3} maxLength={500} placeholder="Example: Forgot to clock in after client call." className="flex min-h-20 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2" />
+              <textarea name="reason" required rows={3} maxLength={500} defaultValue={editingMeta?.reason} placeholder="Example: Forgot to clock in after client call." className="flex min-h-20 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2" />
             </label>
 
-            <SubmitButton size="sm">Submit Request</SubmitButton>
+            <SubmitButton size="sm">{editingRequest ? "Save Changes" : "Submit Request"}</SubmitButton>
           </form>
         </section>
 
@@ -187,6 +235,7 @@ export default async function TimeCorrectionsPage({
                   <thead className="border-b bg-muted/30 text-xs uppercase tracking-wider text-muted-foreground">
                     <tr>
                       <th className="px-4 py-3 font-semibold">Corrected period</th>
+                      <th className="px-4 py-3 font-semibold">Type</th>
                       <th className="px-4 py-3 font-semibold">Hours</th>
                       <th className="px-4 py-3 font-semibold">Status</th>
                       <th className="px-4 py-3 font-semibold">Filed</th>
@@ -194,18 +243,25 @@ export default async function TimeCorrectionsPage({
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {filteredRequests.map((request) => (
-                      <tr key={request.id} className="transition-colors hover:bg-muted/30">
-                        <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
-                          <div>{format(request.clockIn, "MMM d, yyyy h:mm a")} - {format(request.clockOut, "h:mm a")}</div>
-                          <div className="mt-0.5 max-w-xs truncate text-xs" title={request.reason || undefined}>{request.reason || "No reason provided"}</div>
-                        </td>
-                        <td className="px-4 py-3 font-medium">{getDurationLabel(request.clockIn, request.clockOut)}</td>
-                        <td className="px-4 py-3"><StatusBadge status={request.status} /></td>
-                        <td className="px-4 py-3 text-muted-foreground">{format(request.createdAt, "MMM d, yyyy")}</td>
-                        <td className="px-4 py-3">
+                    {filteredRequests.map((request) => {
+                      const meta = getManualEntryMeta(request.reason);
+
+                      return (
+                        <tr key={request.id} className="transition-colors hover:bg-muted/30">
+                          <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
+                            <div>{format(request.clockIn, "MMM d, yyyy h:mm a")} - {format(request.clockOut, "h:mm a")}</div>
+                            <div className="mt-0.5 max-w-xs truncate text-xs" title={meta.reason || undefined}>{meta.reason || "No reason provided"}</div>
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground">{meta.type}</td>
+                          <td className="px-4 py-3 font-medium">{getDurationLabel(request.clockIn, request.clockOut)}</td>
+                          <td className="px-4 py-3"><StatusBadge status={request.status} /></td>
+                          <td className="px-4 py-3 text-muted-foreground">{format(request.createdAt, "MMM d, yyyy")}</td>
+                          <td className="px-4 py-3">
                           {request.status === "PENDING" ? (
                             <div className="flex justify-end gap-2">
+                              <Button asChild variant="outline" size="xs">
+                                <a href={`${basePath}${basePath.includes("?") ? "&" : "?"}edit=${request.id}`}>Edit</a>
+                              </Button>
                               <form
                                 action={async () => {
                                   "use server";
@@ -216,47 +272,56 @@ export default async function TimeCorrectionsPage({
                               </form>
                             </div>
                           ) : <span className="block text-right text-xs text-muted-foreground">Reviewed</span>}
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
 
               <div className="grid gap-2 p-3 md:hidden">
-                {filteredRequests.map((request) => (
-                  <article key={request.id} className="rounded-lg border border-border bg-background p-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <h3 className="font-semibold">Manual Entry</h3>
-                        <p className="mt-0.5 text-sm text-muted-foreground">{format(request.clockIn, "MMM d, h:mm a")} - {format(request.clockOut, "h:mm a")}</p>
+                {filteredRequests.map((request) => {
+                  const meta = getManualEntryMeta(request.reason);
+
+                  return (
+                    <article key={request.id} className="rounded-lg border border-border bg-background p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <h3 className="font-semibold">{meta.type}</h3>
+                          <p className="mt-0.5 text-sm text-muted-foreground">{format(request.clockIn, "MMM d, h:mm a")} - {format(request.clockOut, "h:mm a")}</p>
+                        </div>
+                        <StatusBadge status={request.status} />
                       </div>
-                      <StatusBadge status={request.status} />
-                    </div>
-                    <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-                      <div className="rounded-md bg-muted/30 p-2.5">
-                        <p className="text-muted-foreground">Hours</p>
-                        <p className="font-semibold">{getDurationLabel(request.clockIn, request.clockOut)}</p>
+                      <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                        <div className="rounded-md bg-muted/30 p-2.5">
+                          <p className="text-muted-foreground">Hours</p>
+                          <p className="font-semibold">{getDurationLabel(request.clockIn, request.clockOut)}</p>
+                        </div>
+                        <div className="rounded-md bg-muted/30 p-2.5">
+                          <p className="text-muted-foreground">Filed</p>
+                          <p className="font-semibold">{format(request.createdAt, "MMM d, yyyy")}</p>
+                        </div>
                       </div>
-                      <div className="rounded-md bg-muted/30 p-2.5">
-                        <p className="text-muted-foreground">Filed</p>
-                        <p className="font-semibold">{format(request.createdAt, "MMM d, yyyy")}</p>
-                      </div>
-                    </div>
-                    <p className="mt-3 text-sm text-muted-foreground">{request.reason || "No reason provided"}</p>
-                    {request.status === "PENDING" && (
-                      <form
-                        action={async () => {
-                          "use server";
-                          await cancelPendingManualTimeEntryRequest(request.id);
-                        }}
-                        className="mt-3"
-                      >
-                        <SubmitButton variant="destructive-outline" size="xs" className="h-7 text-xs">Cancel</SubmitButton>
-                      </form>
-                    )}
-                  </article>
-                ))}
+                      <p className="mt-3 text-sm text-muted-foreground">{meta.reason || "No reason provided"}</p>
+                      {request.status === "PENDING" && (
+                        <div className="mt-3 flex gap-2">
+                          <Button asChild variant="outline" size="xs">
+                            <a href={`${basePath}${basePath.includes("?") ? "&" : "?"}edit=${request.id}`}>Edit</a>
+                          </Button>
+                          <form
+                            action={async () => {
+                              "use server";
+                              await cancelPendingManualTimeEntryRequest(request.id);
+                            }}
+                          >
+                            <SubmitButton variant="destructive-outline" size="xs" className="h-7 text-xs">Cancel</SubmitButton>
+                          </form>
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}
               </div>
             </>
           )}

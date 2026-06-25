@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
     addDays,
     addMonths,
@@ -119,40 +120,42 @@ function getCalendarDays(month: Date) {
 type TimeLogsClientPageProps = {
     initialLogs: TimeLogData[];
     availableRoles: string[];
+    pagination: {
+        page: number;
+        pageSize: number;
+        totalLogs: number;
+    };
+    initialFilters: {
+        search: string;
+        status: string;
+        role: string;
+        from: Date;
+        to: Date;
+    };
     manualEntryApprovals: ManualEntryApprovalsPopupProps;
 };
 
-export function TimeLogsClientPage({ initialLogs, availableRoles, manualEntryApprovals }: TimeLogsClientPageProps) {
+export function TimeLogsClientPage({
+    initialLogs,
+    availableRoles,
+    pagination,
+    initialFilters,
+    manualEntryApprovals,
+}: TimeLogsClientPageProps) {
+    const router = useRouter();
+    const [isPending, startTransition] = useTransition();
     const defaultToDate = startOfDay(new Date());
     const defaultFromDate = startOfDay(addDays(defaultToDate, -29));
-    const [searchQuery, setSearchQuery] = useState("");
-    const [statusFilter, setStatusFilter] = useState("ALL");
-    const [roleFilter, setRoleFilter] = useState("ALL");
-    const [selectedFrom, setSelectedFrom] = useState(defaultFromDate);
-    const [selectedTo, setSelectedTo] = useState(defaultToDate);
+    const [searchQuery, setSearchQuery] = useState(initialFilters.search);
+    const [statusFilter, setStatusFilter] = useState(initialFilters.status);
+    const [roleFilter, setRoleFilter] = useState(initialFilters.role);
+    const [selectedFrom, setSelectedFrom] = useState(startOfDay(new Date(initialFilters.from)));
+    const [selectedTo, setSelectedTo] = useState(startOfDay(new Date(initialFilters.to)));
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-    const [viewMonth, setViewMonth] = useState(startOfMonth(defaultFromDate));
-    const [draftFrom, setDraftFrom] = useState<Date | null>(defaultFromDate);
-    const [draftTo, setDraftTo] = useState<Date | null>(defaultToDate);
-
-    const filteredLogs = initialLogs.filter(log => {
-        // 1. Search Query Filter
-        const matchesSearch = 
-            log.user.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-            log.user.email.toLowerCase().includes(searchQuery.toLowerCase());
-        
-        // 2. Status Filter
-        const matchesStatus = statusFilter === "ALL" || log.status === statusFilter;
-
-        // 3. Role Filter
-        const matchesRole = roleFilter === "ALL" || log.user.role === roleFilter;
-
-        // 4. Date Range Filter
-        const logDate = startOfDay(new Date(log.clockIn));
-        const matchesDateRange = logDate >= startOfDay(selectedFrom) && logDate <= startOfDay(selectedTo);
-
-        return matchesSearch && matchesStatus && matchesRole && matchesDateRange;
-    });
+    const [viewMonth, setViewMonth] = useState(startOfMonth(new Date(initialFilters.from)));
+    const [draftFrom, setDraftFrom] = useState<Date | null>(startOfDay(new Date(initialFilters.from)));
+    const [draftTo, setDraftTo] = useState<Date | null>(startOfDay(new Date(initialFilters.to)));
+    const filteredLogs = initialLogs;
 
     const roleOptions = useMemo(() => {
         return Array.from(new Set(availableRoles)).sort();
@@ -172,15 +175,46 @@ export function TimeLogsClientPage({ initialLogs, availableRoles, manualEntryApp
         };
     }, [filteredLogs]);
 
+    const navigateWithFilters = ({
+        search = searchQuery,
+        status = statusFilter,
+        role = roleFilter,
+        from = selectedFrom,
+        to = selectedTo,
+        page = 1,
+    }: {
+        search?: string;
+        status?: string;
+        role?: string;
+        from?: Date;
+        to?: Date;
+        page?: number;
+    } = {}) => {
+        const params = new URLSearchParams();
+        const trimmedSearch = search.trim();
+        const safeFrom = startOfDay(from);
+        const safeTo = startOfDay(to);
+
+        if (trimmedSearch) params.set("search", trimmedSearch);
+        if (status !== "ALL") params.set("status", status);
+        if (role !== "ALL") params.set("role", role);
+        if (format(safeFrom, "yyyy-MM-dd") !== format(defaultFromDate, "yyyy-MM-dd")) {
+            params.set("from", format(safeFrom, "yyyy-MM-dd"));
+        }
+        if (format(safeTo, "yyyy-MM-dd") !== format(defaultToDate, "yyyy-MM-dd")) {
+            params.set("to", format(safeTo, "yyyy-MM-dd"));
+        }
+        if (page > 1) params.set("page", String(page));
+
+        startTransition(() => {
+            router.replace(params.size ? `/admin/timesheets?${params.toString()}` : "/admin/timesheets");
+        });
+    };
+
     const clearFilters = () => {
-        setSearchQuery("");
-        setStatusFilter("ALL");
-        setRoleFilter("ALL");
-        setSelectedFrom(defaultFromDate);
-        setSelectedTo(defaultToDate);
-        setDraftFrom(defaultFromDate);
-        setDraftTo(defaultToDate);
-        setViewMonth(startOfMonth(defaultFromDate));
+        startTransition(() => {
+            router.replace("/admin/timesheets");
+        });
     };
 
     const isDefaultDateRange =
@@ -189,6 +223,9 @@ export function TimeLogsClientPage({ initialLogs, availableRoles, manualEntryApp
     const hasActiveFilters = searchQuery !== "" || statusFilter !== "ALL" || roleFilter !== "ALL" || !isDefaultDateRange;
     const calendarDays = getCalendarDays(viewMonth);
     const canApplyRange = Boolean(draftFrom && draftTo);
+    const totalPages = Math.max(1, Math.ceil(pagination.totalLogs / pagination.pageSize));
+    const pageStart = pagination.totalLogs === 0 ? 0 : (pagination.page - 1) * pagination.pageSize + 1;
+    const pageEnd = Math.min(pagination.page * pagination.pageSize, pagination.totalLogs);
 
     const openCalendar = () => {
         setDraftFrom(selectedFrom);
@@ -211,9 +248,12 @@ export function TimeLogsClientPage({ initialLogs, availableRoles, manualEntryApp
         if (!draftFrom || !draftTo) return;
 
         const [safeFrom, safeTo] = isBefore(draftTo, draftFrom) ? [draftTo, draftFrom] : [draftFrom, draftTo];
-        setSelectedFrom(startOfDay(safeFrom));
-        setSelectedTo(startOfDay(safeTo));
+        const nextFrom = startOfDay(safeFrom);
+        const nextTo = startOfDay(safeTo);
+        setSelectedFrom(nextFrom);
+        setSelectedTo(nextTo);
         setIsCalendarOpen(false);
+        navigateWithFilters({ from: nextFrom, to: nextTo, page: 1 });
     };
 
     return (
@@ -227,7 +267,8 @@ export function TimeLogsClientPage({ initialLogs, availableRoles, manualEntryApp
                         <h1 className="text-xl font-semibold tracking-tight text-foreground">Company time logs</h1>
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">
-                        Showing {filteredLogs.length} matching logs from {format(selectedFrom, "MMM d, yyyy")} to {format(selectedTo, "MMM d, yyyy")}
+                        Showing {pageStart}-{pageEnd} of {pagination.totalLogs} matching logs from {format(selectedFrom, "MMM d, yyyy")} to {format(selectedTo, "MMM d, yyyy")}
+                        {isPending ? " - updating" : ""}
                     </p>
                 </div>
 
@@ -260,6 +301,17 @@ export function TimeLogsClientPage({ initialLogs, availableRoles, manualEntryApp
                             placeholder="Search name or email..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
+                            onBlur={() => {
+                                if (searchQuery !== initialFilters.search) {
+                                    navigateWithFilters({ search: searchQuery, page: 1 });
+                                }
+                            }}
+                            onKeyDown={(event) => {
+                                if (event.key === "Enter") {
+                                    event.preventDefault();
+                                    navigateWithFilters({ search: searchQuery, page: 1 });
+                                }
+                            }}
                             className="w-full bg-background border border-input text-foreground placeholder:text-muted-foreground rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/50"
                         />
                     </div>
@@ -270,7 +322,10 @@ export function TimeLogsClientPage({ initialLogs, availableRoles, manualEntryApp
                         </div>
                         <select
                             value={statusFilter}
-                            onChange={(e) => setStatusFilter(e.target.value)}
+                            onChange={(e) => {
+                                setStatusFilter(e.target.value);
+                                navigateWithFilters({ status: e.target.value, page: 1 });
+                            }}
                             className="w-full bg-background border border-input text-foreground rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/50 appearance-none"
                         >
                             <option value="ALL">All Statuses</option>
@@ -287,7 +342,10 @@ export function TimeLogsClientPage({ initialLogs, availableRoles, manualEntryApp
                         </div>
                         <select
                             value={roleFilter}
-                            onChange={(e) => setRoleFilter(e.target.value)}
+                            onChange={(e) => {
+                                setRoleFilter(e.target.value);
+                                navigateWithFilters({ role: e.target.value, page: 1 });
+                            }}
                             className="w-full bg-background border border-input text-foreground rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/50 appearance-none"
                         >
                             <option value="ALL">All Roles</option>
@@ -562,6 +620,34 @@ export function TimeLogsClientPage({ initialLogs, availableRoles, manualEntryApp
                             </div>
                         ))
                     )}
+                </div>
+
+                <div className="flex flex-col gap-2 border-t px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-xs text-muted-foreground">
+                        Page {pagination.page} of {totalPages}
+                    </p>
+                    <div className="flex items-center gap-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={pagination.page <= 1 || isPending}
+                            onClick={() => navigateWithFilters({ page: pagination.page - 1 })}
+                        >
+                            <ChevronLeft className="size-4" />
+                            Previous
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={pagination.page >= totalPages || isPending}
+                            onClick={() => navigateWithFilters({ page: pagination.page + 1 })}
+                        >
+                            Next
+                            <ChevronRight className="size-4" />
+                        </Button>
+                    </div>
                 </div>
             </section>
         </div>

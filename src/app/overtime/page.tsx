@@ -1,9 +1,9 @@
 import { differenceInMinutes, format } from "date-fns";
-import { AlertCircle, CalendarDays, CheckCircle2, Clock3, FileText, Paperclip } from "lucide-react";
+import { AlertCircle, CalendarDays, Clock3, FileText, Paperclip } from "lucide-react";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
-import { submitOvertimeRequest } from "@/app/actions/overtime";
+import { cancelPendingOvertimeRequest, submitOvertimeRequest, updatePendingOvertimeRequest } from "@/app/actions/overtime";
 import prisma from "@/lib/prisma";
 import { ensureOvertimeRequestTable } from "@/lib/overtime-requests";
 import { cn } from "@/lib/utils";
@@ -48,7 +48,7 @@ export default async function OvertimePage({
   searchParams,
   basePath = "/overtime",
 }: {
-  searchParams?: Promise<{ status?: string }>;
+  searchParams?: Promise<{ status?: string; edit?: string }>;
   basePath?: string;
 }) {
   const session = await auth();
@@ -76,17 +76,8 @@ export default async function OvertimePage({
     databaseError = "OT requests could not be loaded right now. Please refresh after the database connection recovers.";
   }
   const filteredRequests = statusFilter === "ALL" ? requests : requests.filter((request) => request.status === statusFilter);
-  const totalHours = requests.reduce((sum, request) => sum + differenceInMinutes(request.endAt, request.startAt) / 60, 0);
   const pendingCount = requests.filter((request) => request.status === "PENDING").length;
-  const approvedHours = requests
-    .filter((request) => request.status === "APPROVED")
-    .reduce((sum, request) => sum + differenceInMinutes(request.endAt, request.startAt) / 60, 0);
-
-  const summaryItems = [
-    { label: "Total filed", value: requests.length, helper: "requests", icon: FileText, className: "text-foreground", iconClassName: "bg-muted text-muted-foreground" },
-    { label: "Pending", value: pendingCount, helper: "waiting for review", icon: Clock3, className: "text-amber-700", iconClassName: "bg-amber-100 text-amber-700" },
-    { label: "Approved OT", value: approvedHours.toFixed(1).replace(".0", ""), helper: `of ${totalHours.toFixed(1).replace(".0", "")} filed hours`, icon: CheckCircle2, className: "text-emerald-700", iconClassName: "bg-emerald-100 text-emerald-700" },
-  ];
+  const editingRequest = requests.find((request) => request.id === params?.edit && request.status === "PENDING") || null;
   const getStatusHref = (status: (typeof STATUS_FILTERS)[number]) => {
     if (status === "ALL") return basePath;
     return `${basePath}${basePath.includes("?") ? "&" : "?"}status=${status}`;
@@ -94,54 +85,58 @@ export default async function OvertimePage({
 
   return (
     <div className="w-full space-y-5">
-      <div className="grid gap-3 sm:grid-cols-3">
-        {summaryItems.map((item) => {
-          const Icon = item.icon;
-          return (
-            <div key={item.label} className="rounded-lg border border-border bg-background p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-xs font-medium text-muted-foreground">{item.label}</p>
-                  <p className={cn("mt-2 text-2xl font-semibold tracking-tight", item.className)}>{item.value}</p>
-                </div>
-                <span className={cn("inline-flex size-7 shrink-0 items-center justify-center rounded-md", item.iconClassName)}>
-                  <Icon className="size-3.5" />
-                </span>
-              </div>
-              <p className="mt-3 border-t border-border pt-3 text-xs text-muted-foreground">{item.helper}</p>
-            </div>
-          );
-        })}
+      <div className="rounded-lg border border-border bg-background p-4 sm:max-w-xs">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-muted-foreground">Pending</p>
+            <p className="mt-2 text-2xl font-semibold tracking-tight text-amber-700">{pendingCount}</p>
+          </div>
+          <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-md bg-amber-100 text-amber-700">
+            <Clock3 className="size-3.5" />
+          </span>
+        </div>
+        <p className="mt-3 border-t border-border pt-3 text-xs text-muted-foreground">OT requests waiting for review.</p>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
         <section className="rounded-lg border border-border bg-background">
           <div className="border-b px-4 py-3">
-            <h2 className="font-semibold">New Request</h2>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="font-semibold">{editingRequest ? "Edit Request" : "New Request"}</h2>
+              {editingRequest && (
+                <Button asChild variant="ghost" size="xs">
+                  <a href={basePath}>Cancel edit</a>
+                </Button>
+              )}
+            </div>
           </div>
           <form
             action={async (formData) => {
               "use server";
-              await submitOvertimeRequest(formData);
+              if (editingRequest) {
+                await updatePendingOvertimeRequest(editingRequest.id, formData);
+              } else {
+                await submitOvertimeRequest(formData);
+              }
             }}
             className="space-y-3 p-4"
           >
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
               <label className="grid gap-1.5 text-sm font-medium text-foreground">
                 OT start date
-                <input type="date" name="startDate" required className="h-9 rounded-lg border border-input bg-background px-3 text-sm" />
+                <input type="date" name="startDate" defaultValue={editingRequest ? format(editingRequest.startAt, "yyyy-MM-dd") : undefined} required className="h-9 rounded-lg border border-input bg-background px-3 text-sm" />
               </label>
               <label className="grid gap-1.5 text-sm font-medium text-foreground">
                 OT start time
-                <input type="time" name="startTime" required className="h-9 rounded-lg border border-input bg-background px-3 text-sm" />
+                <input type="time" name="startTime" defaultValue={editingRequest ? format(editingRequest.startAt, "HH:mm") : undefined} required className="h-9 rounded-lg border border-input bg-background px-3 text-sm" />
               </label>
               <label className="grid gap-1.5 text-sm font-medium text-foreground">
                 OT end date
-                <input type="date" name="endDate" required className="h-9 rounded-lg border border-input bg-background px-3 text-sm" />
+                <input type="date" name="endDate" defaultValue={editingRequest ? format(editingRequest.endAt, "yyyy-MM-dd") : undefined} required className="h-9 rounded-lg border border-input bg-background px-3 text-sm" />
               </label>
               <label className="grid gap-1.5 text-sm font-medium text-foreground">
                 OT end time
-                <input type="time" name="endTime" required className="h-9 rounded-lg border border-input bg-background px-3 text-sm" />
+                <input type="time" name="endTime" defaultValue={editingRequest ? format(editingRequest.endAt, "HH:mm") : undefined} required className="h-9 rounded-lg border border-input bg-background px-3 text-sm" />
               </label>
             </div>
 
@@ -156,17 +151,19 @@ export default async function OvertimePage({
             </div>
 
             <label className="grid gap-1.5 text-sm font-medium text-foreground">
-              Attachment Required
-              <input type="file" name="attachment" required accept="application/pdf,image/png,image/jpeg,image/webp" className="block w-full rounded-lg border border-input bg-background px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-muted file:px-2.5 file:py-1 file:text-xs file:font-semibold file:text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">PDF or image, up to 5MB.</span>
+              Attachment {editingRequest ? "Optional" : "Required"}
+              <input type="file" name="attachment" required={!editingRequest} accept="application/pdf,image/png,image/jpeg,image/webp" className="block w-full rounded-lg border border-input bg-background px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-muted file:px-2.5 file:py-1 file:text-xs file:font-semibold file:text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">
+                PDF or image, up to 5MB. {editingRequest ? "Leave blank to keep the current attachment." : ""}
+              </span>
             </label>
 
             <label className="grid gap-1.5 text-sm font-medium text-foreground">
               Reason
-              <textarea name="reason" required rows={3} maxLength={500} className="flex min-h-20 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2" />
+              <textarea name="reason" required rows={3} maxLength={500} defaultValue={editingRequest?.reason} className="flex min-h-20 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2" />
             </label>
 
-            <SubmitButton size="sm">Submit Request</SubmitButton>
+            <SubmitButton size="sm">{editingRequest ? "Save Changes" : "Submit Request"}</SubmitButton>
           </form>
         </section>
 
@@ -218,6 +215,7 @@ export default async function OvertimePage({
                       <th className="px-4 py-3 font-semibold">Status</th>
                       <th className="px-4 py-3 font-semibold">Filed</th>
                       <th className="px-4 py-3 font-semibold">Attachment</th>
+                      <th className="px-4 py-3 text-right font-semibold">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -236,6 +234,23 @@ export default async function OvertimePage({
                             <Paperclip className="size-3" />
                             Attachment
                           </a>
+                        </td>
+                        <td className="px-4 py-3">
+                          {request.status === "PENDING" ? (
+                            <div className="flex justify-end gap-2">
+                              <Button asChild variant="outline" size="xs">
+                                <a href={`${basePath}${basePath.includes("?") ? "&" : "?"}edit=${request.id}`}>Edit</a>
+                              </Button>
+                              <form
+                                action={async () => {
+                                  "use server";
+                                  await cancelPendingOvertimeRequest(request.id);
+                                }}
+                              >
+                                <SubmitButton variant="destructive-outline" size="xs" className="h-7 text-xs">Cancel</SubmitButton>
+                              </form>
+                            </div>
+                          ) : <span className="block text-right text-xs text-muted-foreground">Reviewed</span>}
                         </td>
                       </tr>
                     ))}
@@ -268,6 +283,21 @@ export default async function OvertimePage({
                       <Paperclip className="size-3" />
                       View attachment
                     </a>
+                    {request.status === "PENDING" && (
+                      <div className="mt-3 flex gap-2">
+                        <Button asChild variant="outline" size="xs">
+                          <a href={`${basePath}${basePath.includes("?") ? "&" : "?"}edit=${request.id}`}>Edit</a>
+                        </Button>
+                        <form
+                          action={async () => {
+                            "use server";
+                            await cancelPendingOvertimeRequest(request.id);
+                          }}
+                        >
+                          <SubmitButton variant="destructive-outline" size="xs" className="h-7 text-xs">Cancel</SubmitButton>
+                        </form>
+                      </div>
+                    )}
                   </article>
                 ))}
               </div>

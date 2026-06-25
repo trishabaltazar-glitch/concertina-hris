@@ -45,6 +45,22 @@ export async function getMyNotifications(limit = 8) {
   }
 }
 
+export async function getMyUnreadNotificationCount() {
+  const session = await auth();
+  if (!session?.user?.id) return 0;
+
+  try {
+    return await prisma.notification.count({
+      where: {
+        userId: session.user.id,
+        readAt: null,
+      },
+    });
+  } catch {
+    return 0;
+  }
+}
+
 export async function markNotificationRead(notificationId: string) {
   const session = await auth();
   if (!session?.user?.id) return { success: false };

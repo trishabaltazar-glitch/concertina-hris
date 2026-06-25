@@ -49,14 +49,15 @@ type LeavesClientPageProps = {
 };
 
 const STATUS_FILTERS = ["ALL", "PENDING", "APPROVED", "REJECTED"] as const;
-const DAY_OPTIONS = ["FULL_DAY", "HALF_DAY"] as const;
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 type LeaveDaySelection = {
   date: string;
-  dayType: "FULL_DAY" | "HALF_DAY";
+  dayType: LeaveDayType;
   days: number;
 };
+
+type LeaveDayType = "FULL_DAY" | "HALF_DAY";
 
 function getRequestDays(startDate: string | Date, endDate: string | Date, requestedDays?: number) {
   if (typeof requestedDays === "number") return requestedDays;
@@ -72,7 +73,12 @@ function getRequestDays(startDate: string | Date, endDate: string | Date, reques
 }
 
 function getLeaveLabel(leaveType: string) {
-  return leaveType === "LEAVE_CREDITS" ? "PFFD Credits" : leaveType.toLowerCase();
+  if (leaveType === "LEAVE_CREDITS") return "PFFD Credits";
+
+  return leaveType
+    .replaceAll("_", " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function getRequestDateLabel(request: LeaveRequestItem) {
@@ -128,19 +134,25 @@ function FieldLabel({ children, htmlFor }: { children: React.ReactNode; htmlFor:
 
 export function LeavesClientPage({ balances, leaveRequests }: LeavesClientPageProps) {
   const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>("ALL");
-  const [dayTypesByDate, setDayTypesByDate] = useState<Record<string, (typeof DAY_OPTIONS)[number]>>({});
+  const [dayTypesByDate, setDayTypesByDate] = useState<Record<string, LeaveDayType>>({});
   const [visibleMonth, setVisibleMonth] = useState(() => startOfMonth(new Date()));
   const [editingRequestId, setEditingRequestId] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   const editingRequest = useMemo(
     () => leaveRequests.find((request) => request.id === editingRequestId && request.status === "PENDING") || null,
     [editingRequestId, leaveRequests]
   );
 
   async function handleSubmit(formData: FormData) {
-    if (editingRequestId) {
-      await updatePendingLeaveRequest(editingRequestId, formData);
-    } else {
-      await submitLeaveRequest(formData);
+    setFormError(null);
+
+    const result = editingRequestId
+      ? await updatePendingLeaveRequest(editingRequestId, formData)
+      : await submitLeaveRequest(formData);
+
+    if (!result.success) {
+      setFormError(result.error || "Unable to save this request.");
+      return;
     }
 
     setEditingRequestId(null);
@@ -158,12 +170,14 @@ export function LeavesClientPage({ balances, leaveRequests }: LeavesClientPagePr
       setDayTypesByDate(Object.fromEntries(dates.map((date) => [format(date, "yyyy-MM-dd"), type])));
     }
     setVisibleMonth(startOfMonth(parseISO(request.startDate)));
+    setFormError(null);
   }
 
   function clearEditingRequest() {
     setEditingRequestId(null);
     setDayTypesByDate({});
     setVisibleMonth(startOfMonth(new Date()));
+    setFormError(null);
   }
 
   function toggleCalendarDate(date: Date) {
@@ -174,7 +188,6 @@ export function LeavesClientPage({ balances, leaveRequests }: LeavesClientPagePr
     }));
   }
 
-  const pffdBalance = balances.find((balance) => balance.leaveType === "LEAVE_CREDITS")?.balance ?? 0;
   const selectedBreakdown = useMemo(
     () =>
       Object.entries(dayTypesByDate)
@@ -201,24 +214,21 @@ export function LeavesClientPage({ balances, leaveRequests }: LeavesClientPagePr
     [visibleMonth],
   );
 
-  const stats = useMemo(() => {
+  const pendingCredits = useMemo(() => {
     return leaveRequests.reduce(
       (totals, request) => {
         const days = getRequestDays(request.startDate, request.endDate, request.requestedDays);
 
         if (request.status === "PENDING") {
-          totals.pending += days;
-        }
-
-        if (request.status === "APPROVED") {
-          totals.used += days;
+          totals.set(request.leaveType, (totals.get(request.leaveType) ?? 0) + days);
         }
 
         return totals;
       },
-      { pending: 0, used: 0 },
+      new Map<string, number>(),
     );
   }, [leaveRequests]);
+  const totalPendingCredits = Array.from(pendingCredits.values()).reduce((sum, days) => sum + days, 0);
 
   const filteredRequests = useMemo(() => {
     if (statusFilter === "ALL") {
@@ -228,59 +238,9 @@ export function LeavesClientPage({ balances, leaveRequests }: LeavesClientPagePr
     return leaveRequests.filter((request) => request.status === statusFilter);
   }, [leaveRequests, statusFilter]);
 
-  const summaryItems = [
-    {
-      label: "Available",
-      value: pffdBalance,
-      helper: "credits",
-      icon: CalendarDays,
-      className: "text-primary",
-      iconClassName: "bg-primary/10 text-primary",
-    },
-    {
-      label: "Pending",
-      value: stats.pending,
-      helper: "days",
-      icon: Hourglass,
-      className: "text-amber-700",
-      iconClassName: "bg-amber-100 text-amber-700",
-    },
-    {
-      label: "Approved",
-      value: stats.used,
-      helper: "days",
-      icon: CheckCircle2,
-      className: "text-emerald-700",
-      iconClassName: "bg-emerald-100 text-emerald-700",
-    },
-  ];
-
   return (
     <div className="w-full space-y-5">
-      <div className="grid gap-3 sm:grid-cols-3">
-        {summaryItems.map((item) => {
-          const Icon = item.icon;
-
-          return (
-            <div key={item.label} className="rounded-lg border border-border bg-background p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-xs font-medium text-muted-foreground">{item.label}</p>
-                  <p className={cn("mt-2 text-2xl font-semibold tracking-tight", item.className)}>
-                    {item.value}
-                  </p>
-                </div>
-                <span className={cn("inline-flex size-7 shrink-0 items-center justify-center rounded-md", item.iconClassName)}>
-                  <Icon className="size-3.5" />
-                </span>
-              </div>
-              <p className="mt-3 border-t border-border pt-3 text-xs text-muted-foreground">{item.helper}</p>
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
+      <div className="grid gap-4 xl:grid-cols-[minmax(320px,420px)_1fr]">
         <section className="rounded-lg border border-border bg-background">
           <div className="border-b px-4 py-3">
             <div className="flex items-center justify-between gap-3">
@@ -386,7 +346,7 @@ export function LeavesClientPage({ balances, leaveRequests }: LeavesClientPagePr
                           onChange={(event) => {
                             setDayTypesByDate((current) => ({
                               ...current,
-                              [item.date]: event.target.value as (typeof DAY_OPTIONS)[number],
+                              [item.date]: event.target.value as LeaveDayType,
                             }));
                           }}
                           className="h-8 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
@@ -436,32 +396,107 @@ export function LeavesClientPage({ balances, leaveRequests }: LeavesClientPagePr
             </div>
 
             <div>
-              <FieldLabel htmlFor="attachment">Attachment Optional</FieldLabel>
+              <FieldLabel htmlFor="attachment">Attachment Required</FieldLabel>
               <input
                 type="file"
                 name="attachment"
                 id="attachment"
                 accept="application/pdf,image/png,image/jpeg,image/webp"
+                required={!editingRequest?.attachmentName}
                 className="block w-full rounded-lg border border-input bg-background px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-muted file:px-2.5 file:py-1 file:text-xs file:font-semibold file:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
               />
-              <p className="mt-1 text-xs text-muted-foreground">PDF or image, up to 5MB.</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                PDF or image, up to 5MB. {editingRequest?.attachmentName ? "A new upload is optional because this request already has an attachment." : "Required for every new request."}
+              </p>
             </div>
 
             <div>
-              <FieldLabel htmlFor="reason">Reason Optional</FieldLabel>
+              <FieldLabel htmlFor="reason">Reason Required</FieldLabel>
               <textarea
                 name="reason"
                 id="reason"
                 key={editingRequest?.id || "new-reason"}
                 defaultValue={editingRequest?.reason || ""}
                 rows={3}
+                required
                 className="flex min-h-20 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
               />
             </div>
 
+            {formError && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {formError}
+              </div>
+            )}
+
             <SubmitButton size="sm" disabled={selectedBreakdown.length === 0}>{editingRequest ? "Save Changes" : "Submit Request"}</SubmitButton>
           </form>
         </section>
+
+        <div className="grid content-start gap-3 md:grid-cols-2">
+          <section className="rounded-lg border border-border bg-background p-4">
+            <div className="flex items-start gap-3">
+              <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                <CalendarDays className="size-4" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <h2 className="text-sm font-semibold text-foreground">Your Balances</h2>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  Available credits are the current balances you can request from each credit type before pending requests are approved.
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-2">
+              {balances.length ? (
+                balances.map((balance) => (
+                  <div key={balance.id} className="rounded-lg border border-border bg-muted/20 px-3 py-2.5">
+                    <p className="text-xs font-medium text-muted-foreground">{getLeaveLabel(balance.leaveType)}</p>
+                    <p className="mt-1 text-xl font-semibold tracking-tight text-primary">
+                      {balance.balance}
+                      <span className="ml-1 text-xs font-medium text-muted-foreground">credit{balance.balance === 1 ? "" : "s"}</span>
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-lg border border-dashed border-border px-3 py-6 text-sm text-muted-foreground">
+                  No available credits assigned yet.
+                </div>
+              )}
+            </div>
+          </section>
+
+          <section className="rounded-lg border border-border bg-background p-4">
+            <div className="flex items-start gap-3">
+              <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-md bg-amber-100 text-amber-700">
+                <Hourglass className="size-4" />
+              </span>
+              <div className="min-w-0">
+                <h2 className="text-sm font-semibold text-foreground">Pending credits</h2>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  Pending credits are requested days waiting for approval and are not final until reviewed.
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 space-y-2">
+              {pendingCredits.size ? (
+                Array.from(pendingCredits.entries()).map(([leaveType, days]) => (
+                  <div key={leaveType} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/20 px-3 py-2.5">
+                    <span className="text-xs font-medium text-muted-foreground">{getLeaveLabel(leaveType)}</span>
+                    <span className="text-sm font-semibold text-amber-700">{days} day{days === 1 ? "" : "s"}</span>
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-lg border border-dashed border-border px-3 py-6 text-sm text-muted-foreground">
+                  No pending credit requests.
+                </div>
+              )}
+              <div className="border-t border-border pt-2 text-xs text-muted-foreground">
+                Total pending: <span className="font-semibold text-foreground">{totalPendingCredits}</span> day{totalPendingCredits === 1 ? "" : "s"}
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
 
         <section className="rounded-lg border border-border bg-background">
           <div className="border-b px-4 py-3">
@@ -617,7 +652,6 @@ export function LeavesClientPage({ balances, leaveRequests }: LeavesClientPagePr
             </>
           )}
         </section>
-      </div>
     </div>
   );
 }

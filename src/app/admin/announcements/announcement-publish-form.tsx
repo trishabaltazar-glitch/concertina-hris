@@ -1,10 +1,23 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useRef, useState } from "react";
 
 import { createAnnouncement } from "@/app/actions/announcements";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { AnnouncementEditor } from "./announcement-editor";
+
+const AnnouncementEditor = dynamic(
+  () => import("./announcement-editor").then((module) => module.AnnouncementEditor),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="min-h-[232px] rounded-lg border border-input bg-muted/30 p-3">
+        <div className="h-8 w-48 rounded-md bg-muted" />
+        <div className="mt-3 h-28 rounded-md bg-background/70" />
+      </div>
+    ),
+  }
+);
 
 export function AnnouncementPublishForm() {
   const formRef = useRef<HTMLFormElement>(null);

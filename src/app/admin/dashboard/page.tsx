@@ -94,76 +94,97 @@ export default async function AdminDashboardPage() {
     ? { role: { in: ADMIN_VISIBLE_ROLES } }
     : { managerId: currentUser.id, role: "EMPLOYEE" };
 
-  const users = await prisma.user.findMany({
-    where: scopedUserWhere,
-    orderBy: { name: "asc" },
-    select: {
-      id: true,
-      department: true,
-      isActive: true,
-    },
-  });
+  const [activeUsers, totalUsers] = await Promise.all([
+    prisma.user.findMany({
+      where: { ...scopedUserWhere, isActive: true },
+      orderBy: { name: "asc" },
+      select: {
+        id: true,
+        department: true,
+      },
+    }),
+    prisma.user.count({
+      where: scopedUserWhere,
+    }),
+  ]);
 
-  await closeStaleOpenTimeLogs(isAdmin ? undefined : users.map((user) => user.id));
+  await closeStaleOpenTimeLogs(isAdmin ? undefined : activeUsers.map((user) => user.id));
 
-  const todayLogs = await prisma.timeLog.findMany({
-    where: {
-      clockIn: { gte: todayStart, lt: tomorrowStart },
-      user: scopedUserWhere,
-    },
-    include: {
-      user: { select: { id: true, name: true, email: true, department: true } },
-    },
-    orderBy: { clockIn: "desc" },
-  });
-
-  const openLogs = await prisma.timeLog.findMany({
-    where: {
-      clockOut: null,
-      user: scopedUserWhere,
-    },
-    include: {
-      user: { select: { id: true, name: true, email: true, department: true } },
-    },
-    orderBy: { clockIn: "asc" },
-    take: 25,
-  });
-
-  const pendingRequests = await prisma.leaveRequest.findMany({
-    where: {
-      status: "PENDING",
-      user: scopedUserWhere,
-    },
-    include: { user: { select: { id: true, name: true, email: true, department: true, managerId: true } } },
-    orderBy: { createdAt: "asc" },
-    take: 25,
-  });
-
-  const scheduledToday = await prisma.schedule.findMany({
-    where: {
-      dayOfWeek: now.getDay(),
-      user: { ...scopedUserWhere, isActive: true },
-    },
-    include: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          department: true,
-          timeLogs: {
-            where: { clockIn: { gte: todayStart, lt: tomorrowStart } },
-            orderBy: { clockIn: "asc" },
-            select: { clockIn: true, clockOut: true, status: true },
+  const [
+    todayLogs,
+    openLogs,
+    pendingRequests,
+    pendingRequestsCount,
+    scheduledTodayCount,
+    scheduledToday,
+  ] = await Promise.all([
+    prisma.timeLog.findMany({
+      where: {
+        clockIn: { gte: todayStart, lt: tomorrowStart },
+        user: scopedUserWhere,
+      },
+      include: {
+        user: { select: { id: true, name: true, email: true, department: true } },
+      },
+      orderBy: { clockIn: "desc" },
+    }),
+    prisma.timeLog.findMany({
+      where: {
+        clockOut: null,
+        user: scopedUserWhere,
+      },
+      include: {
+        user: { select: { id: true, name: true, email: true, department: true } },
+      },
+      orderBy: { clockIn: "asc" },
+      take: 25,
+    }),
+    prisma.leaveRequest.findMany({
+      where: {
+        status: "PENDING",
+        user: scopedUserWhere,
+      },
+      include: { user: { select: { id: true, name: true, email: true, department: true, managerId: true } } },
+      orderBy: { createdAt: "asc" },
+      take: 25,
+    }),
+    prisma.leaveRequest.count({
+      where: {
+        status: "PENDING",
+        user: scopedUserWhere,
+      },
+    }),
+    prisma.schedule.count({
+      where: {
+        dayOfWeek: now.getDay(),
+        user: { ...scopedUserWhere, isActive: true },
+      },
+    }),
+    prisma.schedule.findMany({
+      where: {
+        dayOfWeek: now.getDay(),
+        user: { ...scopedUserWhere, isActive: true },
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            department: true,
+            timeLogs: {
+              where: { clockIn: { gte: todayStart, lt: tomorrowStart } },
+              orderBy: { clockIn: "asc" },
+              select: { clockIn: true, clockOut: true, status: true },
+            },
           },
         },
       },
-    },
-    orderBy: [{ startTime: "asc" }, { user: { name: "asc" } }],
-    take: 50,
-  });
+      orderBy: [{ startTime: "asc" }, { user: { name: "asc" } }],
+      take: 8,
+    }),
+  ]);
 
-  const activeUsers = users.filter((user) => user.isActive);
   const activeUserIds = new Set(activeUsers.map((user) => user.id));
   const clockedInUserIds = new Set(todayLogs.map((log) => log.userId));
   const activeOpenLogs = openLogs.filter((log) => activeUserIds.has(log.userId));
@@ -242,8 +263,8 @@ export default async function AdminDashboardPage() {
       </div>
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Active employees" value={activeUsers.length} helper={`${users.length} people in scope`} icon={Users} tone="success" />
-        <MetricCard label="Pending PFFD" value={pendingRequests.length} helper="Waiting for review" icon={FileCheck2} tone={pendingRequests.length ? "warn" : "success"} />
+        <MetricCard label="Active employees" value={activeUsers.length} helper={`${totalUsers} people in scope`} icon={Users} tone="success" />
+        <MetricCard label="Pending PFFD" value={pendingRequestsCount} helper="Waiting for review" icon={FileCheck2} tone={pendingRequestsCount ? "warn" : "success"} />
         <MetricCard label="Late today" value={lateToday} helper={`${todayLogs.length} clock-ins recorded`} icon={Clock3} tone={lateToday ? "warn" : "success"} />
         <MetricCard label="Missing clock-outs" value={staleOpenLogs.length} helper={`${activeOpenLogs.length} active open logs`} icon={AlertTriangle} tone={staleOpenLogs.length ? "danger" : "success"} />
       </div>
@@ -324,10 +345,10 @@ export default async function AdminDashboardPage() {
         <section className="rounded-lg border border-border/70 bg-background shadow-sm xl:col-span-5">
           <div className="border-b border-border px-4 py-3">
             <h2 className="text-base font-semibold text-foreground">Schedule coverage today</h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">{scheduledToday.length} scheduled employees.</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{scheduledTodayCount} scheduled employees.</p>
           </div>
           <div className="divide-y divide-border">
-            {scheduledToday.slice(0, 8).map((schedule) => {
+            {scheduledToday.map((schedule) => {
               const firstLog = schedule.user.timeLogs[0];
               return (
                 <div key={schedule.id} className="px-4 py-2.5">
@@ -343,7 +364,7 @@ export default async function AdminDashboardPage() {
                 </div>
               );
             })}
-            {scheduledToday.length === 0 && <EmptyState>No schedules assigned for today.</EmptyState>}
+            {scheduledTodayCount === 0 && <EmptyState>No schedules assigned for today.</EmptyState>}
           </div>
         </section>
 

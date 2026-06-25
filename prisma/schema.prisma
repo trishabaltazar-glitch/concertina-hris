@@ -50,6 +50,7 @@ model User {
   reviewedOvertimeRequests OvertimeRequest[] @relation("OvertimeRequestReviewer")
   announcements    Announcement[] // Link to authored announcements
   pages            Page[]         // Link to authored knowledge base pages
+  knowledgeFiles   KnowledgeFile[]
   schedules        Schedule[]     // Assigned schedules
   auditLogs        AuditLog[]     // Actions performed by user
   passwordResetTokens PasswordResetToken[]
@@ -186,8 +187,27 @@ model Page {
   parentId  String?  // Self-relation for infinite nesting
   parent    Page?    @relation("PageOrganization", fields: [parentId], references: [id], onDelete: Cascade)
   children  Page[]   @relation("PageOrganization")
+  files     KnowledgeFile[] @relation("KnowledgeFileFolder")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model KnowledgeFile {
+  id           String   @id @default(cuid())
+  folderId     String?
+  folder       Page?    @relation("KnowledgeFileFolder", fields: [folderId], references: [id], onDelete: Cascade)
+  uploadedById String
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+  displayName  String
+  fileName     String
+  mimeType     String
+  size         Int
+  data         Bytes
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([folderId, createdAt])
+  @@index([uploadedById])
 }
 
 model Holiday {

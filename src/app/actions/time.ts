@@ -42,6 +42,17 @@ function parseManualEntryDate(date: FormDataEntryValue | null, time: FormDataEnt
     return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
+function getManualEntryTypeLabel(value: FormDataEntryValue | null) {
+    if (value === "CLOCK_IN") return "Missing clock-in";
+    if (value === "CLOCK_OUT") return "Missing clock-out";
+    if (value === "BOTH") return "Missing clock-in and clock-out";
+    return null;
+}
+
+function buildManualEntryReason(typeLabel: string, reason: string) {
+    return `[${typeLabel}] ${reason}`;
+}
+
 async function getAssignedHolidayForDate(userId: string, date: Date) {
     const dayStart = new Date(date);
     dayStart.setHours(0, 0, 0, 0);
@@ -190,7 +201,12 @@ export async function submitManualTimeEntryRequest(formData: FormData) {
 
         const clockIn = parseManualEntryDate(formData.get("date"), formData.get("clockIn"));
         const clockOut = parseManualEntryDate(formData.get("date"), formData.get("clockOut"));
+        const missingLogType = getManualEntryTypeLabel(formData.get("missingLogType"));
         const reason = cleanOptionalText(String(formData.get("reason") || ""));
+
+        if (!missingLogType) {
+            return { success: false, error: "Choose whether this request is for a missing clock-in, clock-out, or both." };
+        }
 
         if (!clockIn || !clockOut) {
             return { success: false, error: "Enter a valid date, clock-in, and clock-out time." };
@@ -249,7 +265,7 @@ export async function submitManualTimeEntryRequest(formData: FormData) {
                 ${session.user.id},
                 ${clockIn},
                 ${clockOut},
-                ${reason},
+                ${buildManualEntryReason(missingLogType, reason)},
                 'PENDING',
                 ${new Date()},
                 ${new Date()}
@@ -308,7 +324,12 @@ export async function updatePendingManualTimeEntryRequest(requestId: string, for
 
         const clockIn = parseManualEntryDate(formData.get("date"), formData.get("clockIn"));
         const clockOut = parseManualEntryDate(formData.get("date"), formData.get("clockOut"));
+        const missingLogType = getManualEntryTypeLabel(formData.get("missingLogType"));
         const reason = cleanOptionalText(String(formData.get("reason") || ""));
+
+        if (!missingLogType) {
+            return { success: false, error: "Choose whether this request is for a missing clock-in, clock-out, or both." };
+        }
 
         if (!clockIn || !clockOut) {
             return { success: false, error: "Enter a valid date, clock-in, and clock-out time." };
@@ -370,7 +391,7 @@ export async function updatePendingManualTimeEntryRequest(requestId: string, for
             SET
                 "clockIn" = ${clockIn},
                 "clockOut" = ${clockOut},
-                "reason" = ${reason},
+                "reason" = ${buildManualEntryReason(missingLogType, reason)},
                 "updatedAt" = ${new Date()}
             WHERE "id" = ${requestId}
               AND "userId" = ${session.user.id}

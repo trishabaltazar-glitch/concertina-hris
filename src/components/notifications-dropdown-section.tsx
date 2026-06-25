@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { formatDistanceToNow } from "date-fns";
 import { Bell, CheckCheck, UserRound } from "lucide-react";
 
 import {
@@ -11,12 +10,6 @@ import {
   markNotificationRead,
   type UserNotification,
 } from "@/app/actions/notifications";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   getNotificationFilterCount,
   matchesNotificationFilter,
@@ -30,6 +23,25 @@ type NotificationsDropdownSectionProps = {
   onUnreadCountChange?: (count: number) => void;
   showProfile?: boolean;
 };
+
+function formatRelativeTime(date: Date) {
+  const seconds = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
+  if (seconds < 60) return "just now";
+
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+}
 
 export function NotificationsDropdownSection({
   onNavigate,
@@ -192,7 +204,7 @@ export function NotificationsDropdownSection({
                       {notification.message}
                     </p>
                     <p className="mt-1 text-[11px] font-medium text-muted-foreground">
-                      {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
+                      {formatRelativeTime(new Date(notification.createdAt))}
                     </p>
                   </div>
                 </div>
@@ -234,58 +246,5 @@ export function NotificationsDropdownSection({
         View all notifications
       </Link>
     </div>
-  );
-}
-
-export function NotificationsMenu() {
-  const [unreadCount, setUnreadCount] = React.useState(0);
-  const [isOpen, setIsOpen] = React.useState(false);
-
-  React.useEffect(() => {
-    let isMounted = true;
-
-    getMyNotifications(1)
-      .then((result) => {
-        if (isMounted) {
-          setUnreadCount(result.unreadCount);
-        }
-      })
-      .catch(() => {
-        if (isMounted) {
-          setUnreadCount(0);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  return (
-    <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
-      <DropdownMenuTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="relative h-9 w-9 rounded-lg border border-border/70 bg-card/80 hover:bg-accent"
-          aria-label="Open notifications"
-          title="Notifications"
-        >
-          <Bell className="size-4" />
-          {unreadCount > 0 && (
-            <span className="absolute -right-1 -top-1 grid min-h-4 min-w-4 place-items-center rounded-full bg-brand-red px-1 text-[10px] font-bold leading-none text-brand-red-foreground ring-2 ring-background">
-              {unreadCount > 9 ? "9+" : unreadCount}
-            </span>
-          )}
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-80 rounded-lg p-2" align="end" sideOffset={8}>
-        <NotificationsDropdownSection
-          onNavigate={() => setIsOpen(false)}
-          onUnreadCountChange={setUnreadCount}
-        />
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }

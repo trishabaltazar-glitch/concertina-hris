@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Rocket, LayoutDashboard, Clock, ClipboardCheck, FileCheck2, Settings, UserCircle, CalendarDays, ClipboardList, Users, History } from "lucide-react";
+import { Rocket, LayoutDashboard, Clock, ClipboardCheck, FileCheck2, Settings, UserCircle, CalendarDays, ClipboardList, Users, History, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { handleSignOut } from "@/app/actions/auth";
 
@@ -11,6 +11,7 @@ const EMP_ROUTES = [
     { name: "Timesheets", href: "/timesheets", icon: Clock },
     { name: "Schedules", href: "/schedule", icon: CalendarDays },
     { name: "Requests", href: "/requests", icon: ClipboardCheck },
+    { name: "Knowledge Base", href: "/knowledge-base", icon: BookOpen },
     { name: "My Profile", href: "/profile", icon: UserCircle },
 ];
 
@@ -41,7 +42,10 @@ export function Sidebar({ user }: { user?: { name?: string | null; email?: strin
                     Main Menu
                 </div>
                 {EMP_ROUTES.map((route) => {
-                    const isActive = pathname === route.href || (route.href === "/requests" && ["/leaves", "/overtime", "/time-corrections"].includes(pathname));
+                    const isActive =
+                        pathname === route.href ||
+                        (route.href === "/requests" && ["/leaves", "/overtime", "/time-corrections"].includes(pathname)) ||
+                        (route.href === "/knowledge-base" && pathname.startsWith("/knowledge-base"));
                     return (
                         <Link
                             key={route.name}

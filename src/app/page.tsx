@@ -245,61 +245,59 @@ export default async function DashboardPage() {
   let announcementsUnavailable = false;
 
   try {
-    recentLogs = await prisma.timeLog.findMany({
-      where: { userId: session.user.id },
-      orderBy: { clockIn: "desc" },
-      take: 5,
-      select: {
-        id: true,
-        clockIn: true,
-        clockOut: true,
-        status: true,
-      },
-    });
-
-    todayLogs = await prisma.timeLog.findMany({
-      where: {
-        userId: session.user.id,
-        clockIn: {
-          gte: todayStart,
-          lte: todayEnd,
+    [recentLogs, todayLogs, schedules, scheduleOverrides, assignedHolidays] = await Promise.all([
+      prisma.timeLog.findMany({
+        where: { userId: session.user.id },
+        orderBy: { clockIn: "desc" },
+        take: 5,
+        select: {
+          id: true,
+          clockIn: true,
+          clockOut: true,
+          status: true,
         },
-      },
-      orderBy: { clockIn: "desc" },
-      select: {
-        id: true,
-        clockIn: true,
-        clockOut: true,
-        status: true,
-      },
-    });
-
-    schedules = await prisma.schedule.findMany({
-      where: { userId: session.user.id },
-      select: {
-        dayOfWeek: true,
-        startTime: true,
-        endTime: true,
-      },
-    });
-
-    scheduleOverrides = await prisma.$queryRaw<ScheduleOverrideWindow[]>`
-      SELECT "date", "startTime", "endTime", "notes"
-      FROM "ScheduleOverride"
-      WHERE "userId" = ${session.user.id}
-        AND "date" >= ${todayStart}
-        AND "date" <= ${todayEnd}
-      ORDER BY "date" ASC
-    `;
-
-    assignedHolidays = await prisma.$queryRaw<AssignedHoliday[]>`
-      SELECT "id", "name", "date", "notes"
-      FROM "HolidayAssignment"
-      WHERE "userId" = ${session.user.id}
-        AND "date" >= ${todayStart}
-        AND "date" <= ${todayEnd}
-      ORDER BY "date" ASC
-    `;
+      }),
+      prisma.timeLog.findMany({
+        where: {
+          userId: session.user.id,
+          clockIn: {
+            gte: todayStart,
+            lte: todayEnd,
+          },
+        },
+        orderBy: { clockIn: "desc" },
+        select: {
+          id: true,
+          clockIn: true,
+          clockOut: true,
+          status: true,
+        },
+      }),
+      prisma.schedule.findMany({
+        where: { userId: session.user.id },
+        select: {
+          dayOfWeek: true,
+          startTime: true,
+          endTime: true,
+        },
+      }),
+      prisma.$queryRaw<ScheduleOverrideWindow[]>`
+        SELECT "date", "startTime", "endTime", "notes"
+        FROM "ScheduleOverride"
+        WHERE "userId" = ${session.user.id}
+          AND "date" >= ${todayStart}
+          AND "date" <= ${todayEnd}
+        ORDER BY "date" ASC
+      `,
+      prisma.$queryRaw<AssignedHoliday[]>`
+        SELECT "id", "name", "date", "notes"
+        FROM "HolidayAssignment"
+        WHERE "userId" = ${session.user.id}
+          AND "date" >= ${todayStart}
+          AND "date" <= ${todayEnd}
+        ORDER BY "date" ASC
+      `,
+    ]);
   } catch {
     recentLogs = [];
     todayLogs = [];

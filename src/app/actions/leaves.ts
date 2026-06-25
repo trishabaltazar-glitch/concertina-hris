@@ -76,12 +76,16 @@ async function getValidatedLeaveInput(formData: FormData) {
     const leaveType = formData.get("leaveType") as string;
     const startDateStr = formData.get("startDate") as string;
     const endDateStr = formData.get("endDate") as string;
-    const reason = formData.get("reason") as string;
+    const reason = String(formData.get("reason") || "").trim();
     const attachment = formData.get("attachment");
     const dayBreakdown = parseDayBreakdown(formData);
 
     if (!leaveType || !startDateStr || !endDateStr) {
         return { error: "Missing required fields" };
+    }
+
+    if (!reason) {
+        return { error: "Reason is required" };
     }
 
     let dayType = "FULL_DAY";
@@ -154,6 +158,10 @@ export async function submitLeaveRequest(formData: FormData) {
 
         const parsed = await getValidatedLeaveInput(formData);
         if ("error" in parsed) return { success: false, error: parsed.error };
+
+        if (!parsed.attachmentData) {
+            return { success: false, error: "Attachment is required" };
+        }
 
         const session = await auth();
         if (!session || !session.user || !session.user.id) {
@@ -251,7 +259,7 @@ export async function updatePendingLeaveRequest(requestId: string, formData: For
 
         const existing = await prisma.leaveRequest.findFirst({
             where: { id: requestId, userId: session.user.id, status: "PENDING" },
-            select: { id: true },
+            select: { id: true, attachmentName: true },
         });
 
         if (!existing) {
@@ -260,6 +268,10 @@ export async function updatePendingLeaveRequest(requestId: string, formData: For
 
         const parsed = await getValidatedLeaveInput(formData);
         if ("error" in parsed) return { success: false, error: parsed.error };
+
+        if (!parsed.attachmentData && !existing.attachmentName) {
+            return { success: false, error: "Attachment is required" };
+        }
 
         await prisma.leaveRequest.update({
             where: { id: requestId },

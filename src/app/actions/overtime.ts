@@ -95,6 +95,108 @@ export async function submitOvertimeRequest(formData: FormData) {
   return { success: true };
 }
 
+export async function updatePendingOvertimeRequest(requestId: string, formData: FormData) {
+  const session = await auth();
+  if (!session?.user?.id) return { success: false, error: "Unauthorized" };
+
+  await ensureOvertimeRequestTable();
+
+  const existing = await prisma.$queryRaw<{ id: string; attachmentName: string }[]>`
+    SELECT "id", "attachmentName"
+    FROM "OvertimeRequest"
+    WHERE "id" = ${requestId}
+      AND "userId" = ${session.user.id}
+      AND "status" = 'PENDING'
+    LIMIT 1
+  `;
+
+  if (!existing[0]) {
+    return { success: false, error: "Only pending OT requests can be edited." };
+  }
+
+  const startAt = parseDateTime(formData.get("startDate"), formData.get("startTime"));
+  const endAt = parseDateTime(formData.get("endDate"), formData.get("endTime"));
+  const reason = cleanText(formData.get("reason"), 500);
+  const attachment = formData.get("attachment");
+
+  if (!startAt || !endAt || !reason) {
+    return { success: false, error: "Start, end, and reason are required." };
+  }
+
+  if (endAt <= startAt) {
+    return { success: false, error: "OT end must be after OT start." };
+  }
+
+  if (startAt > new Date()) {
+    return { success: false, error: "OT requests cannot start in the future." };
+  }
+
+  if (attachment instanceof File && attachment.size > 0) {
+    if (attachment.size > MAX_ATTACHMENT_SIZE) {
+      return { success: false, error: "Attachment must be 5MB or smaller." };
+    }
+
+    if (!ALLOWED_ATTACHMENT_TYPES.includes(attachment.type)) {
+      return { success: false, error: "Attachment must be a PDF or image file." };
+    }
+
+    const attachmentData = Buffer.from(await attachment.arrayBuffer());
+
+    await prisma.$executeRaw`
+      UPDATE "OvertimeRequest"
+      SET
+        "startAt" = ${startAt},
+        "endAt" = ${endAt},
+        "reason" = ${reason},
+        "attachmentName" = ${attachment.name},
+        "attachmentType" = ${attachment.type},
+        "attachmentData" = ${attachmentData},
+        "updatedAt" = ${new Date()}
+      WHERE "id" = ${requestId}
+        AND "userId" = ${session.user.id}
+        AND "status" = 'PENDING'
+    `;
+  } else {
+    await prisma.$executeRaw`
+      UPDATE "OvertimeRequest"
+      SET
+        "startAt" = ${startAt},
+        "endAt" = ${endAt},
+        "reason" = ${reason},
+        "updatedAt" = ${new Date()}
+      WHERE "id" = ${requestId}
+        AND "userId" = ${session.user.id}
+        AND "status" = 'PENDING'
+    `;
+  }
+
+  revalidatePath("/overtime");
+  revalidatePath("/admin/overtime");
+  return { success: true };
+}
+
+export async function cancelPendingOvertimeRequest(requestId: string) {
+  const session = await auth();
+  if (!session?.user?.id) return { success: false, error: "Unauthorized" };
+
+  await ensureOvertimeRequestTable();
+
+  const deleted = await prisma.$executeRaw`
+    DELETE FROM "OvertimeRequest"
+    WHERE "id" = ${requestId}
+      AND "userId" = ${session.user.id}
+      AND "status" = 'PENDING'
+  `;
+
+  if (deleted === 0) {
+    return { success: false, error: "Only pending OT requests can be cancelled." };
+  }
+
+  revalidatePath("/overtime");
+  revalidatePath("/admin/overtime");
+  return { success: true };
+}
+
 export async function updateOvertimeRequestStatus(requestId: string, status: "APPROVED" | "REJECTED") {
   const session = await auth();
   const role = (session?.user as { role?: string } | undefined)?.role;
