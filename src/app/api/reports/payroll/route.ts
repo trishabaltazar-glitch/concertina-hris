@@ -14,7 +14,7 @@ export async function GET(request: Request) {
         const session = await auth();
         const user = session?.user as ReportSessionUser | undefined;
 
-        if (!session || !user || (user.role !== "ADMIN" && user.role !== "MANAGER")) {
+        if (!session || !user || user.role !== "ADMIN") {
             return new NextResponse('Unauthorized', { status: 401 });
         }
 
@@ -28,8 +28,7 @@ export async function GET(request: Request) {
 
         const users = await prisma.user.findMany({
             where: {
-                role: user.role === "ADMIN" ? { in: ADMIN_VISIBLE_ROLES } : "EMPLOYEE",
-                ...(user.role === "ADMIN" ? {} : { managerId: user.id }),
+                role: { in: ADMIN_VISIBLE_ROLES },
                 ...(department && department !== "ALL" ? { department } : {}),
                 ...(managerId && managerId !== "ALL" ? { managerId } : {}),
             },

@@ -12,7 +12,6 @@ import {
   Filter,
   History,
   Loader2,
-  Lock,
   ShieldAlert,
   Timer,
   Users,
@@ -36,26 +35,12 @@ type MetricItem = {
 const today = new Date();
 
 const DATE_PRESETS = [
-  { value: "CURRENT_CUTOFF", label: "Current cutoff" },
-  { value: "PREVIOUS_CUTOFF", label: "Previous cutoff" },
   { value: "THIS_MONTH", label: "This month" },
   { value: "LAST_30", label: "Last 30 days" },
   { value: "CUSTOM", label: "Custom range" },
 ];
 
-function getCutoffRange(date: Date) {
-  const day = date.getDate();
-  const start = day <= 15 ? new Date(date.getFullYear(), date.getMonth(), 1) : new Date(date.getFullYear(), date.getMonth(), 16);
-  const end = day <= 15 ? new Date(date.getFullYear(), date.getMonth(), 15) : endOfMonth(date);
-  return { start, end };
-}
-
 function getPresetRange(preset: string) {
-  if (preset === "CURRENT_CUTOFF") return getCutoffRange(today);
-  if (preset === "PREVIOUS_CUTOFF") {
-    const current = getCutoffRange(today);
-    return getCutoffRange(subDays(current.start, 1));
-  }
   if (preset === "THIS_MONTH") return { start: startOfMonth(today), end: endOfMonth(today) };
   return { start: subDays(today, 30), end: today };
 }
@@ -114,8 +99,8 @@ function getExceptionBreakdown(preview: PreviewData | null) {
 }
 
 export default function AdminReportsPage() {
-  const initialRange = getPresetRange("CURRENT_CUTOFF");
-  const [preset, setPreset] = useState("CURRENT_CUTOFF");
+  const initialRange = getPresetRange("THIS_MONTH");
+  const [preset, setPreset] = useState("THIS_MONTH");
   const [startDate, setStartDate] = useState(format(initialRange.start, "yyyy-MM-dd"));
   const [endDate, setEndDate] = useState(format(initialRange.end, "yyyy-MM-dd"));
   const [department, setDepartment] = useState("ALL");
@@ -179,6 +164,7 @@ export default function AdminReportsPage() {
   const readinessInsight = getReadinessInsight(preview);
   const exceptionBreakdown = getExceptionBreakdown(preview);
   const isPayrollBlocked = preview?.summary.readinessStatus === "Blocked";
+  const isAdminView = preview?.canExportPayroll === true;
   const activeFilterCount = Number(department !== "ALL") + Number(managerId !== "ALL");
   const metrics: MetricItem[] = [
     { label: "Total hours", value: preview?.summary.totalHours.toFixed(2) ?? "-", Icon: Timer },
@@ -206,49 +192,53 @@ export default function AdminReportsPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
-            {isLoading ? <Loader2 className="size-4 animate-spin text-muted-foreground" /> : preview && <StatusBadge status={preview.summary.readinessStatus} />}
-          </div>
+          {isAdminView && (
+            <div className="flex items-center gap-2">
+              {isLoading ? <Loader2 className="size-4 animate-spin text-muted-foreground" /> : preview && <StatusBadge status={preview.summary.readinessStatus} />}
+            </div>
+          )}
         </div>
 
-        <div className="border-b px-4 py-4">
-          <div className={`rounded-lg border px-4 py-3 ${
-            !preview
-              ? "border-border bg-background/60"
-              : preview.summary.readinessStatus === "Ready"
-              ? "border-emerald-500/20 bg-emerald-500/10"
-              : preview.summary.readinessStatus === "Needs review"
-                ? "border-amber-500/20 bg-amber-500/10"
-                : "border-rose-500/20 bg-rose-500/10"
-          }`}>
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex min-w-0 items-start gap-3">
-                <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg border bg-background/70 text-foreground">
-                  {isLoading ? <Loader2 className="size-4 animate-spin" /> : isPayrollBlocked ? <Lock className="size-4" /> : <CheckCircle2 className="size-4" />}
-                </span>
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm font-semibold text-foreground">Payroll readiness</p>
-                    {preview && <StatusBadge status={preview.summary.readinessStatus} />}
+        {isAdminView && (
+          <div className="border-b px-4 py-4">
+            <div className={`rounded-lg border px-4 py-3 ${
+              !preview
+                ? "border-border bg-background/60"
+                : preview.summary.readinessStatus === "Ready"
+                ? "border-emerald-500/20 bg-emerald-500/10"
+                : preview.summary.readinessStatus === "Needs review"
+                  ? "border-amber-500/20 bg-amber-500/10"
+                  : "border-rose-500/20 bg-rose-500/10"
+            }`}>
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex min-w-0 items-start gap-3">
+                  <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg border bg-background/70 text-foreground">
+                    {isLoading ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}
+                  </span>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-semibold text-foreground">Payroll readiness</p>
+                      {preview && <StatusBadge status={preview.summary.readinessStatus} />}
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">{isLoading ? "Checking attendance exceptions..." : readinessInsight}</p>
                   </div>
-                  <p className="mt-1 text-xs text-muted-foreground">{isLoading ? "Checking attendance exceptions..." : readinessInsight}</p>
                 </div>
-              </div>
 
-              {exceptionBreakdown.length > 0 && (
-                <div className="flex flex-wrap gap-2 lg:justify-end">
-                  {exceptionBreakdown.slice(0, 4).map(([type, count]) => (
-                    <span key={type} className="inline-flex items-center rounded-md border border-border bg-background/80 px-2 py-1 text-xs font-medium text-foreground">
-                      {type}: {count}
-                    </span>
-                  ))}
-                </div>
-              )}
+                {exceptionBreakdown.length > 0 && (
+                  <div className="flex flex-wrap gap-2 lg:justify-end">
+                    {exceptionBreakdown.slice(0, 4).map(([type, count]) => (
+                      <span key={type} className="inline-flex items-center rounded-md border border-border bg-background/80 px-2 py-1 text-xs font-medium text-foreground">
+                        {type}: {count}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
-        <div className="grid gap-3 border-b px-4 py-3 lg:grid-cols-[minmax(190px,1fr)_repeat(4,minmax(150px,1fr))]">
+        <div className="grid gap-3 border-b px-4 py-3 lg:grid-cols-[minmax(190px,1fr)_repeat(3,minmax(150px,1fr))]">
           <div className="relative">
             <CalendarIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <select
@@ -302,7 +292,8 @@ export default function AdminReportsPage() {
             <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           </div>
 
-          <div className="relative">
+          {isAdminView && (
+            <div className="relative">
             <Users className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <select
               value={managerId}
@@ -317,7 +308,8 @@ export default function AdminReportsPage() {
               ))}
             </select>
             <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          </div>
+            </div>
+          )}
         </div>
 
         <div className="grid gap-2 border-b px-4 py-3 sm:grid-cols-2 xl:grid-cols-6">
@@ -332,17 +324,19 @@ export default function AdminReportsPage() {
           ))}
         </div>
 
-        <div className="grid gap-3 px-4 py-4 lg:grid-cols-4">
-          <Button
-            type="button"
-            variant="success"
-            disabled={exporting !== null || !preview || isPayrollBlocked || isLoading}
-            onClick={() => runExport("payroll", async () => { window.location.href = `/api/reports/payroll?${query}`; })}
-            title={isPayrollBlocked ? "Resolve blocked exceptions before exporting payroll." : undefined}
-          >
-            {exporting === "payroll" ? <Loader2 className="size-4 animate-spin" /> : isPayrollBlocked ? <Lock className="size-4" /> : <Download className="size-4" />}
-            {isPayrollBlocked ? "Payroll Blocked" : "Payroll CSV"}
-          </Button>
+        <div className="grid gap-3 px-4 py-4 lg:grid-cols-3">
+          {isAdminView && (
+            <Button
+              type="button"
+              variant="success"
+              disabled={exporting !== null || !preview || isPayrollBlocked || isLoading}
+              onClick={() => runExport("payroll", async () => { window.location.href = `/api/reports/payroll?${query}`; })}
+              title={isPayrollBlocked ? "Resolve blocked exceptions before exporting payroll." : undefined}
+            >
+              {exporting === "payroll" ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+              Payroll CSV
+            </Button>
+          )}
           <Button
             type="button"
             disabled={exporting !== null}

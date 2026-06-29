@@ -54,9 +54,10 @@ async function getReportUsers(currentUser: ReportSessionUser, filters: ReportFil
   return prisma.user.findMany({
     where: {
       role: currentUser.role === "ADMIN" ? { in: ADMIN_VISIBLE_ROLES } : "EMPLOYEE",
-      ...(currentUser.role === "ADMIN" ? {} : { managerId: currentUser.id }),
+      ...(currentUser.role === "ADMIN"
+        ? (filters.managerId && filters.managerId !== "ALL" ? { managerId: filters.managerId } : {})
+        : { managerId: currentUser.id }),
       ...(filters.department && filters.department !== "ALL" ? { department: filters.department } : {}),
-      ...(filters.managerId && filters.managerId !== "ALL" ? { managerId: filters.managerId } : {}),
     },
     include: {
       manager: { select: { id: true, name: true } },
@@ -321,6 +322,8 @@ export async function getReportPreview(startDate: string, endDate: string, filte
       departments,
       managers,
     },
+    currentUserRole: user.role,
+    canExportPayroll: user.role === "ADMIN",
     auditLogs: auditLogs.map((log) => ({
       id: log.id,
       action: log.action,
@@ -374,9 +377,10 @@ export async function generateTimesheetReport(startDate: string, endDate: string
     where: {
       user: {
         role: user.role === "ADMIN" ? { in: ADMIN_VISIBLE_ROLES } : "EMPLOYEE",
-        ...(user.role === "ADMIN" ? {} : { managerId: user.id }),
+        ...(user.role === "ADMIN"
+          ? (filters.managerId && filters.managerId !== "ALL" ? { managerId: filters.managerId } : {})
+          : { managerId: user.id }),
         ...(filters.department && filters.department !== "ALL" ? { department: filters.department } : {}),
-        ...(filters.managerId && filters.managerId !== "ALL" ? { managerId: filters.managerId } : {}),
       },
       clockIn: {
         gte: new Date(`${startDate}T00:00:00.000Z`),
@@ -412,9 +416,10 @@ export async function generateLeaveReport(startDate: string, endDate: string, fi
     where: {
       user: {
         role: user.role === "ADMIN" ? { in: ADMIN_VISIBLE_ROLES } : "EMPLOYEE",
-        ...(user.role === "ADMIN" ? {} : { managerId: user.id }),
+        ...(user.role === "ADMIN"
+          ? (filters.managerId && filters.managerId !== "ALL" ? { managerId: filters.managerId } : {})
+          : { managerId: user.id }),
         ...(filters.department && filters.department !== "ALL" ? { department: filters.department } : {}),
-        ...(filters.managerId && filters.managerId !== "ALL" ? { managerId: filters.managerId } : {}),
       },
       startDate: {
         gte: new Date(`${startDate}T00:00:00.000Z`),
