@@ -247,12 +247,14 @@ export default async function AdminDashboardPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button asChild size="sm" variant="outline">
-            <Link href="/admin/employees">
-              <UserPlus className="size-3.5" />
-              Add employee
-            </Link>
-          </Button>
+          {isAdmin && (
+            <Button asChild size="sm" variant="outline">
+              <Link href="/admin/employees">
+                <UserPlus className="size-3.5" />
+                Add employee
+              </Link>
+            </Button>
+          )}
           <Button asChild size="sm">
             <Link href="/admin/approvals">
               <FileCheck2 className="size-3.5" />

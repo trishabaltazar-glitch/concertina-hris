@@ -120,6 +120,7 @@ function getCalendarDays(month: Date) {
 type TimeLogsClientPageProps = {
     initialLogs: TimeLogData[];
     availableRoles: string[];
+    scopeLabel: string;
     pagination: {
         page: number;
         pageSize: number;
@@ -138,6 +139,7 @@ type TimeLogsClientPageProps = {
 export function TimeLogsClientPage({
     initialLogs,
     availableRoles,
+    scopeLabel,
     pagination,
     initialFilters,
     manualEntryApprovals,
@@ -264,7 +266,7 @@ export function TimeLogsClientPage({
                         <span className="flex size-6 items-center justify-center rounded-full border text-muted-foreground">
                             <Clock3 className="size-3.5" />
                         </span>
-                        <h1 className="text-xl font-semibold tracking-tight text-foreground">Company time logs</h1>
+                        <h1 className="text-xl font-semibold tracking-tight text-foreground">{scopeLabel}</h1>
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">
                         Showing {pageStart}-{pageEnd} of {pagination.totalLogs} matching logs from {format(selectedFrom, "MMM d, yyyy")} to {format(selectedTo, "MMM d, yyyy")}
@@ -531,7 +533,7 @@ export function TimeLogsClientPage({
                                             <p className="mt-1 max-w-sm text-sm text-muted-foreground">
                                                 {hasActiveFilters
                                                     ? "Try widening the date range or clearing one of the filters."
-                                                    : "Company time logs will appear here once employees clock in."}
+                                                    : `${scopeLabel} will appear here once employees clock in.`}
                                             </p>
                                         </div>
                                     </td>
@@ -580,7 +582,7 @@ export function TimeLogsClientPage({
                             <p className="mt-1 max-w-sm text-sm text-muted-foreground">
                                 {hasActiveFilters
                                     ? "Try widening the date range or clearing one of the filters."
-                                    : "Company time logs will appear here once employees clock in."}
+                                    : `${scopeLabel} will appear here once employees clock in.`}
                             </p>
                         </div>
                     ) : (

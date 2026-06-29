@@ -178,6 +178,7 @@ export default async function AdminTimesheetsPage({ searchParams }: AdminTimeshe
             key={`${searchQuery}-${statusFilter}-${roleFilter}-${format(selectedFrom, "yyyy-MM-dd")}-${format(selectedTo, "yyyy-MM-dd")}-${page}`}
             initialLogs={timeLogs}
             availableRoles={availableRoles}
+            scopeLabel={user.role === "ADMIN" ? "Company time logs" : "Direct report time logs"}
             pagination={{
                 page,
                 pageSize: PAGE_SIZE,
