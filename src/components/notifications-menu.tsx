@@ -71,7 +71,7 @@ export function NotificationsMenu() {
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-80 rounded-lg p-2" align="end" sideOffset={8}>
+      <DropdownMenuContent className="w-[min(calc(100vw-2rem),26rem)] rounded-lg p-2" align="end" sideOffset={8}>
         {isOpen ? (
           <NotificationsDropdownSection
             onNavigate={() => setIsOpen(false)}

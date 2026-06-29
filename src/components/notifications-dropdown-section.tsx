@@ -107,34 +107,34 @@ export function NotificationsDropdownSection({
         </div>
       )}
 
-      <div className={cn("flex items-center justify-between gap-3 px-1 py-1.5", showProfile && "mt-2")}>
-        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+      <div className={cn("flex items-center justify-between gap-2 px-1 py-1", showProfile && "mt-2")}>
+        <div className="flex min-w-0 items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           Notifications
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex shrink-0 items-center gap-1">
           {unreadCount > 0 && (
-            <span className="rounded-full bg-brand-red px-2 py-0.5 text-[10px] font-bold text-brand-red-foreground">
+            <span className="rounded-full bg-brand-red px-1.5 py-0.5 text-[10px] font-bold leading-4 text-brand-red-foreground">
               {unreadCount > 9 ? "9+" : unreadCount}
             </span>
           )}
           {unreadCount > 0 && (
             <button
               type="button"
-              className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-xs font-medium text-brand-steel hover:bg-accent hover:text-foreground"
+              className="inline-flex h-6 items-center gap-1 rounded px-1.5 text-[11px] font-medium text-brand-steel hover:bg-accent hover:text-foreground"
               onClick={(event) => {
                 event.preventDefault();
                 event.stopPropagation();
                 handleMarkAllRead();
               }}
             >
-              <CheckCheck className="size-3.5" />
-              Read all
+              <CheckCheck className="size-3" />
+              Read
             </button>
           )}
         </div>
       </div>
 
-      <div className="mb-2 flex gap-1 overflow-x-auto px-1 pb-1">
+      <div className="mb-2 flex max-w-full gap-0.5 overflow-x-auto rounded-md bg-muted/60 p-0.5">
         {NOTIFICATION_FILTERS.map((filter) => {
           const count = getNotificationFilterCount(notifications, filter.id);
 
@@ -144,18 +144,18 @@ export function NotificationsDropdownSection({
               type="button"
               onClick={() => setActiveFilter(filter.id)}
               className={cn(
-                "inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-2.5 text-xs font-semibold transition-colors",
+                "inline-flex h-6 shrink-0 items-center gap-1 rounded px-2 text-[11px] font-semibold transition-colors",
                 activeFilter === filter.id
                   ? "bg-primary text-primary-foreground shadow-sm"
-                  : "bg-muted/50 text-muted-foreground hover:bg-accent hover:text-foreground"
+                  : "text-muted-foreground hover:bg-background/70 hover:text-foreground"
               )}
             >
               {filter.label}
               {filter.id !== "all" && count > 0 ? (
                 <span
                   className={cn(
-                    "rounded-full px-1.5 text-[10px] leading-4",
-                    activeFilter === filter.id ? "bg-white/20" : "bg-background"
+                    "min-w-4 rounded-full px-1 text-center text-[10px] leading-4",
+                    activeFilter === filter.id ? "bg-white/20 text-primary-foreground" : "bg-background/70"
                   )}
                 >
                   {count > 9 ? "9+" : count}
