@@ -12,6 +12,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+type IdleWindow = Window &
+  typeof globalThis & {
+    requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number;
+    cancelIdleCallback?: (handle: number) => void;
+  };
+
 const NotificationsDropdownSection = dynamic(
   () =>
     import("@/components/notifications-dropdown-section").then(
@@ -35,20 +41,33 @@ export function NotificationsMenu() {
   React.useEffect(() => {
     let isMounted = true;
 
-    getMyUnreadNotificationCount()
-      .then((count) => {
-        if (isMounted) {
-          setUnreadCount(count);
-        }
-      })
-      .catch(() => {
-        if (isMounted) {
-          setUnreadCount(0);
-        }
-      });
+    const loadUnreadCount = () => {
+      getMyUnreadNotificationCount()
+        .then((count) => {
+          if (isMounted) {
+            setUnreadCount(count);
+          }
+        })
+        .catch(() => {
+          if (isMounted) {
+            setUnreadCount(0);
+          }
+        });
+    };
+
+    const idleWindow = window as IdleWindow;
+    const idleHandle = idleWindow.requestIdleCallback?.(loadUnreadCount, { timeout: 1500 });
+    const timeoutHandle =
+      idleHandle === undefined ? window.setTimeout(loadUnreadCount, 350) : undefined;
 
     return () => {
       isMounted = false;
+      if (idleHandle !== undefined) {
+        idleWindow.cancelIdleCallback?.(idleHandle);
+      }
+      if (timeoutHandle !== undefined) {
+        window.clearTimeout(timeoutHandle);
+      }
     };
   }, []);
 

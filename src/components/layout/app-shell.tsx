@@ -84,7 +84,7 @@ function AppBreadcrumbs({ pathname }: { pathname: string }) {
             <span className="text-muted-foreground">Admin</span>
           ) : (
             <BreadcrumbLink asChild>
-              <Link href="/">Workspace</Link>
+              <Link href="/" prefetch={false}>Workspace</Link>
             </BreadcrumbLink>
           )}
         </BreadcrumbItem>

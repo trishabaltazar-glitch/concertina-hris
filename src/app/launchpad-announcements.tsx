@@ -55,6 +55,7 @@ export function LaunchpadAnnouncements({ announcements, unavailable, className }
           </div>
           <Link
             href="/announcements"
+            prefetch={false}
             className="inline-flex h-9 items-center justify-center rounded-md border border-border/70 bg-background px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
           >
             View all

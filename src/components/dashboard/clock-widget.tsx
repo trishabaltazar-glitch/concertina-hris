@@ -10,6 +10,22 @@ import { Button } from "@/components/ui/button";
 
 type ClockStatus = Awaited<ReturnType<typeof getClockStatus>>;
 type PendingAction = "clock-in" | "clock-out" | null;
+type ClockWidgetProps = {
+  initialStatus?: {
+    isClockedIn: boolean;
+    clockInTime: Date | string | null;
+  };
+};
+
+const DEFAULT_CLOCK_STATUS: ClockStatus = {
+  isClockedIn: false,
+  clockInTime: null,
+};
+
+function parseClockInTime(value: Date | string | null | undefined) {
+  if (!value) return null;
+  return new Date(value);
+}
 
 function getCurrentTimeParts(date: Date) {
   return {
@@ -34,13 +50,15 @@ function formatElapsedTime(now: Date, clockInTime: Date | null) {
   return `${hours}:${minutes}:${seconds}`;
 }
 
-export function ClockWidget() {
+export function ClockWidget({ initialStatus = DEFAULT_CLOCK_STATUS }: ClockWidgetProps) {
   const [time, setTime] = useState<Date | null>(null);
-  const [isClockedIn, setIsClockedIn] = useState(false);
-  const [clockInTime, setClockInTime] = useState<Date | null>(null);
+  const [isClockedIn, setIsClockedIn] = useState(initialStatus.isClockedIn);
+  const [clockInTime, setClockInTime] = useState<Date | null>(() =>
+    parseClockInTime(initialStatus.clockInTime)
+  );
   const [isPending, setIsPending] = useState(false);
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
-  const [hasLoadedStatus, setHasLoadedStatus] = useState(false);
+  const [hasLoadedStatus] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const applyClockStatus = useCallback((status: ClockStatus) => {
@@ -57,18 +75,13 @@ export function ClockWidget() {
   );
 
   useEffect(() => {
-    getClockStatus().then((status) => {
-      applyClockStatus(status);
-      setHasLoadedStatus(true);
-    });
-
     setTime(new Date());
     const interval = setInterval(() => {
       setTime(new Date());
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [applyClockStatus]);
+  }, []);
 
   const handleToggleClock = async () => {
     if (isPending || !hasLoadedStatus) return;

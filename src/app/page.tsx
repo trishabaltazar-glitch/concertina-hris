@@ -9,6 +9,7 @@ import { CalendarDays, Timer } from "lucide-react";
 import { getAnnouncementContentHtml } from "@/lib/announcement-content";
 import { LaunchpadAnnouncements } from "./launchpad-announcements";
 import { Button } from "@/components/ui/button";
+import { Suspense } from "react";
 
 export const dynamic = "force-dynamic";
 
@@ -16,20 +17,6 @@ type ScheduleWindow = {
   dayOfWeek: number;
   startTime: string;
   endTime: string;
-};
-
-type ScheduleOverrideWindow = {
-  date: Date;
-  startTime: string;
-  endTime: string;
-  notes: string | null;
-};
-
-type AssignedHoliday = {
-  id: string;
-  name: string;
-  date: Date;
-  notes: string | null;
 };
 
 type AttendanceActivity = {
@@ -62,6 +49,15 @@ type AnnouncementRow = {
   content: string;
   createdAt: Date;
   authorName: string;
+};
+
+type LaunchpadSummaryRow = {
+  todayWorkedHours: number | null;
+  todayLogCount: number | bigint | null;
+  weeklySchedule: ScheduleWindow | null;
+  todayOverride: { startTime: string; endTime: string; notes: string | null } | null;
+  todayHoliday: { name: string; notes: string | null } | null;
+  activeClockIn: Date | null;
 };
 
 function getDurationInHours(clockIn: Date, clockOut: Date | null) {
@@ -223,88 +219,67 @@ function getAnnouncementPreviewText(html: string) {
     .trim();
 }
 
-export default async function DashboardPage() {
-  const session = await auth();
-  if (!session || !session.user) {
-    redirect("/login");
-  }
+function LaunchpadAnnouncementsSkeleton() {
+  return (
+    <section className="flex h-full min-h-0 flex-1 flex-col rounded-lg border border-border/70 bg-card p-4 shadow-sm">
+      <div className="flex shrink-0 items-start justify-between gap-3">
+        <div>
+          <div className="h-3 w-28 rounded-full bg-muted" />
+          <div className="mt-3 h-5 w-32 rounded-full bg-muted/80" />
+        </div>
+        <div className="h-9 w-16 rounded-md bg-muted" />
+      </div>
+      <div className="mt-4 min-h-0 flex-1 space-y-2">
+        {[0, 1, 2].map((item) => (
+          <div
+            key={item}
+            className="rounded-lg border border-border/70 bg-background/70 px-3 py-2.5"
+          >
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 size-7 rounded-md bg-muted" />
+              <div className="min-w-0 flex-1">
+                <div className="h-3.5 w-2/3 rounded-full bg-muted" />
+                <div className="mt-2 h-2.5 w-1/2 rounded-full bg-muted/80" />
+                <div className="mt-3 h-3 w-full rounded-full bg-muted/70" />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
 
-  const now = new Date();
-  const todayStart = startOfDay(now);
-  const todayEnd = endOfDay(now);
-  const firstName = session.user.name?.trim().split(/\s+/)[0] || "there";
-  const roleLabel = formatRoleLabel((session.user as { role?: string | null }).role);
-  await ensureScheduleOverrideTable();
+function RecentActivitySkeleton() {
+  return (
+    <section className="rounded-lg border border-border/70 bg-card p-4 shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="h-3 w-28 rounded-full bg-muted" />
+          <div className="mt-3 h-5 w-56 rounded-full bg-muted/80" />
+        </div>
+        <div className="h-9 w-32 rounded-md bg-muted" />
+      </div>
+      <div className="mt-4 overflow-hidden rounded-lg border border-border/70 bg-background/70">
+        {[0, 1, 2].map((item) => (
+          <div
+            key={item}
+            className="grid gap-2 border-b border-border/70 px-3 py-3 last:border-b-0 md:grid-cols-[1.15fr_1fr_1fr_90px] md:items-center md:gap-3"
+          >
+            <div className="h-4 rounded-full bg-muted" />
+            <div className="h-4 rounded-full bg-muted/80" />
+            <div className="h-4 rounded-full bg-muted/70" />
+            <div className="h-4 rounded-full bg-muted/60" />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
 
-  let recentLogs: DashboardTimeLog[] = [];
-  let todayLogs: DashboardTimeLog[] = [];
-  let schedules: ScheduleWindow[] = [];
-  let scheduleOverrides: ScheduleOverrideWindow[] = [];
-  let assignedHolidays: AssignedHoliday[] = [];
+async function LaunchpadAnnouncementsSection() {
   let announcements: AnnouncementPreview[] = [];
   let announcementsUnavailable = false;
-
-  try {
-    [recentLogs, todayLogs, schedules, scheduleOverrides, assignedHolidays] = await Promise.all([
-      prisma.timeLog.findMany({
-        where: { userId: session.user.id },
-        orderBy: { clockIn: "desc" },
-        take: 5,
-        select: {
-          id: true,
-          clockIn: true,
-          clockOut: true,
-          status: true,
-        },
-      }),
-      prisma.timeLog.findMany({
-        where: {
-          userId: session.user.id,
-          clockIn: {
-            gte: todayStart,
-            lte: todayEnd,
-          },
-        },
-        orderBy: { clockIn: "desc" },
-        select: {
-          id: true,
-          clockIn: true,
-          clockOut: true,
-          status: true,
-        },
-      }),
-      prisma.schedule.findMany({
-        where: { userId: session.user.id },
-        select: {
-          dayOfWeek: true,
-          startTime: true,
-          endTime: true,
-        },
-      }),
-      prisma.$queryRaw<ScheduleOverrideWindow[]>`
-        SELECT "date", "startTime", "endTime", "notes"
-        FROM "ScheduleOverride"
-        WHERE "userId" = ${session.user.id}
-          AND "date" >= ${todayStart}
-          AND "date" <= ${todayEnd}
-        ORDER BY "date" ASC
-      `,
-      prisma.$queryRaw<AssignedHoliday[]>`
-        SELECT "id", "name", "date", "notes"
-        FROM "HolidayAssignment"
-        WHERE "userId" = ${session.user.id}
-          AND "date" >= ${todayStart}
-          AND "date" <= ${todayEnd}
-        ORDER BY "date" ASC
-      `,
-    ]);
-  } catch {
-    recentLogs = [];
-    todayLogs = [];
-    schedules = [];
-    scheduleOverrides = [];
-    assignedHolidays = [];
-  }
 
   try {
     const announcementRows = await prisma.$queryRaw<AnnouncementRow[]>`
@@ -336,16 +311,46 @@ export default async function DashboardPage() {
     announcementsUnavailable = true;
   }
 
-  const todayWorkedHours = todayLogs.reduce((sum, log) => {
-    return sum + getDurationInHours(log.clockIn, log.clockOut);
-  }, 0);
+  return (
+    <LaunchpadAnnouncements
+      className="flex-1"
+      announcements={announcements}
+      unavailable={announcementsUnavailable}
+    />
+  );
+}
 
-  const todayDuration = formatDurationParts(todayWorkedHours);
-  const todayHoliday = assignedHolidays[0];
-  const todayOverride = scheduleOverrides[0];
-  const todayWeeklySchedule = schedules.find((schedule) => schedule.dayOfWeek === now.getDay());
-  const todaySchedule = todayOverride || todayWeeklySchedule || null;
-  const todayScheduleHours = getScheduleHoursLabel(todaySchedule);
+async function RecentActivitySection({ userId }: { userId: string }) {
+  let recentLogs: DashboardTimeLog[] = [];
+  let schedules: ScheduleWindow[] = [];
+
+  try {
+    [recentLogs, schedules] = await Promise.all([
+      prisma.timeLog.findMany({
+        where: { userId },
+        orderBy: { clockIn: "desc" },
+        take: 5,
+        select: {
+          id: true,
+          clockIn: true,
+          clockOut: true,
+          status: true,
+        },
+      }),
+      prisma.schedule.findMany({
+        where: { userId },
+        select: {
+          dayOfWeek: true,
+          startTime: true,
+          endTime: true,
+        },
+      }),
+    ]);
+  } catch {
+    recentLogs = [];
+    schedules = [];
+  }
+
   const recentActivity = recentLogs
     .flatMap((log) => {
       const events: AttendanceActivity[] = [
@@ -380,26 +385,203 @@ export default async function DashboardPage() {
     .slice(0, 6);
 
   return (
-    <div className="w-full space-y-5">
-      <section className="space-y-4">
-        <div className="flex flex-col gap-1">
-          <div className="min-w-0 flex-1 space-y-1">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-brand-steel">
-              Launchpad
-            </p>
-            <h1 className="max-w-3xl text-balance text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-              {firstName}, here&apos;s your workday snapshot.
-            </h1>
-            <p className="text-xs text-muted-foreground">
-              {roleLabel} | {format(now, "MMMM d, yyyy | h:mm a")}
-            </p>
-          </div>
+    <section className="rounded-lg border border-border/70 bg-card p-4 shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-brand-steel">
+            Recent Activity
+          </p>
+          <h2 className="mt-1 text-lg font-semibold tracking-tight text-foreground">
+            Your latest attendance events
+          </h2>
         </div>
+        <Button asChild variant="outline" size="sm" className="h-9 w-fit shadow-sm">
+          <Link href="/timesheets" prefetch={false}>
+            <CalendarDays className="size-4" />
+            View timesheets
+          </Link>
+        </Button>
+      </div>
 
+      {recentActivity.length === 0 ? (
+        <div className="mt-4 rounded-lg border border-dashed border-border/80 bg-muted/35 px-4 py-8 text-center text-sm text-muted-foreground">
+          No recent attendance activity to display.
+        </div>
+      ) : (
+        <div className="mt-4 overflow-hidden rounded-lg border border-border/70 bg-background/70">
+          <div className="hidden grid-cols-[1.15fr_1fr_1fr_90px] gap-3 border-b border-border/70 bg-muted/35 px-3 py-2 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground md:grid">
+            <span>Activity</span>
+            <span>Date</span>
+            <span>Time</span>
+            <span className="text-right">Duration</span>
+          </div>
+          {recentActivity.map((event) => (
+            <div
+              key={event.id}
+              className="grid gap-2 border-b border-border/70 px-3 py-3 last:border-b-0 md:grid-cols-[1.15fr_1fr_1fr_90px] md:items-center md:gap-3"
+            >
+              <div className="min-w-0">
+                <p className="md:hidden text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                  Activity
+                </p>
+                <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-foreground">
+                  <span
+                    className={`inline-flex min-w-10 justify-center rounded-md border px-2 py-0.5 text-xs font-semibold leading-5 tracking-[0.06em] shadow-sm ring-1 ${getActivityClass(event.type)}`}
+                  >
+                    {event.label}
+                  </span>
+                  <span className="text-sm text-muted-foreground">{event.detail}</span>
+                </p>
+              </div>
+
+              <div className="min-w-0">
+                <p className="md:hidden text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                  Date
+                </p>
+                <p className="text-sm font-medium text-foreground">
+                  {format(event.happenedAt, "EEEE, MMM d")}
+                </p>
+              </div>
+
+              <div className="min-w-0">
+                <p className="md:hidden text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                  Time
+                </p>
+                <p className="text-xs text-muted-foreground md:text-sm md:text-foreground">
+                  {format(event.happenedAt, "h:mm a")}
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between gap-2 md:justify-end">
+                <p className="md:hidden text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                  Duration
+                </p>
+                <span className="text-xs text-muted-foreground">
+                  {event.duration || "-"}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+async function LaunchpadWorkspace({
+  userId,
+  now,
+}: {
+  userId: string;
+  now: Date;
+}) {
+  const todayStart = startOfDay(now);
+  const todayEnd = endOfDay(now);
+  await ensureScheduleOverrideTable();
+
+  let todayWorkedHours = 0;
+  let todayLogCount = 0;
+  let todayWeeklySchedule: ScheduleWindow | null = null;
+  let todayOverride: { startTime: string; endTime: string; notes: string | null } | null = null;
+  let todayHoliday: { name: string; notes: string | null } | null = null;
+  let activeClockIn: Date | null = null;
+
+  try {
+    const [summary] = await prisma.$queryRaw<LaunchpadSummaryRow[]>`
+      SELECT
+        COALESCE((
+          SELECT SUM(EXTRACT(EPOCH FROM ("clockOut" - "clockIn")) / 3600)
+          FROM "TimeLog"
+          WHERE "userId" = ${userId}
+            AND "clockIn" >= ${todayStart}
+            AND "clockIn" <= ${todayEnd}
+            AND "clockOut" IS NOT NULL
+        ), 0)::double precision AS "todayWorkedHours",
+        (
+          SELECT COUNT(*)::int
+          FROM "TimeLog"
+          WHERE "userId" = ${userId}
+            AND "clockIn" >= ${todayStart}
+            AND "clockIn" <= ${todayEnd}
+        ) AS "todayLogCount",
+        (
+          SELECT jsonb_build_object(
+            'dayOfWeek', "dayOfWeek",
+            'startTime', "startTime",
+            'endTime', "endTime"
+          )
+          FROM "Schedule"
+          WHERE "userId" = ${userId}
+            AND "dayOfWeek" = ${now.getDay()}
+          LIMIT 1
+        ) AS "weeklySchedule",
+        (
+          SELECT jsonb_build_object(
+            'startTime', "startTime",
+            'endTime', "endTime",
+            'notes', "notes"
+          )
+          FROM "ScheduleOverride"
+          WHERE "userId" = ${userId}
+            AND "date" >= ${todayStart}
+            AND "date" <= ${todayEnd}
+          ORDER BY "date" ASC
+          LIMIT 1
+        ) AS "todayOverride",
+        (
+          SELECT jsonb_build_object(
+            'name', "name",
+            'notes', "notes"
+          )
+          FROM "HolidayAssignment"
+          WHERE "userId" = ${userId}
+            AND "date" >= ${todayStart}
+            AND "date" <= ${todayEnd}
+          ORDER BY "date" ASC
+          LIMIT 1
+        ) AS "todayHoliday",
+        (
+          SELECT "clockIn"
+          FROM "TimeLog"
+          WHERE "userId" = ${userId}
+            AND "clockOut" IS NULL
+            AND "clockIn" >= ${todayStart}
+            AND "clockIn" <= ${todayEnd}
+          ORDER BY "clockIn" DESC
+          LIMIT 1
+        ) AS "activeClockIn"
+    `;
+
+    todayWorkedHours = Number(summary?.todayWorkedHours || 0);
+    todayLogCount = Number(summary?.todayLogCount || 0);
+    todayWeeklySchedule = summary?.weeklySchedule || null;
+    todayOverride = summary?.todayOverride || null;
+    todayHoliday = summary?.todayHoliday || null;
+    activeClockIn = summary?.activeClockIn || null;
+  } catch {
+    todayWorkedHours = 0;
+    todayLogCount = 0;
+    todayWeeklySchedule = null;
+    todayOverride = null;
+    todayHoliday = null;
+    activeClockIn = null;
+  }
+
+  const todayDuration = formatDurationParts(todayWorkedHours);
+  const todaySchedule = todayOverride || todayWeeklySchedule || null;
+  const todayScheduleHours = getScheduleHoursLabel(todaySchedule);
+  const initialClockStatus = {
+    isClockedIn: !!activeClockIn,
+    clockInTime: activeClockIn?.toISOString() || null,
+  };
+
+  return (
+    <>
         <div className="grid items-stretch gap-4 xl:grid-cols-[minmax(0,1.04fr)_minmax(360px,0.96fr)]">
           <div className="space-y-4">
             <Link
               href="/schedule"
+              prefetch={false}
               className="flex w-full items-start justify-between gap-4 rounded-lg border border-brand-red/70 bg-rose-50/80 px-4 py-3 text-left shadow-sm transition-colors hover:bg-rose-50 dark:bg-rose-950/20 dark:hover:bg-rose-950/30"
             >
               <div>
@@ -428,7 +610,7 @@ export default async function DashboardPage() {
               </div>
             </Link>
 
-            <ClockWidget />
+            <ClockWidget initialStatus={initialClockStatus} />
 
             <div className="flex flex-col rounded-lg border border-border/70 bg-card p-3 shadow-sm">
               <div className="flex items-start gap-3">
@@ -465,9 +647,9 @@ export default async function DashboardPage() {
                     </div>
                   </div>
                   <div className="inline-flex h-8 w-fit items-center self-start rounded-md border border-border/70 bg-card px-3 text-sm text-muted-foreground sm:self-auto">
-                    <span className="font-semibold text-foreground">{todayLogs.length}</span>
+                    <span className="font-semibold text-foreground">{todayLogCount}</span>
                     <span className="ml-1.5">
-                      {todayLogs.length === 1 ? "entry" : "entries"}
+                      {todayLogCount === 1 ? "entry" : "entries"}
                     </span>
                   </div>
                 </div>
@@ -480,11 +662,9 @@ export default async function DashboardPage() {
           </div>
 
           <div className="flex min-h-0 self-stretch">
-            <LaunchpadAnnouncements
-              className="flex-1"
-              announcements={announcements}
-              unavailable={announcementsUnavailable}
-            />
+            <Suspense fallback={<LaunchpadAnnouncementsSkeleton />}>
+              <LaunchpadAnnouncementsSection />
+            </Suspense>
           </div>
         </div>
 
@@ -498,87 +678,111 @@ export default async function DashboardPage() {
             </p>
           </div>
         )}
-      </section>
 
-      <section className="rounded-lg border border-border/70 bg-card p-4 shadow-sm">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-brand-steel">
-              Recent Activity
-            </p>
-            <h2 className="mt-1 text-lg font-semibold tracking-tight text-foreground">
-              Your latest attendance events
-            </h2>
-          </div>
-          <Button asChild variant="outline" size="sm" className="h-9 w-fit shadow-sm">
-            <Link href="/timesheets">
-              <CalendarDays className="size-4" />
-              View timesheets
-            </Link>
-          </Button>
-        </div>
+      <Suspense fallback={<RecentActivitySkeleton />}>
+        <RecentActivitySection userId={userId} />
+      </Suspense>
+    </>
+  );
+}
 
-        {recentActivity.length === 0 ? (
-          <div className="mt-4 rounded-lg border border-dashed border-border/80 bg-muted/35 px-4 py-8 text-center text-sm text-muted-foreground">
-            No recent attendance activity to display.
-          </div>
-        ) : (
-          <div className="mt-4 overflow-hidden rounded-lg border border-border/70 bg-background/70">
-            <div className="hidden grid-cols-[1.15fr_1fr_1fr_90px] gap-3 border-b border-border/70 bg-muted/35 px-3 py-2 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground md:grid">
-              <span>Activity</span>
-              <span>Date</span>
-              <span>Time</span>
-              <span className="text-right">Duration</span>
+function LaunchpadWorkspaceSkeleton() {
+  return (
+    <>
+      <div className="grid items-stretch gap-4 xl:grid-cols-[minmax(0,1.04fr)_minmax(360px,0.96fr)]">
+        <div className="space-y-4">
+          <div className="rounded-lg border border-brand-red/30 bg-rose-50/60 px-4 py-3 shadow-sm dark:bg-rose-950/20">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="h-3 w-32 rounded-full bg-muted" />
+                <div className="mt-3 h-4 w-24 rounded-full bg-muted/80" />
+              </div>
+              <div className="min-w-0 flex-1 space-y-2 text-right">
+                <div className="ml-auto h-4 w-40 rounded-full bg-muted" />
+                <div className="ml-auto h-3 w-28 rounded-full bg-muted/80" />
+                <div className="ml-auto h-3 w-32 rounded-full bg-muted/70" />
+              </div>
             </div>
-            {recentActivity.map((event) => (
-              <div
-                key={event.id}
-                className="grid gap-2 border-b border-border/70 px-3 py-3 last:border-b-0 md:grid-cols-[1.15fr_1fr_1fr_90px] md:items-center md:gap-3"
-              >
-                <div className="min-w-0">
-                  <p className="md:hidden text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                    Activity
-                  </p>
-                  <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-foreground">
-                    <span
-                      className={`inline-flex min-w-10 justify-center rounded-md border px-2 py-0.5 text-xs font-semibold leading-5 tracking-[0.06em] shadow-sm ring-1 ${getActivityClass(event.type)}`}
-                    >
-                      {event.label}
-                    </span>
-                    <span className="text-sm text-muted-foreground">{event.detail}</span>
-                  </p>
-                </div>
+          </div>
 
-                <div className="min-w-0">
-                  <p className="md:hidden text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                    Date
-                  </p>
-                  <p className="text-sm font-medium text-foreground">
-                    {format(event.happenedAt, "EEEE, MMM d")}
-                  </p>
-                </div>
-
-                <div className="min-w-0">
-                  <p className="md:hidden text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                    Time
-                  </p>
-                  <p className="text-xs text-muted-foreground md:text-sm md:text-foreground">
-                    {format(event.happenedAt, "h:mm a")}
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-between gap-2 md:justify-end">
-                  <p className="md:hidden text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                    Duration
-                  </p>
-                  <span className="text-xs text-muted-foreground">
-                    {event.duration || "-"}
-                  </span>
+          <div className="rounded-lg border border-border/70 bg-card p-3 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="size-9 rounded-md bg-muted" />
+                <div>
+                  <div className="h-4 w-28 rounded-full bg-muted" />
+                  <div className="mt-2 h-3 w-36 rounded-full bg-muted/80" />
                 </div>
               </div>
-            ))}
+              <div className="h-6 w-16 rounded-md bg-muted" />
+            </div>
+            <div className="mt-3 rounded-lg border border-border/70 bg-background/70 p-3">
+              <div className="mx-auto h-3 w-36 rounded-full bg-muted" />
+              <div className="mx-auto mt-3 h-14 w-56 rounded-md bg-muted/80" />
+              <div className="mx-auto mt-4 h-12 w-full rounded-md bg-muted" />
+            </div>
           </div>
-        )}
+
+          <div className="rounded-lg border border-border/70 bg-card p-3 shadow-sm">
+            <div className="flex items-start gap-3">
+              <div className="size-9 rounded-md bg-muted" />
+              <div>
+                <div className="h-4 w-36 rounded-full bg-muted" />
+                <div className="mt-2 h-3 w-44 rounded-full bg-muted/80" />
+              </div>
+            </div>
+            <div className="mt-3 rounded-lg border border-border/70 bg-background/70 p-3">
+              <div className="h-3 w-24 rounded-full bg-muted" />
+              <div className="mt-3 h-9 w-44 rounded-md bg-muted/80" />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex min-h-0 self-stretch">
+          <LaunchpadAnnouncementsSkeleton />
+        </div>
+      </div>
+
+      <RecentActivitySkeleton />
+    </>
+  );
+}
+
+export default async function DashboardPage() {
+  const session = await auth();
+  if (!session || !session.user) {
+    redirect("/login");
+  }
+
+  const userId = session.user.id;
+  if (!userId) {
+    redirect("/login");
+  }
+
+  const now = new Date();
+  const firstName = session.user.name?.trim().split(/\s+/)[0] || "there";
+  const roleLabel = formatRoleLabel((session.user as { role?: string | null }).role);
+
+  return (
+    <div className="w-full space-y-5">
+      <section className="space-y-4">
+        <div className="flex flex-col gap-1">
+          <div className="min-w-0 flex-1 space-y-1">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-brand-steel">
+              Launchpad
+            </p>
+            <h1 className="max-w-3xl text-balance text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+              {firstName}, here&apos;s your workday snapshot.
+            </h1>
+            <p className="text-xs text-muted-foreground">
+              {roleLabel} | {format(now, "MMMM d, yyyy | h:mm a")}
+            </p>
+          </div>
+        </div>
+
+        <Suspense fallback={<LaunchpadWorkspaceSkeleton />}>
+          <LaunchpadWorkspace userId={userId} now={now} />
+        </Suspense>
       </section>
     </div>
   );

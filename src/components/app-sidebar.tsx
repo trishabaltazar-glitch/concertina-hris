@@ -95,6 +95,7 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
       <SidebarHeader className="border-b border-sidebar-border/70 px-2 py-2.5 group-data-[collapsible=icon]:px-1.5">
         <Link
           href="/"
+          prefetch={false}
           className="flex items-center justify-center rounded-md px-1 py-1 transition-colors dark:bg-white/95 dark:shadow-sm group-data-[collapsible=icon]:px-0.5"
         >
           <Image
@@ -136,7 +137,7 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
                     >
                       <Link
                         href={route.href}
-                        prefetch={route.href !== "/requests"}
+                        prefetch={false}
                         className="flex w-full items-center gap-2.5 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0"
                       >
                         <HugeiconsIcon
@@ -186,7 +187,7 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
                       >
                         <Link
                           href={route.href}
-                                    prefetch={route.href !== "/admin/management" && route.href !== "/admin/approvals" && route.href !== "/admin/announcements"}
+                          prefetch={false}
                           className="flex w-full items-center gap-2.5 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0"
                         >
                           <HugeiconsIcon
@@ -265,7 +266,7 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild onSelect={() => setIsAccountMenuOpen(false)}>
-                  <Link href="/profile">
+                  <Link href="/profile" prefetch={false}>
                     <UserRound className="size-4" />
                     My Profile
                   </Link>

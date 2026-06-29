@@ -82,6 +82,7 @@ model Notification {
   createdAt DateTime  @default(now())
 
   @@index([userId, readAt])
+  @@index([userId, createdAt])
   @@index([createdAt])
 }
 
@@ -96,6 +97,11 @@ model TimeLog {
   notes       String?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
+
+  @@index([userId, clockIn])
+  @@index([userId, clockOut, clockIn])
+  @@index([clockIn])
+  @@index([status, clockIn])
 }
 
 model TimeEntryRequest {
@@ -145,6 +151,9 @@ model LeaveRequest {
   status    String   @default("PENDING") // PENDING, APPROVED, REJECTED
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([userId, status])
+  @@index([status, createdAt])
 }
 
 model OvertimeRequest {
@@ -176,6 +185,8 @@ model Announcement {
   author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([createdAt])
 }
 
 model Page {
