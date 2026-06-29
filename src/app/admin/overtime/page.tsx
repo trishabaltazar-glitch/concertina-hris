@@ -20,6 +20,7 @@ type OvertimeRequestRow = {
   attachmentName: string;
   status: string;
   createdAt: Date;
+  reviewedAt: Date | null;
   userName: string;
   userEmail: string;
 };
@@ -66,6 +67,10 @@ function getOvertimeHours(request: OvertimeRequestRow) {
   return Math.max(0, (request.endAt.getTime() - request.startAt.getTime()) / (1000 * 60 * 60));
 }
 
+function getReviewedDateLabel(request: OvertimeRequestRow) {
+  return request.reviewedAt ? format(request.reviewedAt, "MMM d, yyyy") : "-";
+}
+
 export default async function AdminOvertimePage() {
   const session = await auth();
   const user = session?.user as { id?: string; role?: string } | undefined;
@@ -75,14 +80,14 @@ export default async function AdminOvertimePage() {
 
   const requests = user.role === "ADMIN"
     ? await prisma.$queryRaw<OvertimeRequestRow[]>`
-        SELECT ot."id", ot."startAt", ot."endAt", ot."reason", ot."attachmentName", ot."status", ot."createdAt", u."name" as "userName", u."email" as "userEmail"
+        SELECT ot."id", ot."startAt", ot."endAt", ot."reason", ot."attachmentName", ot."status", ot."createdAt", ot."reviewedAt", u."name" as "userName", u."email" as "userEmail"
         FROM "OvertimeRequest" ot
         INNER JOIN "User" u ON u."id" = ot."userId"
         ORDER BY CASE WHEN ot."status" = 'PENDING' THEN 0 ELSE 1 END, ot."createdAt" DESC
         LIMIT 100
       `
     : await prisma.$queryRaw<OvertimeRequestRow[]>`
-        SELECT ot."id", ot."startAt", ot."endAt", ot."reason", ot."attachmentName", ot."status", ot."createdAt", u."name" as "userName", u."email" as "userEmail"
+        SELECT ot."id", ot."startAt", ot."endAt", ot."reason", ot."attachmentName", ot."status", ot."createdAt", ot."reviewedAt", u."name" as "userName", u."email" as "userEmail"
         FROM "OvertimeRequest" ot
         INNER JOIN "User" u ON u."id" = ot."userId"
         WHERE u."managerId" = ${user.id}
@@ -107,7 +112,7 @@ export default async function AdminOvertimePage() {
       <section className="rounded-lg border border-border bg-background">
         <TableSearchPagination tableId="ot-approvals-table" itemLabel="OT requests" />
         <div className="overflow-x-auto">
-          <table id="ot-approvals-table" className="w-full min-w-[920px] text-left text-sm">
+          <table id="ot-approvals-table" className="w-full min-w-[1120px] text-left text-sm">
             <thead className="border-b border-border bg-muted/30 text-xs text-muted-foreground">
               <tr>
                 <th className="px-4 py-3 font-semibold">Employee</th>
@@ -115,12 +120,14 @@ export default async function AdminOvertimePage() {
                 <th className="px-4 py-3 font-semibold">Reason</th>
                 <th className="px-4 py-3 font-semibold">Attachment</th>
                 <th className="px-4 py-3 font-semibold">Status</th>
+                <th className="px-4 py-3 font-semibold">Date submitted</th>
+                <th className="px-4 py-3 font-semibold">Date approved/rejected</th>
                 <th className="px-4 py-3 text-right font-semibold">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {requests.length === 0 ? (
-                <tr><td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">No OT requests yet.</td></tr>
+                <tr><td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">No OT requests yet.</td></tr>
               ) : requests.map((request) => (
                 <tr
                   key={request.id}
@@ -133,6 +140,8 @@ export default async function AdminOvertimePage() {
                   <td className="px-4 py-3 text-muted-foreground">{request.reason}</td>
                   <td className="px-4 py-3"><a href={`/overtime/attachments/${request.id}`} className="inline-flex items-center gap-1 text-xs font-medium text-brand-steel hover:text-brand-red"><Paperclip className="size-3.5" />{request.attachmentName}</a></td>
                   <td className="px-4 py-3"><StatusBadge status={request.status} /></td>
+                  <td className="px-4 py-3 text-muted-foreground">{format(request.createdAt, "MMM d, yyyy")}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{getReviewedDateLabel(request)}</td>
                   <td className="px-4 py-3">
                     {request.status === "PENDING" ? (
                       <div className="flex justify-end gap-2">

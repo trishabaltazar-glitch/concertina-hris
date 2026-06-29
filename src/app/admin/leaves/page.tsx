@@ -90,6 +90,10 @@ function getBreakdownLabel(request: LeaveRequestWithMeta) {
     .join(", ");
 }
 
+function getReviewedDateLabel(request: LeaveRequestWithMeta) {
+  return request.status === "PENDING" ? "-" : format(request.updatedAt, "MMM d, yyyy");
+}
+
 function StatusBadge({ status }: { status: string }) {
   const styles =
     status === "APPROVED"
@@ -191,7 +195,7 @@ export default async function AdminLeavesPage() {
         <TableSearchPagination tableId="pffd-approvals-table" itemLabel="PFFD requests" />
 
         <div className="overflow-x-auto">
-          <table id="pffd-approvals-table" className="w-full min-w-[860px] text-left text-sm">
+          <table id="pffd-approvals-table" className="w-full min-w-[980px] text-left text-sm">
             <thead className="border-b border-border bg-muted/30 text-xs text-muted-foreground">
               <tr>
                 <th className="px-4 py-3 font-semibold">Employee</th>
@@ -199,14 +203,15 @@ export default async function AdminLeavesPage() {
                 <th className="px-4 py-3 font-semibold">Period</th>
                 <th className="px-4 py-3 font-semibold">Days</th>
                 <th className="px-4 py-3 font-semibold">Status</th>
-                <th className="px-4 py-3 font-semibold">Recorded</th>
+                <th className="px-4 py-3 font-semibold">Date submitted</th>
+                <th className="px-4 py-3 font-semibold">Date approved/rejected</th>
                 <th className="px-4 py-3 text-right font-semibold">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {requestsWithMeta.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-sm text-muted-foreground">
+                  <td colSpan={8} className="px-4 py-10 text-center text-sm text-muted-foreground">
                     No leave requests yet.
                   </td>
                 </tr>
@@ -254,6 +259,7 @@ export default async function AdminLeavesPage() {
                       <StatusBadge status={request.status} />
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">{format(request.createdAt, "MMM d, yyyy")}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{getReviewedDateLabel(request)}</td>
                     <td className="px-4 py-3">
                       {request.status === "PENDING" ? (
                         <div className="flex justify-end gap-2">
@@ -281,9 +287,7 @@ export default async function AdminLeavesPage() {
                           </form>
                         </div>
                       ) : (
-                        <span className="block text-right text-xs text-muted-foreground">
-                          {format(request.updatedAt, "MMM d, yyyy")}
-                        </span>
+                        <span className="block text-right text-xs text-muted-foreground">Reviewed</span>
                       )}
                     </td>
                   </tr>

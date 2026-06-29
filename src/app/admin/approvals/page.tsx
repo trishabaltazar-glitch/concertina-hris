@@ -28,6 +28,7 @@ type ManualTimeEntryRequest = {
   reason: string | null;
   status: string;
   createdAt: Date;
+  reviewedAt: Date | null;
   userName: string;
   userEmail: string;
 };
@@ -78,6 +79,10 @@ function getManualEntryHours(request: ManualTimeEntryRequest) {
   return Math.max(0, (request.clockOut.getTime() - request.clockIn.getTime()) / (1000 * 60 * 60));
 }
 
+function getReviewedDateLabel(reviewedAt: Date | null) {
+  return reviewedAt ? format(reviewedAt, "MMM d, yyyy") : "-";
+}
+
 function ApprovalPanelError({ label }: { label: string }) {
   return (
     <div className="rounded-lg border border-border bg-background px-6 py-12 text-center">
@@ -111,6 +116,7 @@ async function loadManualEntryRequests(user: AdminUser) {
           ter."reason",
           ter."status",
           ter."createdAt",
+          ter."reviewedAt",
           u."name" as "userName",
           u."email" as "userEmail"
         FROM "TimeEntryRequest" ter
@@ -129,6 +135,7 @@ async function loadManualEntryRequests(user: AdminUser) {
           ter."reason",
           ter."status",
           ter."createdAt",
+          ter."reviewedAt",
           u."name" as "userName",
           u."email" as "userEmail"
         FROM "TimeEntryRequest" ter
@@ -162,21 +169,22 @@ async function ManualEntryApprovalsPanel({ user }: { user: AdminUser }) {
         <TableSearchPagination tableId="manual-entry-approvals-table" itemLabel="manual entry requests" />
 
         <div className="overflow-x-auto">
-          <table id="manual-entry-approvals-table" className="w-full min-w-[860px] text-left text-sm">
+          <table id="manual-entry-approvals-table" className="w-full min-w-[1020px] text-left text-sm">
             <thead className="border-b border-border bg-muted/30 text-xs text-muted-foreground">
               <tr>
                 <th className="px-4 py-3 font-semibold">Employee</th>
                 <th className="px-4 py-3 font-semibold">Requested time</th>
                 <th className="px-4 py-3 font-semibold">Reason</th>
                 <th className="px-4 py-3 font-semibold">Status</th>
-                <th className="px-4 py-3 font-semibold">Submitted</th>
+                <th className="px-4 py-3 font-semibold">Date submitted</th>
+                <th className="px-4 py-3 font-semibold">Date approved/rejected</th>
                 <th className="px-4 py-3 text-right font-semibold">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {manualRequests.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
+                  <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
                     No manual entry requests yet.
                   </td>
                 </tr>
@@ -205,6 +213,7 @@ async function ManualEntryApprovalsPanel({ user }: { user: AdminUser }) {
                     </td>
                     <td className="px-4 py-3"><StatusBadge status={request.status} /></td>
                     <td className="px-4 py-3 text-muted-foreground">{format(request.createdAt, "MMM d, yyyy")}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{getReviewedDateLabel(request.reviewedAt)}</td>
                     <td className="px-4 py-3">
                       {request.status === "PENDING" ? (
                         <div className="flex justify-end gap-2">

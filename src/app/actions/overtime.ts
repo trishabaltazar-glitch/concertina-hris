@@ -91,6 +91,7 @@ export async function submitOvertimeRequest(formData: FormData) {
 
   revalidatePath("/overtime");
   revalidatePath("/admin/overtime");
+  revalidatePath("/admin/approvals");
   revalidatePath("/notifications");
   return { success: true };
 }

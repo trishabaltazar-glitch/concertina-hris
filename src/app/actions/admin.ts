@@ -149,6 +149,7 @@ export async function updateLeaveRequestStatus(requestId: string, status: "APPRO
         // Revalidate affected paths
         revalidatePath("/");
         revalidatePath("/admin/leaves");
+        revalidatePath("/admin/approvals");
         revalidatePath("/leaves");
 
         return { success: true };
@@ -274,6 +275,7 @@ export async function updateManualTimeEntryRequestStatus(
         revalidatePath("/");
         revalidatePath("/timesheets");
         revalidatePath("/admin/timesheets");
+        revalidatePath("/admin/approvals");
         revalidatePath("/notifications");
 
         return { success: true };
