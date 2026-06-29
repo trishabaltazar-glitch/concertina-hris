@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import dynamic from "next/dynamic";
+import { useDeferredValue, useMemo, useState } from "react";
 import {
     BriefcaseBusiness,
     Check,
@@ -19,7 +20,6 @@ import {
     X,
 } from "lucide-react";
 
-import { AddEmployeeForm } from "./add-employee-form";
 import {
     bulkUpdateEmployees,
     deactivateEmployee,
@@ -31,6 +31,20 @@ import {
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+
+const AddEmployeeForm = dynamic(
+    () => import("./add-employee-form").then((module) => module.AddEmployeeForm),
+    {
+        ssr: false,
+        loading: () => (
+            <div className="space-y-3">
+                <div className="h-10 rounded-lg bg-muted" />
+                <div className="h-10 rounded-lg bg-muted/80" />
+                <div className="h-24 rounded-lg bg-muted/60" />
+            </div>
+        ),
+    }
+);
 
 type ManagerOption = {
     id: string;
@@ -149,13 +163,14 @@ export function EmployeeClientPage({ initialUsers, managers, currentUserRole }: 
     const [balanceValue, setBalanceValue] = useState("");
     const [isSavingBalance, setIsSavingBalance] = useState(false);
     const isAdmin = currentUserRole === "ADMIN";
+    const deferredSearchQuery = useDeferredValue(searchQuery);
 
     const departments = useMemo(() => {
         return Array.from(new Set(users.map((user) => user.department).filter(Boolean))).sort() as string[];
     }, [users]);
 
     const filteredUsers = useMemo(() => {
-        const query = searchQuery.trim().toLowerCase();
+        const query = deferredSearchQuery.trim().toLowerCase();
 
         return users.filter((user) => {
             const status = getAccountStatus(user).label;
@@ -170,7 +185,7 @@ export function EmployeeClientPage({ initialUsers, managers, currentUserRole }: 
 
             return matchesSearch && matchesDepartment && matchesManager && matchesStatus;
         });
-    }, [departmentFilter, managerFilter, searchQuery, statusFilter, users]);
+    }, [deferredSearchQuery, departmentFilter, managerFilter, statusFilter, users]);
 
     const activeCount = users.filter((user) => user.isActive).length;
     const invitedCount = users.filter((user) => user.hasPendingInvite).length;

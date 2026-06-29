@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
 import { BriefcaseBusiness, CalendarDays, ChevronLeft, ChevronRight, Clock3, Pencil, Search, Users, X } from "lucide-react";
 import { deleteScheduleOverride, upsertBulkSchedules, upsertScheduleOverride, upsertWeeklySchedule } from "@/app/actions/schedules";
 import { Button } from "@/components/ui/button";
@@ -284,6 +284,7 @@ export function ScheduleClientPage({ initialUsers }: { initialUsers: User[] }) {
   const [bulkTimeError, setBulkTimeError] = useState("");
   const [employeeDaysTimeError, setEmployeeDaysTimeError] = useState("");
   const [specialTimeError, setSpecialTimeError] = useState("");
+  const deferredSearchQuery = useDeferredValue(searchQuery);
 
   const today = new Date();
   const selectedDay = selectedDate.getDay();
@@ -294,7 +295,7 @@ export function ScheduleClientPage({ initialUsers }: { initialUsers: User[] }) {
   }, [users]);
 
   const filteredUsers = useMemo(() => {
-    const query = searchQuery.toLowerCase();
+    const query = deferredSearchQuery.toLowerCase();
     return users.filter((user) => {
       const matchesQuery =
         user.name.toLowerCase().includes(query) ||
@@ -306,7 +307,7 @@ export function ScheduleClientPage({ initialUsers }: { initialUsers: User[] }) {
 
       return matchesQuery && matchesRole;
     });
-  }, [users, searchQuery, roleFilter]);
+  }, [users, deferredSearchQuery, roleFilter]);
 
   const selectedUser = users.find((user) => user.id === selectedUserId) ?? filteredUsers[0] ?? users[0];
   const modalUser = users.find((user) => user.id === modalUserId);
