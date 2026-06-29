@@ -53,7 +53,7 @@ export default async function NotificationsPage({ searchParams }: NotificationsP
 
   return (
     <div className="w-full space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div>
           <div className="flex items-center gap-3">
             <span className="grid size-10 place-items-center rounded-lg bg-brand-steel/10 text-brand-steel">
@@ -68,48 +68,50 @@ export default async function NotificationsPage({ searchParams }: NotificationsP
           </div>
         </div>
 
-        {unreadCount > 0 && (
-          <form
-            action={async () => {
-              "use server";
-              await markAllNotificationsRead();
-            }}
-          >
-            <SubmitButton variant="outline" className="gap-2">
-              <CheckCheck className="size-4" />
-              Mark all read
-            </SubmitButton>
-          </form>
-        )}
-      </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+          <div className="flex max-w-full gap-0.5 overflow-x-auto rounded-md bg-muted/60 p-0.5">
+            {NOTIFICATION_FILTERS.map((filter) => {
+              const count = getNotificationFilterCount(notifications, filter.id);
 
-      <div className="flex gap-2 overflow-x-auto border-b border-border/70 pb-2">
-        {NOTIFICATION_FILTERS.map((filter) => {
-          const count = getNotificationFilterCount(notifications, filter.id);
+              return (
+                <Link
+                  key={filter.id}
+                  href={filter.id === "all" ? "/notifications" : `/notifications?filter=${filter.id}`}
+                  className={cn(
+                    "inline-flex h-6 shrink-0 items-center gap-1 rounded px-2 text-[11px] font-semibold transition-colors",
+                    activeFilter === filter.id
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {filter.label}
+                  <span
+                    className={cn(
+                      "min-w-4 rounded-full px-1 text-center text-[10px] leading-4",
+                      activeFilter === filter.id ? "bg-primary/10 text-primary" : "bg-background/70 text-muted-foreground"
+                    )}
+                  >
+                    {count}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
 
-          return (
-            <Link
-              key={filter.id}
-              href={filter.id === "all" ? "/notifications" : `/notifications?filter=${filter.id}`}
-              className={cn(
-                "inline-flex h-9 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-semibold transition-colors",
-                activeFilter === filter.id
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "bg-muted/50 text-muted-foreground hover:bg-accent hover:text-foreground"
-              )}
+          {unreadCount > 0 && (
+            <form
+              action={async () => {
+                "use server";
+                await markAllNotificationsRead();
+              }}
             >
-              {filter.label}
-              <span
-                className={cn(
-                  "rounded-full px-1.5 text-xs leading-5",
-                  activeFilter === filter.id ? "bg-white/20" : "bg-background"
-                )}
-              >
-                {count}
-              </span>
-            </Link>
-          );
-        })}
+              <SubmitButton variant="outline" size="sm" className="h-7 gap-1.5 px-2.5 text-xs">
+                <CheckCheck className="size-3.5" />
+                Mark all read
+              </SubmitButton>
+            </form>
+          )}
+        </div>
       </div>
 
       {notifications.length === 0 ? (
