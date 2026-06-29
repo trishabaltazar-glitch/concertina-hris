@@ -7,6 +7,15 @@ import crypto from "crypto";
 import { sendInviteEmail } from "@/lib/invite-email";
 
 const ROLES = ["EMPLOYEE", "MANAGER", "ADMIN"] as const;
+type Role = (typeof ROLES)[number];
+type SessionUserWithRole = {
+    id?: string | null;
+    role?: string | null;
+};
+
+function isRole(value: string): value is Role {
+    return ROLES.includes(value as Role);
+}
 
 function cleanText(value: FormDataEntryValue | null) {
     const text = typeof value === "string" ? value.trim() : "";
@@ -18,13 +27,21 @@ function cleanRequiredText(value: FormDataEntryValue | null) {
     return text || "";
 }
 
+function cleanDate(value: FormDataEntryValue | null) {
+    const text = cleanText(value);
+    if (!text) return null;
+
+    const date = new Date(`${text}T00:00:00`);
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
 function getBaseUrl() {
     return process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || process.env.NEXTAUTH_URL || "http://localhost:3000";
 }
 
 async function requireAdmin() {
     const session = await auth();
-    const user = session?.user as any;
+    const user = session?.user as SessionUserWithRole | undefined;
 
     if (!session || !user || user.role !== "ADMIN") {
         throw new Error("Unauthorized: Only Admins can manage employees.");
@@ -71,9 +88,10 @@ export async function addEmployee(formData: FormData) {
     const pffdBalance = parseInt(formData.get("pffdBalance") as string, 10);
     const position = cleanText(formData.get("position"));
     const department = cleanText(formData.get("department"));
+    const dateHired = cleanDate(formData.get("dateHired"));
     const managerId = cleanText(formData.get("managerId"));
 
-    if (!name || !email || !ROLES.includes(role as any) || isNaN(pffdBalance)) {
+    if (!name || !email || !isRole(role) || isNaN(pffdBalance)) {
         throw new Error("Missing required fields.");
     }
 
@@ -93,6 +111,7 @@ export async function addEmployee(formData: FormData) {
                 role,
                 position,
                 department,
+                dateHired,
                 managerId: managerResult?.managerId || null,
                 isActive: false,
                 inviteToken,
@@ -115,7 +134,7 @@ export async function addEmployee(formData: FormData) {
         revalidatePath("/admin/employees");
         revalidatePath("/directory");
         return { success: true, inviteLink, emailSent: emailResult.sent };
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Failed to add employee:", error);
         return { success: false, error: "Email may already exist." };
     }
@@ -129,13 +148,14 @@ export async function updateEmployeeProfile(userId: string, formData: FormData) 
     const role = cleanRequiredText(formData.get("role"));
     const position = cleanText(formData.get("position"));
     const department = cleanText(formData.get("department"));
+    const dateHired = cleanDate(formData.get("dateHired"));
     const contactNumber = cleanText(formData.get("contactNumber"));
     const emergencyContact = cleanText(formData.get("emergencyContact"));
     const address = cleanText(formData.get("address"));
     const icId = cleanText(formData.get("icId"));
     const managerId = cleanText(formData.get("managerId"));
 
-    if (!userId || !name || !email || !ROLES.includes(role as any)) {
+    if (!userId || !name || !email || !isRole(role)) {
         return { success: false, error: "Enter valid employee details." };
     }
 
@@ -153,6 +173,7 @@ export async function updateEmployeeProfile(userId: string, formData: FormData) 
                 role,
                 position,
                 department,
+                dateHired,
                 contactNumber,
                 emergencyContact,
                 address,
@@ -166,6 +187,7 @@ export async function updateEmployeeProfile(userId: string, formData: FormData) 
             email,
             role,
             department,
+            dateHired: dateHired?.toISOString() || null,
             managerId: managerResult?.managerId || null,
         });
 
@@ -173,7 +195,7 @@ export async function updateEmployeeProfile(userId: string, formData: FormData) 
         revalidatePath("/directory");
         revalidatePath("/profile");
         return { success: true };
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Failed to update employee:", error);
         return { success: false, error: "Failed to update employee. The email may already be in use." };
     }
@@ -206,7 +228,7 @@ export async function deleteEmployee(userId: string) {
 
         revalidatePath("/admin/employees");
         return { success: true };
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Failed to delete employee:", error);
         return { success: false, error: "Database error occurred during deletion." };
     }
@@ -242,7 +264,7 @@ export async function deactivateEmployee(userId: string) {
         revalidatePath("/admin/employees");
         revalidatePath("/directory");
         return { success: true };
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Failed to deactivate employee:", error);
         return { success: false, error: "Failed to deactivate employee." };
     }
@@ -280,7 +302,7 @@ export async function reactivateEmployee(userId: string) {
         revalidatePath("/admin/employees");
         revalidatePath("/directory");
         return { success: true };
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Failed to reactivate employee:", error);
         return { success: false, error: "Failed to reactivate employee." };
     }
@@ -322,7 +344,7 @@ export async function resendEmployeeInvite(userId: string) {
 
         revalidatePath("/admin/employees");
         return { success: true, inviteLink, emailSent: emailResult.sent };
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Failed to resend invite:", error);
         return { success: false, error: "Failed to resend invite." };
     }
@@ -343,7 +365,7 @@ export async function bulkUpdateEmployees(userIds: string[], updates: { departme
     }
 
     if ("role" in updates) {
-        if (!updates.role || !ROLES.includes(updates.role as any)) {
+        if (!updates.role || !isRole(updates.role)) {
             return { success: false, error: "Select a valid role." };
         }
         data.role = updates.role;
@@ -373,7 +395,7 @@ export async function bulkUpdateEmployees(userIds: string[], updates: { departme
         revalidatePath("/admin/employees");
         revalidatePath("/directory");
         return { success: true };
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Failed to bulk update employees:", error);
         return { success: false, error: "Failed to update selected employees." };
     }
@@ -407,7 +429,7 @@ export async function updateEmployeePffdBalance(userId: string, balance: number)
         revalidatePath("/admin/employees");
         revalidatePath("/");
         return { success: true };
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Failed to update PFFD balance:", error);
         return { success: false, error: "Failed to update PFFD balance." };
     }

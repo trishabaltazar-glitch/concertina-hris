@@ -45,6 +45,8 @@ type EmployeeData = {
     role: string;
     position: string | null;
     department: string | null;
+    dateHired: string | null;
+    dateHiredInput: string;
     contactNumber: string | null;
     emergencyContact: string | null;
     address: string | null;
@@ -90,6 +92,11 @@ function getAccountStatus(user: EmployeeData) {
     }
 
     return { label: "Inactive", className: "border-border bg-muted text-muted-foreground" };
+}
+
+function formatDateInputLabel(value: string | null) {
+    if (!value) return null;
+    return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(new Date(`${value}T00:00:00`));
 }
 
 function RoleBadge({ role }: { role: string }) {
@@ -232,12 +239,15 @@ export function EmployeeClientPage({ initialUsers, managers, currentUserRole }: 
 
             const managerId = (formData.get("managerId") as string) || null;
             const managerName = managers.find((manager) => manager.id === managerId)?.name ?? null;
+            const dateHiredInput = (formData.get("dateHired") as string) || "";
             refreshUser(editingUser.id, {
                 name: String(formData.get("name") || ""),
                 email: String(formData.get("email") || ""),
                 role: String(formData.get("role") || "EMPLOYEE"),
                 position: (formData.get("position") as string) || null,
                 department: (formData.get("department") as string) || null,
+                dateHired: formatDateInputLabel(dateHiredInput),
+                dateHiredInput,
                 contactNumber: (formData.get("contactNumber") as string) || null,
                 emergencyContact: (formData.get("emergencyContact") as string) || null,
                 address: (formData.get("address") as string) || null,
@@ -430,7 +440,7 @@ export function EmployeeClientPage({ initialUsers, managers, currentUserRole }: 
                                 <th className="px-4 py-3 font-semibold">Manager</th>
                                 <th className="px-4 py-3 font-semibold">Status</th>
                                 <th className="px-4 py-3 text-center font-semibold">PFFD</th>
-                                <th className="px-4 py-3 text-right font-semibold">Joined</th>
+                                <th className="px-4 py-3 text-right font-semibold">Date hired</th>
                                 <th className="px-4 py-3 text-right font-semibold">Actions</th>
                             </tr>
                         </thead>
@@ -490,7 +500,7 @@ export function EmployeeClientPage({ initialUsers, managers, currentUserRole }: 
                                                 </button>
                                             )}
                                         </td>
-                                        <td className="px-4 py-3 text-right text-muted-foreground">{user.joined}</td>
+                                        <td className="px-4 py-3 text-right text-muted-foreground">{user.dateHired || "-"}</td>
                                         <td className="px-4 py-3">
                                             <div className="flex justify-end gap-1">
                                                 <Tooltip>
@@ -568,6 +578,7 @@ export function EmployeeClientPage({ initialUsers, managers, currentUserRole }: 
                         <Field label="Role" value={<RoleBadge role={viewingUser.role} />} />
                         <Field label="Position" value={viewingUser.position} />
                         <Field label="Department" value={viewingUser.department} />
+                        <Field label="Date hired" value={viewingUser.dateHired} />
                         <Field label="Manager" value={viewingUser.managerName} />
                         <Field label="Direct reports" value={viewingUser.directReportCount} />
                         <Field label="Contact number" value={viewingUser.contactNumber} />
@@ -596,6 +607,7 @@ export function EmployeeClientPage({ initialUsers, managers, currentUserRole }: 
                             ]} />
                             <TextInput label="Position" name="position" defaultValue={editingUser.position || ""} />
                             <TextInput label="Department" name="department" defaultValue={editingUser.department || ""} />
+                            <TextInput label="Date Hired" name="dateHired" type="date" defaultValue={editingUser.dateHiredInput || ""} />
                             <TextInput label="Contact Number" name="contactNumber" defaultValue={editingUser.contactNumber || ""} />
                             <TextInput label="Emergency Contact" name="emergencyContact" defaultValue={editingUser.emergencyContact || ""} />
                             <TextInput label="IC ID" name="icId" defaultValue={editingUser.icId || ""} />

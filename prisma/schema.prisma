@@ -24,6 +24,7 @@ model User {
   role             String   @default("EMPLOYEE")
   position         String?
   department       String?
+  dateHired        DateTime?
   contactNumber    String?
   emergencyContact String?
   address          String?

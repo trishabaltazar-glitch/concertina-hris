@@ -7,9 +7,14 @@ import { EmployeeClientPage } from "./components/employee-client-page";
 
 export const dynamic = "force-dynamic";
 
+type SessionUserWithRole = {
+    id?: string | null;
+    role?: string | null;
+};
+
 export default async function EmployeesPage() {
     const session = await auth();
-    const currentUser = session?.user as any;
+    const currentUser = session?.user as SessionUserWithRole | undefined;
 
     if (!session || !currentUser || (currentUser.role !== "ADMIN" && currentUser.role !== "MANAGER")) {
         redirect("/login");
@@ -51,6 +56,8 @@ export default async function EmployeesPage() {
         role: u.role,
         position: u.position,
         department: u.department,
+        dateHired: u.dateHired ? format(u.dateHired, 'MMM d, yyyy') : null,
+        dateHiredInput: u.dateHired ? format(u.dateHired, 'yyyy-MM-dd') : "",
         contactNumber: u.contactNumber,
         emergencyContact: u.emergencyContact,
         address: u.address,

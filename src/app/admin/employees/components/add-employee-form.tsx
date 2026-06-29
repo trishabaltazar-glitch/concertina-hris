@@ -11,6 +11,13 @@ type ManagerOption = {
     email: string;
 };
 
+type AddEmployeeResult = {
+    success: boolean;
+    error?: string;
+    inviteLink?: string;
+    emailSent?: boolean;
+};
+
 export function AddEmployeeForm({ managers, onSuccess }: { managers: ManagerOption[]; onSuccess: () => void }) {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -23,11 +30,11 @@ export function AddEmployeeForm({ managers, onSuccess }: { managers: ManagerOpti
         setError(null);
 
         const formData = new FormData(e.currentTarget);
-        const result = await addEmployee(formData);
+        const result: AddEmployeeResult = await addEmployee(formData);
 
         if (result.success) {
-            setInviteLink((result as any).inviteLink || null);
-            setEmailSent(!!(result as any).emailSent);
+            setInviteLink(result.inviteLink || null);
+            setEmailSent(!!result.emailSent);
             setIsLoading(false);
         } else {
             setError(result.error || "Failed to add employee.");
@@ -117,6 +124,15 @@ export function AddEmployeeForm({ managers, onSuccess }: { managers: ManagerOpti
                         placeholder="Team Lead"
                     />
                 </div>
+            </div>
+
+            <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Date Hired</label>
+                <input
+                    name="dateHired"
+                    type="date"
+                    className="w-full bg-background border border-input text-foreground rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/50"
+                />
             </div>
 
             <div className="space-y-1">

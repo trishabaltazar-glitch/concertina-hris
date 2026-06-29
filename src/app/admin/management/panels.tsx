@@ -70,6 +70,8 @@ export async function TeamManagementPanel({ user }: { user: ManagementUser }) {
     role: item.role,
     position: item.position,
     department: item.department,
+    dateHired: item.dateHired ? format(item.dateHired, "MMM d, yyyy") : null,
+    dateHiredInput: item.dateHired ? format(item.dateHired, "yyyy-MM-dd") : "",
     contactNumber: item.contactNumber,
     emergencyContact: item.emergencyContact,
     address: item.address,

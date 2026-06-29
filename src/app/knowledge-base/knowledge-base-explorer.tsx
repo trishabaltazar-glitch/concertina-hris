@@ -307,28 +307,24 @@ export function KnowledgeBaseExplorer({
   }
 
   return (
-    <div className="mx-auto w-full max-w-7xl">
-      <section className="overflow-hidden rounded-lg border border-border bg-background shadow-sm">
-      <div className="border-b border-border bg-muted/15 px-6 py-5">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-muted-foreground">
-            <Link href="/knowledge-base" className="hover:text-foreground">Knowledge base</Link>
-            {currentFolder?.parent && (
-              <>
-                <span>/</span>
-                <Link href={`/knowledge-base/${currentFolder.parent.slug}`} className="hover:text-foreground">{currentFolder.parent.title}</Link>
-              </>
-            )}
-          </div>
+    <div className="mx-auto w-full max-w-7xl space-y-4">
+      <header className="min-w-0">
+          {currentFolder?.parent && (
+            <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-muted-foreground">
+              <Link href="/knowledge-base" className="hover:text-foreground">Wiki</Link>
+              <span>/</span>
+              <Link href={`/knowledge-base/${currentFolder.parent.slug}`} className="hover:text-foreground">{currentFolder.parent.title}</Link>
+            </div>
+          )}
           <span className="mt-3 block text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Knowledge base</span>
           <h1 className="mt-1.5 text-2xl font-semibold tracking-tight text-foreground">{currentFolder?.title || "Wiki"}</h1>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
             Browse company folders, documents, images, videos, and shared HR resources.
           </p>
-        </div>
-      </div>
+      </header>
 
-      <div className="grid xl:grid-cols-[38%_62%]">
+      <section className="overflow-hidden rounded-lg border border-border bg-background shadow-sm">
+        <div className="grid xl:grid-cols-[38%_62%]">
         <aside className="border-b border-border bg-background xl:border-b-0 xl:border-r">
           {isAdmin ? (
             <div className="space-y-5 p-6">
@@ -419,7 +415,7 @@ export function KnowledgeBaseExplorer({
             </div>
           )}
         </div>
-      </div>
+        </div>
       </section>
     </div>
   );

@@ -17,6 +17,7 @@ import {
   Logout02Icon,
   Megaphone01Icon,
   NoteDoneIcon,
+  ProfileIcon,
   Rocket01Icon,
   TimeQuarterPassIcon,
   UserGroupIcon,
@@ -51,6 +52,7 @@ import {
 
 const EMP_ROUTES = [
   { name: "Launchpad", href: "/", icon: Rocket01Icon },
+  { name: "My Profile", href: "/profile", icon: ProfileIcon },
   { name: "Timesheets", href: "/timesheets", icon: TimeQuarterPassIcon },
   { name: "Schedules", href: "/schedule", icon: CalendarUserIcon },
   { name: "Requests", href: "/requests", icon: NoteDoneIcon },

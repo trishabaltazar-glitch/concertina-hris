@@ -1,101 +1,104 @@
 "use client";
 
 import { useState } from "react";
+import { CheckCircle2, Loader2, ShieldCheck, XCircle } from "lucide-react";
+
 import { changePassword } from "@/app/actions/password";
-import { Loader2, CheckCircle2, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function PasswordForm() {
-    const [isPending, setIsPending] = useState(false);
-    const [message, setMessage] = useState<{ type: "success" | "error", text: string } | null>(null);
+  const [isPending, setIsPending] = useState(false);
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-    async function handleAction(formData: FormData) {
-        setIsPending(true);
-        setMessage(null);
-        
-        try {
-            const result = await changePassword(formData);
-            if (result.success) {
-                setMessage({ type: "success", text: "Password successfully updated!" });
-                // Reset form fields using standard DOM methods
-                const form = document.getElementById("password-form") as HTMLFormElement;
-                if (form) form.reset();
-            } else {
-                setMessage({ type: "error", text: result.error || "Failed to update password." });
-            }
-        } catch (err) {
-            setMessage({ type: "error", text: "An unexpected error occurred." });
-        } finally {
-            setIsPending(false);
-        }
+  async function handleAction(formData: FormData) {
+    setIsPending(true);
+    setMessage(null);
+
+    try {
+      const result = await changePassword(formData);
+      if (result.success) {
+        setMessage({ type: "success", text: "Password successfully updated." });
+        const form = document.getElementById("password-form") as HTMLFormElement | null;
+        form?.reset();
+      } else {
+        setMessage({ type: "error", text: result.error || "Failed to update password." });
+      }
+    } catch {
+      setMessage({ type: "error", text: "An unexpected error occurred." });
+    } finally {
+      setIsPending(false);
     }
+  }
 
-    return (
-        <div className="bg-card border border-border/70 rounded-xl p-6 shadow-sm">
-            <div className="flex items-center gap-2 mb-4">
-                <ShieldCheck className="size-5 text-emerald-400" />
-                <h2 className="text-lg font-semibold text-foreground">Security Settings</h2>
-            </div>
-            
-            <form id="password-form" action={handleAction} className="space-y-4">
-                <div>
-                    <label htmlFor="newPassword" className="block text-sm font-medium text-foreground mb-1">
-                        New Password
-                    </label>
-                    <input 
-                        type="password" 
-                        id="newPassword" 
-                        name="newPassword" 
-                        required
-                        minLength={8}
-                        className="w-full bg-background border border-input text-foreground placeholder:text-muted-foreground rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-ring/50"
-                        placeholder="********"
-                    />
-                </div>
-                
-                <div>
-                    <label htmlFor="confirmPassword" className="block text-sm font-medium text-foreground mb-1">
-                        Confirm New Password
-                    </label>
-                    <input 
-                        type="password" 
-                        id="confirmPassword" 
-                        name="confirmPassword" 
-                        required
-                        minLength={8}
-                        className="w-full bg-background border border-input text-foreground placeholder:text-muted-foreground rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-ring/50"
-                        placeholder="********"
-                    />
-                </div>
-
-                {message && (
-                    <div className={`p-3 rounded-lg text-sm flex items-start gap-2 ${
-                        message.type === "success" 
-                            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" 
-                            : "bg-red-500/10 text-red-400 border border-red-500/20"
-                    }`}>
-                        {message.type === "success" && <CheckCircle2 className="size-4 shrink-0 mt-0.5" />}
-                        {message.text}
-                    </div>
-                )}
-
-                <div className="pt-2">
-                    <Button
-                        type="submit" 
-                        disabled={isPending}
-                        className="w-full"
-                    >
-                        {isPending ? (
-                            <>
-                                <Loader2 className="size-4 animate-spin" />
-                                Updating...
-                            </>
-                        ) : (
-                            "Update Password"
-                        )}
-                    </Button>
-                </div>
-            </form>
+  return (
+    <section className="rounded-lg border border-border bg-background p-5 shadow-sm">
+      <div className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="inline-flex size-8 items-center justify-center rounded-md bg-primary/10 text-primary">
+              <ShieldCheck className="size-4" />
+            </span>
+            <h2 className="text-base font-semibold tracking-tight text-foreground">Security</h2>
+          </div>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">Use at least 8 characters for your account password.</p>
         </div>
-    );
+      </div>
+
+      <form id="password-form" action={handleAction} className="mt-5 space-y-4">
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="block">
+            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">New password</span>
+            <input
+              type="password"
+              id="newPassword"
+              name="newPassword"
+              required
+              minLength={8}
+              className="mt-1.5 h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/25"
+              placeholder="Enter new password"
+            />
+          </label>
+
+          <label className="block">
+            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Confirm password</span>
+            <input
+              type="password"
+              id="confirmPassword"
+              name="confirmPassword"
+              required
+              minLength={8}
+              className="mt-1.5 h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/25"
+              placeholder="Re-enter password"
+            />
+          </label>
+        </div>
+
+        {message && (
+          <div
+            className={
+              message.type === "success"
+                ? "flex items-start gap-2 rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700"
+                : "flex items-start gap-2 rounded-lg border border-destructive/25 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+            }
+          >
+            {message.type === "success" ? <CheckCircle2 className="mt-0.5 size-4 shrink-0" /> : <XCircle className="mt-0.5 size-4 shrink-0" />}
+            {message.text}
+          </div>
+        )}
+
+        <div className="flex justify-end">
+          <Button type="submit" disabled={isPending} className="min-w-36">
+            {isPending ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                Updating...
+              </>
+            ) : (
+              "Update password"
+            )}
+          </Button>
+        </div>
+      </form>
+    </section>
+  );
 }

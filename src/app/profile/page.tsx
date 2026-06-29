@@ -1,4 +1,22 @@
+import {
+  AtSign,
+  BriefcaseBusiness,
+  Building2,
+  CalendarDays,
+  ContactRound,
+  Fingerprint,
+  IdCard,
+  Mail,
+  MapPin,
+  Phone,
+  ShieldCheck,
+  UserRound,
+  UsersRound,
+} from "lucide-react";
+
+import { updateProfile } from "@/app/actions/profile";
 import { auth } from "@/auth";
+import { Button } from "@/components/ui/button";
 import prisma from "@/lib/prisma";
 import { PasswordForm } from "./components/password-form";
 
@@ -23,22 +41,63 @@ function getInitials(name: string) {
   return letters.toUpperCase() || "CH";
 }
 
+function getRoleLabel(role: string | null | undefined) {
+  if (!role) return "Employee";
+  return role.charAt(0).toUpperCase() + role.slice(1).toLowerCase();
+}
+
+function formatProfileDate(value: Date | null | undefined) {
+  if (!value) return null;
+  return new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric" }).format(value);
+}
+
 function ProfileField({
   label,
   value,
+  icon: Icon,
 }: {
   label: string;
   value?: string | null;
+  icon: React.ComponentType<{ className?: string }>;
 }) {
   return (
-    <div>
-      <p className="text-[13px] font-medium text-muted-foreground">{label}</p>
-      <p className="mt-2 text-sm font-semibold text-foreground">{value || "-"}</p>
+    <div className="flex gap-3 border-b border-border/70 py-3 last:border-b-0">
+      <span className="mt-0.5 inline-flex size-5 shrink-0 items-center justify-center text-muted-foreground">
+        <Icon className="size-4" />
+      </span>
+      <div className="min-w-0">
+        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">{label}</p>
+        <p className="mt-1 truncate text-sm font-semibold text-foreground">{value || "-"}</p>
+      </div>
     </div>
   );
 }
 
-function SectionHeader({
+function EditableField({
+  label,
+  name,
+  value,
+  placeholder,
+}: {
+  label: string;
+  name: string;
+  value?: string | null;
+  placeholder: string;
+}) {
+  return (
+    <label className="block">
+      <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">{label}</span>
+      <input
+        name={name}
+        defaultValue={value || ""}
+        placeholder={placeholder}
+        className="mt-1.5 h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/25"
+      />
+    </label>
+  );
+}
+
+function SectionTitle({
   title,
   description,
 }: {
@@ -47,22 +106,22 @@ function SectionHeader({
 }) {
   return (
     <div>
-      <h2 className="text-lg font-semibold tracking-tight text-foreground">{title}</h2>
-      <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+      <h2 className="text-base font-semibold tracking-tight text-foreground">{title}</h2>
+      <p className="mt-1 text-sm leading-6 text-muted-foreground">{description}</p>
     </div>
   );
 }
 
 export default async function ProfilePage() {
   const session = await auth();
-  const sessionUser = session?.user as any;
+  const userId = session?.user?.id;
 
-  if (!session || !sessionUser) {
+  if (!userId) {
     return <div>Unauthorized</div>;
   }
 
   const user = await prisma.user.findUnique({
-    where: { id: sessionUser.id },
+    where: { id: userId },
     include: {
       manager: true,
     },
@@ -74,127 +133,118 @@ export default async function ProfilePage() {
 
   const { firstName, lastName } = splitName(user.name);
   const initials = getInitials(user.name);
+  const roleLabel = getRoleLabel(user.role);
 
   return (
-    <div className="w-full">
-      <div className="grid gap-8 lg:grid-cols-[190px_minmax(0,1fr)]">
-        <aside className="lg:border-r lg:border-border/70 lg:pr-6">
-          <nav className="flex gap-2 overflow-x-auto rounded-xl border border-border/70 bg-card/60 p-1 shadow-sm lg:sticky lg:top-24 lg:flex-col lg:overflow-visible lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
-            <a
-              href="#overview"
-              className="whitespace-nowrap rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm lg:bg-primary/10 lg:text-primary"
-            >
-              Overview
-            </a>
-            <a
-              href="#personal"
-              className="whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            >
-              Personal
-            </a>
-            <a
-              href="#contact"
-              className="whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            >
-              Contact
-            </a>
-            <a
-              href="#employment"
-              className="whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            >
-              Employment
-            </a>
-            <a
-              href="#security"
-              className="whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            >
-              Security
-            </a>
-          </nav>
-        </aside>
+    <div className="w-full space-y-5">
+      <header>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Account settings</p>
+          <h1 className="mt-1.5 text-3xl font-semibold tracking-tight text-foreground">My Profile</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Review your employee record, contact details, and account security.</p>
+        </div>
+      </header>
 
-        <div className="min-w-0 space-y-6">
-          <section id="overview" className="scroll-mt-24 rounded-xl border border-border/70 bg-card shadow-sm">
-            <div className="border-b border-border/70 px-6 py-5">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground">Account settings</p>
-              <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">My Profile</h1>
+      <div className="grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
+        <aside className="space-y-5">
+          <section className="rounded-lg border border-border bg-background p-5 shadow-sm">
+            <div className="flex items-center gap-4">
+              <div className="flex size-20 shrink-0 items-center justify-center rounded-full bg-primary/10 text-2xl font-semibold text-primary ring-4 ring-muted/30">
+                {initials}
+              </div>
+              <div className="min-w-0">
+                <h2 className="truncate text-xl font-semibold text-foreground">{user.name}</h2>
+                <p className="mt-1 truncate text-sm font-medium text-muted-foreground">{user.position || "Team member"}</p>
+                <p className="mt-0.5 truncate text-sm text-muted-foreground">{user.department || "Concertina HR"}</p>
+              </div>
             </div>
 
-            <div className="p-6">
-              <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-                <div className="flex min-w-0 flex-col gap-5 sm:flex-row sm:items-center">
-                  <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xl font-bold text-primary ring-4 ring-background">
-                    {initials}
-                  </div>
-                  <div className="min-w-0">
-                    <h2 className="truncate text-2xl font-semibold text-foreground">{user.name}</h2>
-                    <p className="mt-1 text-sm font-medium text-muted-foreground">{user.position || "Team Member"}</p>
-                    <p className="mt-1 text-sm text-muted-foreground">{user.department || "Concertina HR"}</p>
-                  </div>
-                </div>
-
-                <div className="grid gap-2 sm:grid-cols-2 md:min-w-[320px] md:grid-cols-1">
-                  <div className="rounded-lg border border-border/70 bg-background/60 px-4 py-3">
-                    <p className="text-xs font-medium text-muted-foreground">Email</p>
-                    <p className="mt-1 truncate text-sm font-semibold text-foreground">{user.email}</p>
-                  </div>
-                  <div className="rounded-lg border border-border/70 bg-background/60 px-4 py-3">
-                    <p className="text-xs font-medium text-muted-foreground">Access</p>
-                    <p className="mt-1 truncate text-sm font-semibold text-foreground">{user.role}</p>
-                  </div>
-                </div>
+            <div className="mt-5 grid gap-2 border-t border-border pt-4">
+              <div className="flex items-center gap-2 text-sm">
+                <Mail className="size-4 text-muted-foreground" />
+                <span className="min-w-0 truncate font-medium text-foreground">{user.email}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <BriefcaseBusiness className="size-4 text-muted-foreground" />
+                <span className="min-w-0 truncate text-muted-foreground">
+                  {roleLabel} {user.icId ? `- ${user.icId}` : ""}
+                </span>
               </div>
             </div>
           </section>
 
-          <section id="personal" className="scroll-mt-24 rounded-xl border border-border/70 bg-card p-6 shadow-sm">
-            <SectionHeader
-              title="Personal information"
-              description="Read-only identity details from your employee record."
-            />
-            <div className="mt-6 grid gap-x-12 gap-y-6 sm:grid-cols-2">
-              <ProfileField label="First Name" value={firstName} />
-              <ProfileField label="Last Name" value={lastName} />
-              <ProfileField label="Email address" value={user.email} />
-              <ProfileField label="Bio" value={user.position} />
+          <section className="rounded-lg border border-border bg-background p-5 shadow-sm">
+            <SectionTitle title="Identity" description="Core account details from your employee profile." />
+            <div className="mt-4 grid gap-3">
+              <ProfileField label="First name" value={firstName} icon={UserRound} />
+              <ProfileField label="Last name" value={lastName} icon={ContactRound} />
+              <ProfileField label="Email" value={user.email} icon={AtSign} />
             </div>
           </section>
+        </aside>
 
-          <section id="contact" className="scroll-mt-24 rounded-xl border border-border/70 bg-card p-6 shadow-sm">
-            <SectionHeader
-              title="Contact details"
-              description="Admin-managed phone, emergency contact, and home address."
-            />
-            <div className="mt-6 grid gap-x-12 gap-y-6 sm:grid-cols-2">
-              <ProfileField label="Phone" value={user.contactNumber} />
-              <ProfileField label="Emergency contact" value={user.emergencyContact} />
-              <ProfileField label="Home address" value={user.address} />
+        <div className="min-w-0 space-y-5">
+          <section className="rounded-lg border border-border bg-background p-5 shadow-sm">
+            <div className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-start sm:justify-between">
+              <SectionTitle
+                title="Contact details"
+                description="Keep your reachable phone, emergency contact, and address updated."
+              />
             </div>
-            <p className="mt-6 rounded-lg border border-border/70 bg-background/60 px-4 py-3 text-xs text-muted-foreground">
-              Contact an admin if any personal or contact information needs to be updated.
+
+            <form action={updateProfile} className="mt-5 space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <EditableField label="Phone" name="contactNumber" value={user.contactNumber} placeholder="Add phone number" />
+                <EditableField
+                  label="Emergency contact"
+                  name="emergencyContact"
+                  value={user.emergencyContact}
+                  placeholder="Name and phone number"
+                />
+              </div>
+              <label className="block">
+                <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Home address</span>
+                <textarea
+                  name="address"
+                  defaultValue={user.address || ""}
+                  placeholder="Add home address"
+                  rows={3}
+                  className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/25"
+                />
+              </label>
+              <div className="flex justify-end">
+                <Button type="submit" className="min-w-36">
+                  Save contact info
+                </Button>
+              </div>
+            </form>
+          </section>
+
+          <section className="rounded-lg border border-border bg-background p-5 shadow-sm">
+            <SectionTitle title="Employment" description="Company-managed role, team, and reporting details." />
+            <div className="mt-5 grid gap-3 md:grid-cols-2">
+              <ProfileField label="Role / access" value={roleLabel} icon={ShieldCheck} />
+              <ProfileField label="Department" value={user.department} icon={Building2} />
+              <ProfileField label="Position" value={user.position} icon={BriefcaseBusiness} />
+              <ProfileField label="Date hired" value={formatProfileDate(user.dateHired)} icon={CalendarDays} />
+              <ProfileField label="IC ID" value={user.icId} icon={IdCard} />
+              <ProfileField label="Manager" value={user.manager?.name} icon={UsersRound} />
+              <ProfileField label="Record ID" value={user.id} icon={Fingerprint} />
+            </div>
+            <p className="mt-4 border-t border-border pt-3 text-xs leading-5 text-muted-foreground">
+              Employment details are managed by admins. Contact HR if these values need correction.
             </p>
           </section>
 
-          <section id="employment" className="scroll-mt-24 rounded-xl border border-border/70 bg-card p-6 shadow-sm">
-            <SectionHeader
-              title="Employment"
-              description="Company-managed role, department, and reporting details."
-            />
-            <div className="mt-6 grid gap-x-12 gap-y-6 sm:grid-cols-2">
-              <ProfileField label="Role / Access Level" value={user.role} />
-              <ProfileField label="Department" value={user.department} />
-              <ProfileField label="Position" value={user.position} />
-              <ProfileField label="IC ID" value={user.icId} />
-              <ProfileField label="Manager" value={user.manager?.name} />
+          <section className="rounded-lg border border-border bg-background p-5 shadow-sm">
+            <SectionTitle title="Location snapshot" description="Quick reference from your saved contact information." />
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <ProfileField label="Phone" value={user.contactNumber} icon={Phone} />
+              <ProfileField label="Address" value={user.address} icon={MapPin} />
             </div>
-            <p className="mt-6 rounded-lg border border-border/70 bg-background/60 px-4 py-3 text-xs text-muted-foreground">
-              Contact an admin if any employment information is incorrect.
-            </p>
           </section>
 
-          <section id="security" className="scroll-mt-24">
-            <PasswordForm />
-          </section>
+          <PasswordForm />
         </div>
       </div>
     </div>
