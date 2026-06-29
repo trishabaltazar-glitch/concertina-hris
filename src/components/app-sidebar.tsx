@@ -52,12 +52,12 @@ import {
 
 const EMP_ROUTES = [
   { name: "Launchpad", href: "/", icon: Rocket01Icon },
-  { name: "My Profile", href: "/profile", icon: ProfileIcon },
   { name: "Timesheets", href: "/timesheets", icon: TimeQuarterPassIcon },
   { name: "Schedules", href: "/schedule", icon: CalendarUserIcon },
   { name: "Requests", href: "/requests", icon: NoteDoneIcon },
   { name: "Announcements", href: "/announcements", icon: Megaphone01Icon },
   { name: "Knowledge Base", href: "/knowledge-base", icon: FileValidationIcon },
+  { name: "My Profile", href: "/profile", icon: ProfileIcon },
 ]
 
 const ADMIN_ROUTES = [

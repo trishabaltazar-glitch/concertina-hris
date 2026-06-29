@@ -130,33 +130,33 @@ export default async function UserSchedulePage({ searchParams }: UserSchedulePag
   const todayIndex = now.getDay();
   await ensureScheduleOverrideTable();
 
-  const schedules = await prisma.schedule.findMany({
-    where: { userId: session.user.id },
-    orderBy: { dayOfWeek: "asc" },
-    select: {
-      dayOfWeek: true,
-      startTime: true,
-      endTime: true,
-    },
-  });
-
-  const scheduleOverrides = await prisma.$queryRaw<ScheduleOverrideRow[]>`
-    SELECT "id", "date", "startTime", "endTime", "notes"
-    FROM "ScheduleOverride"
-    WHERE "userId" = ${session.user.id}
-      AND "date" >= ${rangeStart}
-      AND "date" <= ${rangeEnd}
-    ORDER BY "date" ASC
-  `;
-
-  const assignedHolidays = await prisma.$queryRaw<AssignedHoliday[]>`
-    SELECT "id", "name", "date", "notes"
-    FROM "HolidayAssignment"
-    WHERE "userId" = ${session.user.id}
-      AND "date" >= ${rangeStart}
-      AND "date" <= ${rangeEnd}
-    ORDER BY "date" ASC
-  `;
+  const [schedules, scheduleOverrides, assignedHolidays] = await Promise.all([
+    prisma.schedule.findMany({
+      where: { userId: session.user.id },
+      orderBy: { dayOfWeek: "asc" },
+      select: {
+        dayOfWeek: true,
+        startTime: true,
+        endTime: true,
+      },
+    }),
+    prisma.$queryRaw<ScheduleOverrideRow[]>`
+      SELECT "id", "date", "startTime", "endTime", "notes"
+      FROM "ScheduleOverride"
+      WHERE "userId" = ${session.user.id}
+        AND "date" >= ${rangeStart}
+        AND "date" <= ${rangeEnd}
+      ORDER BY "date" ASC
+    `,
+    prisma.$queryRaw<AssignedHoliday[]>`
+      SELECT "id", "name", "date", "notes"
+      FROM "HolidayAssignment"
+      WHERE "userId" = ${session.user.id}
+        AND "date" >= ${rangeStart}
+        AND "date" <= ${rangeEnd}
+      ORDER BY "date" ASC
+    `,
+  ]);
 
   const todaySchedule = getScheduleForDate(now, schedules, scheduleOverrides);
   const visibleDates = viewMode === "month"

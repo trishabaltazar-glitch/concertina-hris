@@ -24,25 +24,15 @@ type FileRow = {
   createdAt: Date;
 };
 
-async function knowledgeFileTableExists() {
-  const rows = await prisma.$queryRaw<{ exists: boolean }[]>`
-    SELECT to_regclass('"KnowledgeFile"') IS NOT NULL as "exists"
-  `;
-
-  return rows[0]?.exists === true;
-}
-
 export default async function KnowledgeBasePage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
   const role = (session.user as { role?: string }).role;
   const isAdmin = role === "ADMIN";
-  const hasKnowledgeFiles = await knowledgeFileTableExists();
 
   const [folders, files] = await Promise.all([
-    hasKnowledgeFiles
-      ? prisma.$queryRaw<FolderRow[]>`
+    prisma.$queryRaw<FolderRow[]>`
       SELECT
         p."id",
         p."title",
@@ -53,25 +43,13 @@ export default async function KnowledgeBasePage() {
       FROM "Page" p
       WHERE p."parentId" IS NULL
       ORDER BY p."updatedAt" DESC, p."title" ASC
-    `
-      : prisma.$queryRaw<FolderRow[]>`
-      SELECT
-        p."id",
-        p."title",
-        p."slug",
-        p."updatedAt",
-        (SELECT COUNT(*)::int FROM "Page" c WHERE c."parentId" = p."id") as "childCount",
-        0::int as "fileCount"
-      FROM "Page" p
-      WHERE p."parentId" IS NULL
-      ORDER BY p."updatedAt" DESC, p."title" ASC
     `,
-    hasKnowledgeFiles ? prisma.$queryRaw<FileRow[]>`
+    prisma.$queryRaw<FileRow[]>`
       SELECT "id", "displayName", "fileName", "mimeType", "size", "createdAt"
       FROM "KnowledgeFile"
       WHERE "folderId" IS NULL
       ORDER BY "createdAt" DESC, "displayName" ASC
-    ` : Promise.resolve([] as FileRow[]),
+    `,
   ]);
 
   return (

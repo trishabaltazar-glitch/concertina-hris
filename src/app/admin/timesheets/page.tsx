@@ -107,27 +107,8 @@ export default async function AdminTimesheetsPage({ searchParams }: AdminTimeshe
         ...(statusFilter === "ALL" ? {} : { status: statusFilter }),
     };
 
-    const [timeLogs, totalLogs] = await Promise.all([
-        prisma.timeLog.findMany({
-            where: timeLogWhere,
-            include: {
-                user: {
-                    select: {
-                        name: true,
-                        email: true,
-                        role: true,
-                    }
-                }
-            },
-            orderBy: { clockIn: "desc" },
-            skip: (page - 1) * PAGE_SIZE,
-            take: PAGE_SIZE,
-        }),
-        prisma.timeLog.count({ where: timeLogWhere }),
-    ]);
-
-    const manualRequests = user.role === "ADMIN"
-        ? await prisma.$queryRaw<ManualTimeEntryRequest[]>`
+    const manualRequestsPromise = user.role === "ADMIN"
+        ? prisma.$queryRaw<ManualTimeEntryRequest[]>`
             SELECT
                 ter."id",
                 ter."clockIn",
@@ -145,7 +126,7 @@ export default async function AdminTimesheetsPage({ searchParams }: AdminTimeshe
                 ter."createdAt" DESC
             LIMIT 50
         `
-        : await prisma.$queryRaw<ManualTimeEntryRequest[]>`
+        : prisma.$queryRaw<ManualTimeEntryRequest[]>`
             SELECT
                 ter."id",
                 ter."clockIn",
@@ -164,6 +145,26 @@ export default async function AdminTimesheetsPage({ searchParams }: AdminTimeshe
                 ter."createdAt" DESC
             LIMIT 50
         `;
+
+    const [timeLogs, totalLogs, manualRequests] = await Promise.all([
+        prisma.timeLog.findMany({
+            where: timeLogWhere,
+            include: {
+                user: {
+                    select: {
+                        name: true,
+                        email: true,
+                        role: true,
+                    }
+                }
+            },
+            orderBy: { clockIn: "desc" },
+            skip: (page - 1) * PAGE_SIZE,
+            take: PAGE_SIZE,
+        }),
+        prisma.timeLog.count({ where: timeLogWhere }),
+        manualRequestsPromise,
+    ]);
 
     const pendingRequests = manualRequests.filter((request) => request.status === "PENDING").length;
     const recentManualRequests = manualRequests.slice(0, 4).map((request) => ({

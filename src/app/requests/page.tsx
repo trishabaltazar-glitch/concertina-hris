@@ -30,6 +30,17 @@ function RequestPanelError({ label }: { label: string }) {
   );
 }
 
+function DeferredRequestPanel({ label }: { label: string }) {
+  return (
+    <div className="rounded-lg border border-border bg-background px-6 py-12 text-center">
+      <h2 className="font-semibold text-foreground">{label}</h2>
+      <p className="mx-auto mt-1.5 max-w-md text-sm text-muted-foreground">
+        Select this tab to load the latest requests.
+      </p>
+    </div>
+  );
+}
+
 async function safePanel(label: string, load: () => Promise<ReactNode>) {
   try {
     return await load();
@@ -53,12 +64,21 @@ export default async function RequestsPage({
     params?.status ? { status: params.status } : {}
   );
 
-  const pffdPanel = await safePanel("PFFD", () => LeavesPage());
-  const overtimePanel = await safePanel("OT", () => OvertimePage({ searchParams: statusSearchParams, basePath: "/requests?tab=ot" }));
-  const timeCorrectionsPanel = await safePanel(
-    "Time corrections",
-    () => TimeCorrectionsPage({ searchParams: statusSearchParams, basePath: "/requests?tab=time-corrections" })
-  );
+  const pffdPanel =
+    activeTab === "pffd"
+      ? await safePanel("PFFD", () => LeavesPage())
+      : <DeferredRequestPanel label="Flex Day Requests" />;
+  const overtimePanel =
+    activeTab === "ot"
+      ? await safePanel("OT", () => OvertimePage({ searchParams: statusSearchParams, basePath: "/requests?tab=ot" }))
+      : <DeferredRequestPanel label="Overtime Requests" />;
+  const timeCorrectionsPanel =
+    activeTab === "time-corrections"
+      ? await safePanel(
+        "Time corrections",
+        () => TimeCorrectionsPage({ searchParams: statusSearchParams, basePath: "/requests?tab=time-corrections" })
+      )
+      : <DeferredRequestPanel label="Manual Entry Requests" />;
 
   return (
     <RequestsTabs

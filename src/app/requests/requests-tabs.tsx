@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { CalendarCheck, Clock3, FileText } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -38,6 +39,7 @@ type RequestsTabsProps = {
 };
 
 export function RequestsTabs({ activeTab, panels }: RequestsTabsProps) {
+  const router = useRouter();
   const [selectedTab, setSelectedTab] = useState(activeTab);
   const selectedRequest = REQUEST_TABS.find((tab) => tab.id === selectedTab) ?? REQUEST_TABS[0];
 
@@ -68,7 +70,10 @@ export function RequestsTabs({ activeTab, panels }: RequestsTabsProps) {
                   aria-selected={isActive}
                   aria-controls={`request-panel-${tab.id}`}
                   id={`request-tab-${tab.id}`}
-                  onClick={() => setSelectedTab(tab.id)}
+                  onClick={() => {
+                    setSelectedTab(tab.id);
+                    router.push(tab.id === "pffd" ? "/requests" : `/requests?tab=${tab.id}`);
+                  }}
                   className={cn(
                     "group relative flex h-10 items-center gap-2 rounded-lg border px-2.5 text-left transition-colors",
                     isActive

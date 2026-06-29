@@ -22,19 +22,20 @@ export async function getMyNotifications(limit = 8) {
   }
 
   try {
-    const notifications = await prisma.$queryRaw<UserNotification[]>`
-      SELECT "id", "title", "message", "href", "type", "readAt", "createdAt"
-      FROM "Notification"
-      WHERE "userId" = ${session.user.id}
-      ORDER BY "createdAt" DESC
-      LIMIT ${limit}
-    `;
-
-    const unreadRows = await prisma.$queryRaw<{ count: number }[]>`
-      SELECT COUNT(*)::int as count
-      FROM "Notification"
-      WHERE "userId" = ${session.user.id} AND "readAt" IS NULL
-    `;
+    const [notifications, unreadRows] = await Promise.all([
+      prisma.$queryRaw<UserNotification[]>`
+        SELECT "id", "title", "message", "href", "type", "readAt", "createdAt"
+        FROM "Notification"
+        WHERE "userId" = ${session.user.id}
+        ORDER BY "createdAt" DESC
+        LIMIT ${limit}
+      `,
+      prisma.$queryRaw<{ count: number }[]>`
+        SELECT COUNT(*)::int as count
+        FROM "Notification"
+        WHERE "userId" = ${session.user.id} AND "readAt" IS NULL
+      `,
+    ]);
 
     return {
       notifications,
