@@ -13,14 +13,6 @@ export async function GET(request: NextRequest, { params }: KnowledgeFileRoutePr
   if (!session?.user?.id) redirect("/login");
 
   const { id } = await params;
-  const hasTable = await prisma.$queryRaw<{ exists: boolean }[]>`
-    SELECT to_regclass('"KnowledgeFile"') IS NOT NULL as "exists"
-  `;
-
-  if (!hasTable[0]?.exists) {
-    return NextResponse.json({ error: "File storage is not ready" }, { status: 404 });
-  }
-
   const files = await prisma.$queryRaw<{
     data: Buffer;
     fileName: string;

@@ -36,24 +36,24 @@ type HolidayAssignment = {
 export async function TeamManagementPanel({ user }: { user: ManagementUser }) {
   const isAdmin = user.role === "ADMIN";
 
-  const users = await prisma.user.findMany({
-    where: isAdmin ? undefined : { managerId: user.id },
-    orderBy: { name: "asc" },
-    include: {
-      manager: {
-        select: { id: true, name: true },
+  const [users, managers] = await Promise.all([
+    prisma.user.findMany({
+      where: isAdmin ? undefined : { managerId: user.id },
+      orderBy: { name: "asc" },
+      include: {
+        manager: {
+          select: { id: true, name: true },
+        },
+        teamMembers: {
+          select: { id: true },
+        },
+        leaveBalances: {
+          where: { leaveType: "LEAVE_CREDITS" },
+        },
       },
-      teamMembers: {
-        select: { id: true },
-      },
-      leaveBalances: {
-        where: { leaveType: "LEAVE_CREDITS" },
-      },
-    },
-  });
-
-  const managers = isAdmin
-    ? await prisma.user.findMany({
+    }),
+    isAdmin
+      ? prisma.user.findMany({
         where: {
           role: "MANAGER",
           isActive: true,
@@ -61,7 +61,8 @@ export async function TeamManagementPanel({ user }: { user: ManagementUser }) {
         orderBy: { name: "asc" },
         select: { id: true, name: true, email: true },
       })
-    : [];
+      : Promise.resolve([]),
+  ]);
 
   const formattedUsers = users.map((item) => ({
     id: item.id,
@@ -100,29 +101,30 @@ export async function TeamManagementPanel({ user }: { user: ManagementUser }) {
 export async function SchedulesManagerPanel({ user }: { user: ManagementUser }) {
   await ensureScheduleOverrideTable();
 
-  const users = await prisma.user.findMany({
-    where: user.role === "ADMIN" ? undefined : { managerId: user.id, role: "EMPLOYEE" },
-    orderBy: { name: "asc" },
-    include: {
-      schedules: true,
-    },
-  });
-
-  const scheduleOverrides = user.role === "ADMIN"
-    ? await prisma.$queryRaw<ScheduleOverrideRow[]>`
+  const [users, scheduleOverrides] = await Promise.all([
+    prisma.user.findMany({
+      where: user.role === "ADMIN" ? undefined : { managerId: user.id, role: "EMPLOYEE" },
+      orderBy: { name: "asc" },
+      include: {
+        schedules: true,
+      },
+    }),
+    user.role === "ADMIN"
+      ? prisma.$queryRaw<ScheduleOverrideRow[]>`
         SELECT so."id", so."userId", so."date", so."startTime", so."endTime", so."notes"
         FROM "ScheduleOverride" so
         INNER JOIN "User" u ON u."id" = so."userId"
         ORDER BY so."date" ASC
       `
-    : await prisma.$queryRaw<ScheduleOverrideRow[]>`
+      : prisma.$queryRaw<ScheduleOverrideRow[]>`
         SELECT so."id", so."userId", so."date", so."startTime", so."endTime", so."notes"
         FROM "ScheduleOverride" so
         INNER JOIN "User" u ON u."id" = so."userId"
         WHERE u."managerId" = ${user.id}
           AND u."role" = 'EMPLOYEE'
         ORDER BY so."date" ASC
-      `;
+      `,
+  ]);
 
   const formattedUsers = users.map((item) => ({
     ...item,
@@ -136,21 +138,21 @@ export async function SchedulesManagerPanel({ user }: { user: ManagementUser }) 
 }
 
 export async function HolidayAssignmentsPanel({ user }: { user: ManagementUser }) {
-  const teamMembers = await prisma.user.findMany({
-    where: user.role === "ADMIN"
-      ? { isActive: true }
-      : { managerId: user.id, role: "EMPLOYEE", isActive: true },
-    orderBy: { name: "asc" },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      department: true,
-    },
-  });
-
-  const assignments = user.role === "ADMIN"
-    ? await prisma.$queryRaw<HolidayAssignment[]>`
+  const [teamMembers, assignments] = await Promise.all([
+    prisma.user.findMany({
+      where: user.role === "ADMIN"
+        ? { isActive: true }
+        : { managerId: user.id, role: "EMPLOYEE", isActive: true },
+      orderBy: { name: "asc" },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        department: true,
+      },
+    }),
+    user.role === "ADMIN"
+      ? prisma.$queryRaw<HolidayAssignment[]>`
         SELECT
           ha."id",
           ha."name",
@@ -166,7 +168,7 @@ export async function HolidayAssignmentsPanel({ user }: { user: ManagementUser }
         ORDER BY ha."date" DESC, ha."createdAt" DESC
         LIMIT 100
       `
-    : await prisma.$queryRaw<HolidayAssignment[]>`
+      : prisma.$queryRaw<HolidayAssignment[]>`
         SELECT
           ha."id",
           ha."name",
@@ -183,7 +185,8 @@ export async function HolidayAssignmentsPanel({ user }: { user: ManagementUser }
           AND u."role" = 'EMPLOYEE'
         ORDER BY ha."date" DESC, ha."createdAt" DESC
         LIMIT 100
-      `;
+      `,
+  ]);
 
   return (
     <div className="w-full space-y-4">

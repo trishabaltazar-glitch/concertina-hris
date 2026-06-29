@@ -13,13 +13,31 @@ import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { closeStaleOpenTimeLogs } from "@/lib/time-log-maintenance";
 
 export const dynamic = "force-dynamic";
 
 const ADMIN_VISIBLE_ROLES = ["EMPLOYEE", "MANAGER"];
 
 type Tone = "default" | "success" | "warn" | "danger";
+
+type DashboardSummaryRow = {
+  totalUsers: number;
+  activeUsers: number;
+  todayLogCount: number;
+  clockedInCount: number;
+  clockedOutToday: number;
+  lateToday: number;
+  staleOpenCount: number;
+  pendingRequestsCount: number;
+  scheduledTodayCount: number;
+};
+
+type DashboardDepartmentRow = {
+  department: string;
+  active: number;
+  late: number;
+  pending: number;
+};
 
 function MetricCard({
   label,
@@ -90,80 +108,179 @@ export default async function AdminDashboardPage() {
   const tomorrowStart = new Date(todayStart);
   tomorrowStart.setDate(todayStart.getDate() + 1);
   const staleOpenLogCutoff = new Date(now.getTime() - 12 * 60 * 60 * 1000);
-  const scopedUserWhere = isAdmin
-    ? { role: { in: ADMIN_VISIBLE_ROLES } }
-    : { managerId: currentUser.id, role: "EMPLOYEE" };
 
-  const [activeUsers, totalUsers] = await Promise.all([
-    prisma.user.findMany({
-      where: { ...scopedUserWhere, isActive: true },
-      orderBy: { name: "asc" },
-      select: {
-        id: true,
-        department: true,
-      },
-    }),
-    prisma.user.count({
-      where: scopedUserWhere,
-    }),
-  ]);
-
-  await closeStaleOpenTimeLogs(isAdmin ? undefined : activeUsers.map((user) => user.id));
-
-  const [
-    todayLogs,
-    openLogs,
-    pendingRequests,
-    pendingRequestsCount,
-    scheduledTodayCount,
-    scheduledToday,
-  ] = await Promise.all([
+  const [summaryRows, departmentRows, todayLogs, staleOpenLogs, pendingRequests, scheduledToday] = await Promise.all([
+    isAdmin
+      ? prisma.$queryRaw<DashboardSummaryRow[]>`
+          WITH scoped_users AS (
+            SELECT "id", "isActive"
+            FROM "User"
+            WHERE "role" IN ('EMPLOYEE', 'MANAGER')
+          ),
+          active_users AS (
+            SELECT "id"
+            FROM scoped_users
+            WHERE "isActive" = true
+          )
+          SELECT
+            (SELECT COUNT(*)::int FROM scoped_users) AS "totalUsers",
+            (SELECT COUNT(*)::int FROM active_users) AS "activeUsers",
+            (SELECT COUNT(*)::int FROM "TimeLog" tl INNER JOIN scoped_users su ON su."id" = tl."userId" WHERE tl."clockIn" >= ${todayStart} AND tl."clockIn" < ${tomorrowStart}) AS "todayLogCount",
+            (SELECT COUNT(DISTINCT tl."userId")::int FROM "TimeLog" tl INNER JOIN active_users au ON au."id" = tl."userId" WHERE tl."clockOut" IS NULL) AS "clockedInCount",
+            (SELECT COUNT(*)::int FROM "TimeLog" tl INNER JOIN scoped_users su ON su."id" = tl."userId" WHERE tl."clockIn" >= ${todayStart} AND tl."clockIn" < ${tomorrowStart} AND tl."clockOut" IS NOT NULL) AS "clockedOutToday",
+            (SELECT COUNT(*)::int FROM "TimeLog" tl INNER JOIN scoped_users su ON su."id" = tl."userId" WHERE tl."clockIn" >= ${todayStart} AND tl."clockIn" < ${tomorrowStart} AND tl."status" = 'LATE') AS "lateToday",
+            (SELECT COUNT(*)::int FROM "TimeLog" tl INNER JOIN active_users au ON au."id" = tl."userId" WHERE tl."clockOut" IS NULL AND (tl."clockIn" < ${staleOpenLogCutoff} OR tl."clockIn" < ${todayStart})) AS "staleOpenCount",
+            (SELECT COUNT(*)::int FROM "LeaveRequest" lr INNER JOIN scoped_users su ON su."id" = lr."userId" WHERE lr."status" = 'PENDING') AS "pendingRequestsCount",
+            (SELECT COUNT(*)::int FROM "Schedule" s INNER JOIN active_users au ON au."id" = s."userId" WHERE s."dayOfWeek" = ${now.getDay()}) AS "scheduledTodayCount"
+        `
+      : prisma.$queryRaw<DashboardSummaryRow[]>`
+          WITH scoped_users AS (
+            SELECT "id", "isActive"
+            FROM "User"
+            WHERE "managerId" = ${currentUser.id}
+              AND "role" = 'EMPLOYEE'
+          ),
+          active_users AS (
+            SELECT "id"
+            FROM scoped_users
+            WHERE "isActive" = true
+          )
+          SELECT
+            (SELECT COUNT(*)::int FROM scoped_users) AS "totalUsers",
+            (SELECT COUNT(*)::int FROM active_users) AS "activeUsers",
+            (SELECT COUNT(*)::int FROM "TimeLog" tl INNER JOIN scoped_users su ON su."id" = tl."userId" WHERE tl."clockIn" >= ${todayStart} AND tl."clockIn" < ${tomorrowStart}) AS "todayLogCount",
+            (SELECT COUNT(DISTINCT tl."userId")::int FROM "TimeLog" tl INNER JOIN active_users au ON au."id" = tl."userId" WHERE tl."clockOut" IS NULL) AS "clockedInCount",
+            (SELECT COUNT(*)::int FROM "TimeLog" tl INNER JOIN scoped_users su ON su."id" = tl."userId" WHERE tl."clockIn" >= ${todayStart} AND tl."clockIn" < ${tomorrowStart} AND tl."clockOut" IS NOT NULL) AS "clockedOutToday",
+            (SELECT COUNT(*)::int FROM "TimeLog" tl INNER JOIN scoped_users su ON su."id" = tl."userId" WHERE tl."clockIn" >= ${todayStart} AND tl."clockIn" < ${tomorrowStart} AND tl."status" = 'LATE') AS "lateToday",
+            (SELECT COUNT(*)::int FROM "TimeLog" tl INNER JOIN active_users au ON au."id" = tl."userId" WHERE tl."clockOut" IS NULL AND (tl."clockIn" < ${staleOpenLogCutoff} OR tl."clockIn" < ${todayStart})) AS "staleOpenCount",
+            (SELECT COUNT(*)::int FROM "LeaveRequest" lr INNER JOIN scoped_users su ON su."id" = lr."userId" WHERE lr."status" = 'PENDING') AS "pendingRequestsCount",
+            (SELECT COUNT(*)::int FROM "Schedule" s INNER JOIN active_users au ON au."id" = s."userId" WHERE s."dayOfWeek" = ${now.getDay()}) AS "scheduledTodayCount"
+        `,
+    isAdmin
+      ? prisma.$queryRaw<DashboardDepartmentRow[]>`
+          WITH scoped_users AS (
+            SELECT "id", COALESCE("department", 'Unassigned') AS "department", "isActive"
+            FROM "User"
+            WHERE "role" IN ('EMPLOYEE', 'MANAGER')
+          ),
+          active_departments AS (
+            SELECT "department", COUNT(*)::int AS "active"
+            FROM scoped_users
+            WHERE "isActive" = true
+            GROUP BY "department"
+          ),
+          late_departments AS (
+            SELECT su."department", COUNT(*)::int AS "late"
+            FROM "TimeLog" tl
+            INNER JOIN scoped_users su ON su."id" = tl."userId"
+            WHERE tl."clockIn" >= ${todayStart}
+              AND tl."clockIn" < ${tomorrowStart}
+              AND tl."status" = 'LATE'
+            GROUP BY su."department"
+          ),
+          pending_departments AS (
+            SELECT su."department", COUNT(*)::int AS "pending"
+            FROM "LeaveRequest" lr
+            INNER JOIN scoped_users su ON su."id" = lr."userId"
+            WHERE lr."status" = 'PENDING'
+            GROUP BY su."department"
+          )
+          SELECT
+            ad."department",
+            ad."active",
+            COALESCE(ld."late", 0)::int AS "late",
+            COALESCE(pd."pending", 0)::int AS "pending"
+          FROM active_departments ad
+          LEFT JOIN late_departments ld ON ld."department" = ad."department"
+          LEFT JOIN pending_departments pd ON pd."department" = ad."department"
+          ORDER BY ad."department" ASC
+        `
+      : prisma.$queryRaw<DashboardDepartmentRow[]>`
+          WITH scoped_users AS (
+            SELECT "id", COALESCE("department", 'Unassigned') AS "department", "isActive"
+            FROM "User"
+            WHERE "managerId" = ${currentUser.id}
+              AND "role" = 'EMPLOYEE'
+          ),
+          active_departments AS (
+            SELECT "department", COUNT(*)::int AS "active"
+            FROM scoped_users
+            WHERE "isActive" = true
+            GROUP BY "department"
+          ),
+          late_departments AS (
+            SELECT su."department", COUNT(*)::int AS "late"
+            FROM "TimeLog" tl
+            INNER JOIN scoped_users su ON su."id" = tl."userId"
+            WHERE tl."clockIn" >= ${todayStart}
+              AND tl."clockIn" < ${tomorrowStart}
+              AND tl."status" = 'LATE'
+            GROUP BY su."department"
+          ),
+          pending_departments AS (
+            SELECT su."department", COUNT(*)::int AS "pending"
+            FROM "LeaveRequest" lr
+            INNER JOIN scoped_users su ON su."id" = lr."userId"
+            WHERE lr."status" = 'PENDING'
+            GROUP BY su."department"
+          )
+          SELECT
+            ad."department",
+            ad."active",
+            COALESCE(ld."late", 0)::int AS "late",
+            COALESCE(pd."pending", 0)::int AS "pending"
+          FROM active_departments ad
+          LEFT JOIN late_departments ld ON ld."department" = ad."department"
+          LEFT JOIN pending_departments pd ON pd."department" = ad."department"
+          ORDER BY ad."department" ASC
+        `,
     prisma.timeLog.findMany({
       where: {
         clockIn: { gte: todayStart, lt: tomorrowStart },
-        user: scopedUserWhere,
+        user: isAdmin
+          ? { role: { in: ADMIN_VISIBLE_ROLES } }
+          : { managerId: currentUser.id, role: "EMPLOYEE" },
       },
       include: {
         user: { select: { id: true, name: true, email: true, department: true } },
       },
       orderBy: { clockIn: "desc" },
+      take: 8,
     }),
     prisma.timeLog.findMany({
       where: {
         clockOut: null,
-        user: scopedUserWhere,
+        OR: [
+          { clockIn: { lt: staleOpenLogCutoff } },
+          { clockIn: { lt: todayStart } },
+        ],
+        user: isAdmin
+          ? { role: { in: ADMIN_VISIBLE_ROLES }, isActive: true }
+          : { managerId: currentUser.id, role: "EMPLOYEE", isActive: true },
       },
       include: {
         user: { select: { id: true, name: true, email: true, department: true } },
       },
       orderBy: { clockIn: "asc" },
-      take: 25,
+      take: 4,
     }),
     prisma.leaveRequest.findMany({
       where: {
         status: "PENDING",
-        user: scopedUserWhere,
+        user: isAdmin
+          ? { role: { in: ADMIN_VISIBLE_ROLES } }
+          : { managerId: currentUser.id, role: "EMPLOYEE" },
       },
       include: { user: { select: { id: true, name: true, email: true, department: true, managerId: true } } },
       orderBy: { createdAt: "asc" },
-      take: 25,
-    }),
-    prisma.leaveRequest.count({
-      where: {
-        status: "PENDING",
-        user: scopedUserWhere,
-      },
-    }),
-    prisma.schedule.count({
-      where: {
-        dayOfWeek: now.getDay(),
-        user: { ...scopedUserWhere, isActive: true },
-      },
+      take: 4,
     }),
     prisma.schedule.findMany({
       where: {
         dayOfWeek: now.getDay(),
-        user: { ...scopedUserWhere, isActive: true },
+        user: isAdmin
+          ? { role: { in: ADMIN_VISIBLE_ROLES }, isActive: true }
+          : { managerId: currentUser.id, role: "EMPLOYEE", isActive: true },
       },
       include: {
         user: {
@@ -185,35 +302,20 @@ export default async function AdminDashboardPage() {
     }),
   ]);
 
-  const activeUserIds = new Set(activeUsers.map((user) => user.id));
-  const clockedInUserIds = new Set(todayLogs.map((log) => log.userId));
-  const activeOpenLogs = openLogs.filter((log) => activeUserIds.has(log.userId));
-  const clockedOutToday = todayLogs.filter((log) => log.clockOut).length;
-  const lateToday = todayLogs.filter((log) => log.status === "LATE").length;
-  const notClockedIn = activeUsers.filter((user) => !clockedInUserIds.has(user.id)).length;
-  const staleOpenLogs = openLogs.filter((log) => log.clockIn < staleOpenLogCutoff || log.clockIn < todayStart);
+  const summary = summaryRows[0] ?? {
+    totalUsers: 0,
+    activeUsers: 0,
+    todayLogCount: todayLogs.length,
+    clockedInCount: 0,
+    clockedOutToday: 0,
+    lateToday: 0,
+    staleOpenCount: staleOpenLogs.length,
+    pendingRequestsCount: pendingRequests.length,
+    scheduledTodayCount: scheduledToday.length,
+  };
 
-  const departments = Array.from(
-    activeUsers.reduce((items, user) => {
-      const department = user.department || "Unassigned";
-      const item = items.get(department) ?? { department, active: 0, late: 0, pending: 0 };
-      item.active += 1;
-      items.set(department, item);
-      return items;
-    }, new Map<string, { department: string; active: number; late: number; pending: number }>()),
-  ).map(([, value]) => value);
-
-  for (const log of todayLogs) {
-    const department = log.user.department || "Unassigned";
-    const item = departments.find((entry) => entry.department === department);
-    if (item && log.status === "LATE") item.late += 1;
-  }
-
-  for (const request of pendingRequests) {
-    const department = request.user.department || "Unassigned";
-    const item = departments.find((entry) => entry.department === department);
-    if (item) item.pending += 1;
-  }
+  const activeOpenLogsCount = summary.clockedInCount;
+  const notClockedIn = Math.max(0, summary.activeUsers - activeOpenLogsCount);
 
   const needsAttention = [
     ...staleOpenLogs.slice(0, 4).map((log) => ({
@@ -265,10 +367,10 @@ export default async function AdminDashboardPage() {
       </div>
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Active employees" value={activeUsers.length} helper={`${totalUsers} people in scope`} icon={Users} tone="success" />
-        <MetricCard label="Pending PFFD" value={pendingRequestsCount} helper="Waiting for review" icon={FileCheck2} tone={pendingRequestsCount ? "warn" : "success"} />
-        <MetricCard label="Late today" value={lateToday} helper={`${todayLogs.length} clock-ins recorded`} icon={Clock3} tone={lateToday ? "warn" : "success"} />
-        <MetricCard label="Missing clock-outs" value={staleOpenLogs.length} helper={`${activeOpenLogs.length} active open logs`} icon={AlertTriangle} tone={staleOpenLogs.length ? "danger" : "success"} />
+        <MetricCard label="Active employees" value={summary.activeUsers} helper={`${summary.totalUsers} people in scope`} icon={Users} tone="success" />
+        <MetricCard label="Pending PFFD" value={summary.pendingRequestsCount} helper="Waiting for review" icon={FileCheck2} tone={summary.pendingRequestsCount ? "warn" : "success"} />
+        <MetricCard label="Late today" value={summary.lateToday} helper={`${summary.todayLogCount} clock-ins recorded`} icon={Clock3} tone={summary.lateToday ? "warn" : "success"} />
+        <MetricCard label="Missing clock-outs" value={summary.staleOpenCount} helper={`${activeOpenLogsCount} active open logs`} icon={AlertTriangle} tone={summary.staleOpenCount ? "danger" : "success"} />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-12">
@@ -284,9 +386,9 @@ export default async function AdminDashboardPage() {
           </div>
           <div className="grid gap-2 border-b border-border p-3 sm:grid-cols-3">
             {[
-              ["Clocked in", activeOpenLogs.length],
+              ["Clocked in", activeOpenLogsCount],
               ["Not clocked in", notClockedIn],
-              ["Clocked out", clockedOutToday],
+              ["Clocked out", summary.clockedOutToday],
             ].map(([label, value]) => (
               <div key={label} className="rounded-lg border border-border bg-muted/20 px-3 py-2">
                 <p className="text-xs text-muted-foreground">{label}</p>
@@ -347,7 +449,7 @@ export default async function AdminDashboardPage() {
         <section className="rounded-lg border border-border/70 bg-background shadow-sm xl:col-span-5">
           <div className="border-b border-border px-4 py-3">
             <h2 className="text-base font-semibold text-foreground">Schedule coverage today</h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">{scheduledTodayCount} scheduled employees.</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{summary.scheduledTodayCount} scheduled employees.</p>
           </div>
           <div className="divide-y divide-border">
             {scheduledToday.map((schedule) => {
@@ -366,7 +468,7 @@ export default async function AdminDashboardPage() {
                 </div>
               );
             })}
-            {scheduledTodayCount === 0 && <EmptyState>No schedules assigned for today.</EmptyState>}
+            {summary.scheduledTodayCount === 0 && <EmptyState>No schedules assigned for today.</EmptyState>}
           </div>
         </section>
 
@@ -386,7 +488,7 @@ export default async function AdminDashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {departments.map((department) => (
+                {departmentRows.map((department) => (
                   <tr key={department.department}>
                     <td className="px-4 py-2.5 font-medium text-foreground">{department.department}</td>
                     <td className="px-4 py-2.5 text-muted-foreground">{department.active}</td>
@@ -394,7 +496,7 @@ export default async function AdminDashboardPage() {
                     <td className="px-4 py-2.5 text-muted-foreground">{department.pending}</td>
                   </tr>
                 ))}
-                {departments.length === 0 && (
+                {departmentRows.length === 0 && (
                   <tr>
                     <td colSpan={4}><EmptyState>No active employees in scope.</EmptyState></td>
                   </tr>

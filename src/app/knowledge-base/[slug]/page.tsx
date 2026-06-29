@@ -36,14 +36,6 @@ type FileRow = {
   createdAt: Date;
 };
 
-async function knowledgeFileTableExists() {
-  const rows = await prisma.$queryRaw<{ exists: boolean }[]>`
-    SELECT to_regclass('"KnowledgeFile"') IS NOT NULL as "exists"
-  `;
-
-  return rows[0]?.exists === true;
-}
-
 export default async function KnowledgeFolderPage({ params }: KnowledgeFolderPageProps) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
@@ -51,7 +43,6 @@ export default async function KnowledgeFolderPage({ params }: KnowledgeFolderPag
   const { slug } = await params;
   const role = (session.user as { role?: string }).role;
   const isAdmin = role === "ADMIN";
-  const hasKnowledgeFiles = await knowledgeFileTableExists();
 
   const folders = await prisma.$queryRaw<FolderRow[]>`
     SELECT p."id", p."title", p."slug", parent."title" as "parentTitle", parent."slug" as "parentSlug"
@@ -65,7 +56,7 @@ export default async function KnowledgeFolderPage({ params }: KnowledgeFolderPag
   if (!folder) notFound();
 
   const [children, files] = await Promise.all([
-    hasKnowledgeFiles ? prisma.$queryRaw<ChildFolderRow[]>`
+    prisma.$queryRaw<ChildFolderRow[]>`
       SELECT
         p."id",
         p."title",
@@ -76,24 +67,13 @@ export default async function KnowledgeFolderPage({ params }: KnowledgeFolderPag
       FROM "Page" p
       WHERE p."parentId" = ${folder.id}
       ORDER BY p."updatedAt" DESC, p."title" ASC
-    ` : prisma.$queryRaw<ChildFolderRow[]>`
-      SELECT
-        p."id",
-        p."title",
-        p."slug",
-        p."updatedAt",
-        (SELECT COUNT(*)::int FROM "Page" c WHERE c."parentId" = p."id") as "childCount",
-        0::int as "fileCount"
-      FROM "Page" p
-      WHERE p."parentId" = ${folder.id}
-      ORDER BY p."updatedAt" DESC, p."title" ASC
     `,
-    hasKnowledgeFiles ? prisma.$queryRaw<FileRow[]>`
+    prisma.$queryRaw<FileRow[]>`
       SELECT "id", "displayName", "fileName", "mimeType", "size", "createdAt"
       FROM "KnowledgeFile"
       WHERE "folderId" = ${folder.id}
       ORDER BY "createdAt" DESC, "displayName" ASC
-    ` : Promise.resolve([] as FileRow[]),
+    `,
   ]);
 
   return (
