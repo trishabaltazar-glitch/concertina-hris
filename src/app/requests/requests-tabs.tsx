@@ -1,10 +1,7 @@
-"use client";
-
 import type { ReactNode } from "react";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { CalendarCheck, Clock3, FileText } from "lucide-react";
 
+import { IntentPrefetchTabLink } from "@/components/intent-prefetch-tab-link";
 import { cn } from "@/lib/utils";
 
 const REQUEST_TABS = [
@@ -14,6 +11,7 @@ const REQUEST_TABS = [
     title: "Flex Day Requests",
     description: "Pre-funded flex day filings.",
     icon: FileText,
+    href: "/requests",
   },
   {
     id: "ot",
@@ -21,6 +19,7 @@ const REQUEST_TABS = [
     title: "Overtime Requests",
     description: "Extra hours with required attachments.",
     icon: Clock3,
+    href: "/requests?tab=ot",
   },
   {
     id: "time-corrections",
@@ -28,6 +27,7 @@ const REQUEST_TABS = [
     title: "Manual Entry Requests",
     description: "Missed or adjusted time logs.",
     icon: CalendarCheck,
+    href: "/requests?tab=time-corrections",
   },
 ] as const;
 
@@ -35,13 +35,11 @@ export type RequestTab = (typeof REQUEST_TABS)[number]["id"];
 
 type RequestsTabsProps = {
   activeTab: RequestTab;
-  panels: Record<RequestTab, ReactNode>;
+  panel: ReactNode;
 };
 
-export function RequestsTabs({ activeTab, panels }: RequestsTabsProps) {
-  const router = useRouter();
-  const [selectedTab, setSelectedTab] = useState(activeTab);
-  const selectedRequest = REQUEST_TABS.find((tab) => tab.id === selectedTab) ?? REQUEST_TABS[0];
+export function RequestsTabs({ activeTab, panel }: RequestsTabsProps) {
+  const selectedRequest = REQUEST_TABS.find((tab) => tab.id === activeTab) ?? REQUEST_TABS[0];
 
   return (
     <div className="w-full space-y-4">
@@ -53,27 +51,20 @@ export function RequestsTabs({ activeTab, panels }: RequestsTabsProps) {
             <p className="mt-1 text-xs text-muted-foreground">{selectedRequest.description}</p>
           </div>
 
-          <div
-            role="tablist"
-            aria-label="Request type"
-            className="grid gap-2 sm:grid-cols-3 lg:w-[640px]"
-          >
+          <div role="tablist" aria-label="Request type" className="grid gap-2 sm:grid-cols-3 lg:w-[640px]">
             {REQUEST_TABS.map((tab) => {
               const Icon = tab.icon;
-              const isActive = selectedTab === tab.id;
+              const isActive = activeTab === tab.id;
 
               return (
-                <button
+                <IntentPrefetchTabLink
                   key={tab.id}
-                  type="button"
+                  href={tab.href}
+                  active={isActive}
                   role="tab"
                   aria-selected={isActive}
                   aria-controls={`request-panel-${tab.id}`}
                   id={`request-tab-${tab.id}`}
-                  onClick={() => {
-                    setSelectedTab(tab.id);
-                    router.push(tab.id === "pffd" ? "/requests" : `/requests?tab=${tab.id}`);
-                  }}
                   className={cn(
                     "group relative flex h-10 items-center gap-2 rounded-lg border px-2.5 text-left transition-colors",
                     isActive
@@ -92,24 +83,20 @@ export function RequestsTabs({ activeTab, panels }: RequestsTabsProps) {
                     <Icon className="size-3.5" />
                   </span>
                   <span className="min-w-0 truncate text-xs font-semibold">{tab.label}</span>
-                </button>
+                </IntentPrefetchTabLink>
               );
             })}
           </div>
         </div>
       </section>
 
-      {REQUEST_TABS.map((tab) => (
-        <section
-          key={tab.id}
-          id={`request-panel-${tab.id}`}
-          role="tabpanel"
-          aria-labelledby={`request-tab-${tab.id}`}
-          hidden={selectedTab !== tab.id}
-        >
-          {panels[tab.id]}
-        </section>
-      ))}
+      <section
+        id={`request-panel-${activeTab}`}
+        role="tabpanel"
+        aria-labelledby={`request-tab-${activeTab}`}
+      >
+        {panel}
+      </section>
     </div>
   );
 }

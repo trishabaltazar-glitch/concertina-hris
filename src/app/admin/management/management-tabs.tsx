@@ -1,9 +1,7 @@
-"use client";
-
 import type { ReactNode } from "react";
-import { useState } from "react";
 import { CalendarDays, CalendarPlus, Users } from "lucide-react";
 
+import { IntentPrefetchTabLink } from "@/components/intent-prefetch-tab-link";
 import { cn } from "@/lib/utils";
 
 const MANAGEMENT_TABS = [
@@ -34,12 +32,11 @@ export type ManagementTab = (typeof MANAGEMENT_TABS)[number]["id"];
 
 type ManagementTabsProps = {
   activeTab: ManagementTab;
-  panels: Record<ManagementTab, ReactNode>;
+  panel: ReactNode;
 };
 
-export function ManagementTabs({ activeTab, panels }: ManagementTabsProps) {
-  const [selectedTab, setSelectedTab] = useState(activeTab);
-  const selectedTool = MANAGEMENT_TABS.find((tab) => tab.id === selectedTab) ?? MANAGEMENT_TABS[0];
+export function ManagementTabs({ activeTab, panel }: ManagementTabsProps) {
+  const selectedTool = MANAGEMENT_TABS.find((tab) => tab.id === activeTab) ?? MANAGEMENT_TABS[0];
 
   return (
     <div className="w-full space-y-4">
@@ -54,17 +51,17 @@ export function ManagementTabs({ activeTab, panels }: ManagementTabsProps) {
           <div role="tablist" aria-label="Management tool" className="grid gap-2 sm:grid-cols-3 lg:w-[640px]">
             {MANAGEMENT_TABS.map((tab) => {
               const Icon = tab.icon;
-              const isActive = selectedTab === tab.id;
+              const isActive = activeTab === tab.id;
 
               return (
-                <button
+                <IntentPrefetchTabLink
                   key={tab.id}
-                  type="button"
+                  href={`/admin/management?tab=${tab.id}`}
+                  active={isActive}
                   role="tab"
                   aria-selected={isActive}
                   aria-controls={`management-panel-${tab.id}`}
                   id={`management-tab-${tab.id}`}
-                  onClick={() => setSelectedTab(tab.id)}
                   className={cn(
                     "group relative flex h-10 items-center gap-2 rounded-lg border px-2.5 text-left transition-colors",
                     isActive
@@ -83,24 +80,20 @@ export function ManagementTabs({ activeTab, panels }: ManagementTabsProps) {
                     <Icon className="size-3.5" />
                   </span>
                   <span className="min-w-0 truncate text-xs font-semibold">{tab.label}</span>
-                </button>
+                </IntentPrefetchTabLink>
               );
             })}
           </div>
         </div>
       </section>
 
-      {MANAGEMENT_TABS.map((tab) => (
-        <section
-          key={tab.id}
-          id={`management-panel-${tab.id}`}
-          role="tabpanel"
-          aria-labelledby={`management-tab-${tab.id}`}
-          hidden={selectedTab !== tab.id}
-        >
-          {panels[tab.id]}
-        </section>
-      ))}
+      <section
+        id={`management-panel-${activeTab}`}
+        role="tabpanel"
+        aria-labelledby={`management-tab-${activeTab}`}
+      >
+        {panel}
+      </section>
     </div>
   );
 }

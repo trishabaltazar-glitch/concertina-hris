@@ -52,19 +52,17 @@ export default async function AdminManagementPage({
 
   const params = await searchParams;
   const activeTab = getActiveTab(params?.tab);
-
-  const teamPanel = await safePanel("Team management", () => TeamManagementPanel({ user: managementUser }));
-  const schedulesPanel = await safePanel("Schedules manager", () => SchedulesManagerPanel({ user: managementUser }));
-  const holidaysPanel = await safePanel("Holiday assignments", () => HolidayAssignmentsPanel({ user: managementUser }));
+  const activePanel =
+    activeTab === "schedules"
+      ? await safePanel("Schedules manager", () => SchedulesManagerPanel({ user: managementUser }))
+      : activeTab === "holidays"
+        ? await safePanel("Holiday assignments", () => HolidayAssignmentsPanel({ user: managementUser }))
+        : await safePanel("Team management", () => TeamManagementPanel({ user: managementUser }));
 
   return (
     <ManagementTabs
       activeTab={activeTab}
-      panels={{
-        team: teamPanel,
-        schedules: schedulesPanel,
-        holidays: holidaysPanel,
-      }}
+      panel={activePanel}
     />
   );
 }

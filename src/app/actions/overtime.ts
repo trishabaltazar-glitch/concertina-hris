@@ -248,6 +248,7 @@ export async function updateOvertimeRequestStatus(requestId: string, status: "AP
 
   revalidatePath("/overtime");
   revalidatePath("/admin/overtime");
+  revalidatePath("/admin/approvals");
   revalidatePath("/notifications");
   return { success: true };
 }

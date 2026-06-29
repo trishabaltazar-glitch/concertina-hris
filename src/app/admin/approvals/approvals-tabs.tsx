@@ -1,9 +1,7 @@
-"use client";
-
 import type { ReactNode } from "react";
-import { useState } from "react";
 import { Clock3, FileCheck2, FileText } from "lucide-react";
 
+import { IntentPrefetchTabLink } from "@/components/intent-prefetch-tab-link";
 import { cn } from "@/lib/utils";
 
 const APPROVAL_TABS = [
@@ -34,12 +32,11 @@ export type ApprovalTab = (typeof APPROVAL_TABS)[number]["id"];
 
 type ApprovalsTabsProps = {
   activeTab: ApprovalTab;
-  panels: Record<ApprovalTab, ReactNode>;
+  panel: ReactNode;
 };
 
-export function ApprovalsTabs({ activeTab, panels }: ApprovalsTabsProps) {
-  const [selectedTab, setSelectedTab] = useState(activeTab);
-  const selectedApproval = APPROVAL_TABS.find((tab) => tab.id === selectedTab) ?? APPROVAL_TABS[0];
+export function ApprovalsTabs({ activeTab, panel }: ApprovalsTabsProps) {
+  const selectedApproval = APPROVAL_TABS.find((tab) => tab.id === activeTab) ?? APPROVAL_TABS[0];
 
   return (
     <div className="w-full space-y-4">
@@ -54,17 +51,17 @@ export function ApprovalsTabs({ activeTab, panels }: ApprovalsTabsProps) {
           <div role="tablist" aria-label="Approval type" className="grid gap-2 sm:grid-cols-3 lg:w-[640px]">
             {APPROVAL_TABS.map((tab) => {
               const Icon = tab.icon;
-              const isActive = selectedTab === tab.id;
+              const isActive = activeTab === tab.id;
 
               return (
-                <button
+                <IntentPrefetchTabLink
                   key={tab.id}
-                  type="button"
+                  href={`/admin/approvals?tab=${tab.id}`}
+                  active={isActive}
                   role="tab"
                   aria-selected={isActive}
                   aria-controls={`approval-panel-${tab.id}`}
                   id={`approval-tab-${tab.id}`}
-                  onClick={() => setSelectedTab(tab.id)}
                   className={cn(
                     "group relative flex h-10 items-center gap-2 rounded-lg border px-2.5 text-left transition-colors",
                     isActive
@@ -83,24 +80,20 @@ export function ApprovalsTabs({ activeTab, panels }: ApprovalsTabsProps) {
                     <Icon className="size-3.5" />
                   </span>
                   <span className="min-w-0 truncate text-xs font-semibold">{tab.label}</span>
-                </button>
+                </IntentPrefetchTabLink>
               );
             })}
           </div>
         </div>
       </section>
 
-      {APPROVAL_TABS.map((tab) => (
-        <section
-          key={tab.id}
-          id={`approval-panel-${tab.id}`}
-          role="tabpanel"
-          aria-labelledby={`approval-tab-${tab.id}`}
-          hidden={selectedTab !== tab.id}
-        >
-          {panels[tab.id]}
-        </section>
-      ))}
+      <section
+        id={`approval-panel-${activeTab}`}
+        role="tabpanel"
+        aria-labelledby={`approval-tab-${activeTab}`}
+      >
+        {panel}
+      </section>
     </div>
   );
 }
